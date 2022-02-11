@@ -8,7 +8,8 @@ rd /q /s "%PM_PACKAGES_ROOT%"
 
 :KEEP_PACKMAN
 rd /q /s "_Data/Shaders"
-rd /q /s "_Data/Tests"
+rd /q /s "_Data"
 rd /q /s "_Build"
 rd /q /s "_Compiler"
-rd /q /s "_Data"
+
+rd /q /s "build"
