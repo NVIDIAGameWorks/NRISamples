@@ -7,9 +7,9 @@ if /I "%M%" neq "y" goto KEEP_PACKMAN
 rd /q /s "%PM_PACKAGES_ROOT%"
 
 :KEEP_PACKMAN
-rd /q /s "_Data/Shaders"
-rd /q /s "_Data"
 rd /q /s "_Build"
 rd /q /s "_Compiler"
+rd /q /s "_Data"
+rd /q /s "_Shaders"
 
 rd /q /s "build"

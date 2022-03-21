@@ -1,12 +1,15 @@
-cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 3.15)
 
-# Options:
-# DXC_CUSTOM_PATH=/my/dxc
+message("Processing 'NRI samples'...")
+
+set(DXC_CUSTOM_PATH "custom/path/to/dxc" CACHE STRING "This DXC will be used if Vulkan SDK is not installed")
+
+# Settings
 option(DISABLE_SHADER_COMPILATION "disable compilation of shaders" OFF)
 option(USE_MINIMAL_DATA "use minimal _Data (90MB)" OFF)
 option(USE_DXC_FROM_PACKMAN_ON_AARCH64 "download DXC for aarch64 using Packman" ON)
 
-project(Samples LANGUAGES C CXX)
+project(NRISamples LANGUAGES C CXX)
 
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
@@ -66,7 +69,7 @@ endif()
 # Packman downloads some dependencies on aarch64
 if ((CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64") OR (CMAKE_SYSTEM_PROCESSOR MATCHES "arm64"))
     if (("${DXC_CUSTOM_PATH}" STREQUAL "") AND USE_DXC_FROM_PACKMAN_ON_AARCH64)
-        set(DXC_CUSTOM_PATH "${CMAKE_CURRENT_SOURCE_DIR}/External/DXC/bin/dxc")
+        set(DXC_CUSTOM_PATH "${CMAKE_CURRENT_SOURCE_DIR}/External/DXC/bin/dxc" CACHE STRING)
     endif()
 endif()
 
@@ -75,25 +78,23 @@ if (NOT DISABLE_SHADER_COMPILATION)
     # Include path for DXC and FXC (used in ShaderCompilation.cmake)
     set(SHADER_INCLUDE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/Source/Shaders")
     set(MATHLIB_INCLUDE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/External/NRIFramework/External/MathLib")
-    set(SHADER_OUTPUT_PATH "${CMAKE_CURRENT_SOURCE_DIR}/_Data/Shaders")
+    set(EXTERNAL_INCLUDE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/External")
+    set(NRD_SHADER_HEADER_INCLUDE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/External/NRD/Include")
+    set(SHADER_OUTPUT_PATH "${CMAKE_CURRENT_SOURCE_DIR}/_Shaders")
 
     # List HLSL shaders and headers
-    file(GLOB_RECURSE HLSL_FILES "Source/Shaders/*.hlsli" "Source/Shaders/*.hlsl")
+    file(GLOB_RECURSE HLSL_FILES "Source/Shaders/*.hlsl" "Source/Shaders/*.hlsli")
     file(GLOB_RECURSE HLSL_MATHLIB_HEADER_FILES "${MATHLIB_INCLUDE_PATH}/*.hlsli")
 
+    file(MAKE_DIRECTORY ${SHADER_OUTPUT_PATH})
     include(ShaderCompilation.cmake)
-
-    # Create "_Data/Shaders"
-    add_custom_target(SampleCreateFolderForShaders ALL COMMAND ${CMAKE_COMMAND} -E make_directory ${SHADER_OUTPUT_PATH})
-    set_property(TARGET SampleCreateFolderForShaders PROPERTY FOLDER "Shaders")
 
     # Define build rules for the shaders
     list_hlsl_headers("${HLSL_FILES}" HEADER_FILES)
     list_hlsl_headers("${HLSL_MATHLIB_HEADER_FILES}" HEADER_FILES)
     list_hlsl_shaders("${HLSL_FILES}" "${HEADER_FILES}" SHADER_FILES)
-    add_custom_target(SampleShaders ALL DEPENDS ${SHADER_FILES} SOURCES "${HEADER_FILES}")
-    add_dependencies(SampleShaders SampleCreateFolderForShaders)
-    set_property(TARGET SampleShaders PROPERTY FOLDER "Shaders")
+    add_custom_target(Shaders ALL DEPENDS ${SHADER_FILES} SOURCES "${HEADER_FILES}")
+    set_property(TARGET Shaders PROPERTY FOLDER "Samples")
 endif()
 
 # MathLib requires SSE4.1
@@ -105,13 +106,13 @@ endif()
 if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     # -Wno-pragma-pack: assimp causes a number of these warnings
     # warning: the current #pragma pack alignment value is modified in the included file [-Wpragma-pack]
-    add_compile_options(${ARCHITECTURE_COMPILE_OPTIONS} -Wno-missing-braces -Wno-return-type-c-linkage -Wno-pragma-pack)
+    add_compile_options(${ARCHITECTURE_COMPILE_OPTIONS} -Wno-missing-braces -Wno-return-type-c-linkage -Wno-pragma-pack -Wno-format-security)
     set(DETEX_COMPILE_OPTIONS -Wno-unused-function)
 elseif (CMAKE_CXX_COMPILER_ID MATCHES "GNU")
     add_compile_options(${ARCHITECTURE_COMPILE_OPTIONS})
 endif()
 
-if(MSVC)
+if (WIN32)
     # On Windows, GLFW requires /MT
     add_compile_options($<$<CONFIG:Debug>:/MTd> $<$<CONFIG:Release>:/MT> $<$<CONFIG:RelWithDebInfo>:/MT> $<$<CONFIG:MinSizeRel>:/MT>)
 endif()
@@ -124,6 +125,7 @@ set(NRI_OUTPUT_BIN_PATH "${OUTPUT_BIN_PATH}")
 option(NRI_DISABLE_WAYLAND_SUPPORT "" ON)
 add_subdirectory("External/NRIFramework/External/NRI")
 
+# NRIFramework
 set(NRIF_OUTPUT_PATH "${OUTPUT_BIN_PATH}")
 add_subdirectory("External/NRIFramework")
 
@@ -137,7 +139,7 @@ function(add_sample SAMPLE_NAME)
     add_executable(${SAMPLE_NAME} "Source/${SAMPLE_NAME}.cpp")
     source_group("" FILES "Source/${SAMPLE_NAME}.cpp")
     if (NOT DISABLE_SHADER_COMPILATION)
-        add_dependencies(${SAMPLE_NAME} SampleShaders)
+        add_dependencies(${SAMPLE_NAME} Shaders)
     endif()
     target_include_directories(${SAMPLE_NAME} PRIVATE "Source" "External")
     target_include_directories(${SAMPLE_NAME} PRIVATE "External/NRIFramework/Include")
