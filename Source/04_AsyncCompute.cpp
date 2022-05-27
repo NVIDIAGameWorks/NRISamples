@@ -129,6 +129,7 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
     deviceCreationDesc.D3D11CommandBufferEmulation = D3D11_COMMANDBUFFER_EMULATION;
     deviceCreationDesc.spirvBindingOffsets = SPIRV_BINDING_OFFSETS;
     deviceCreationDesc.physicalDeviceGroup = &physicalDeviceGroup;
+    deviceCreationDesc.memoryAllocatorInterface = m_MemoryAllocatorInterface;
     NRI_ABORT_ON_FAILURE( nri::CreateDevice(deviceCreationDesc, m_Device) );
 
     // NRI

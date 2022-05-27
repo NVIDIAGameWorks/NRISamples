@@ -133,6 +133,7 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
     deviceCreationDesc.D3D11CommandBufferEmulation = D3D11_COMMANDBUFFER_EMULATION;
     deviceCreationDesc.spirvBindingOffsets = SPIRV_BINDING_OFFSETS;
     deviceCreationDesc.physicalDeviceGroup = &physicalDeviceGroup;
+    deviceCreationDesc.memoryAllocatorInterface = m_MemoryAllocatorInterface;
     NRI_ABORT_ON_FAILURE( nri::CreateDevice(deviceCreationDesc, m_Device) );
 
     // NRI
@@ -340,7 +341,7 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
         m_Textures.push_back(depthTexture);
     }
 
-    const uint32_t constantBufferSize = helper::GetAlignedSize((uint32_t)sizeof(GlobalConstantBufferLayout), deviceDesc.constantBufferOffsetAlignment);
+    const uint32_t constantBufferSize = helper::Align((uint32_t)sizeof(GlobalConstantBufferLayout), deviceDesc.constantBufferOffsetAlignment);
 
     // Buffers
     {

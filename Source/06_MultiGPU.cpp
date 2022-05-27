@@ -167,6 +167,7 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
     deviceCreationDesc.enableMGPU = true;
     deviceCreationDesc.D3D11CommandBufferEmulation = D3D11_COMMANDBUFFER_EMULATION;
     deviceCreationDesc.spirvBindingOffsets = SPIRV_BINDING_OFFSETS;
+    deviceCreationDesc.memoryAllocatorInterface = m_MemoryAllocatorInterface;
     NRI_ABORT_ON_FAILURE(nri::CreateDevice(deviceCreationDesc, m_Device));
 
     NRI_ABORT_ON_FAILURE(nri::GetInterface(*m_Device, NRI_INTERFACE(nri::CoreInterface), (nri::CoreInterface*)&NRI));
@@ -258,7 +259,7 @@ void Sample::RecordGraphics(nri::CommandBuffer& commandBuffer, uint32_t physical
     NRI.CmdSetVertexBuffers(commandBuffer, 0, 1, &m_VertexBuffer, &nullOffset);
 
     const nri::DeviceDesc& deviceDesc = NRI.GetDeviceDesc(*m_Device);
-    const uint32_t constantRangeSize = (uint32_t)helper::GetAlignedSize(sizeof(float4x4), deviceDesc.constantBufferOffsetAlignment);
+    const uint32_t constantRangeSize = (uint32_t)helper::Align(sizeof(float4x4), deviceDesc.constantBufferOffsetAlignment);
 
     for (uint32_t i = 0; i < BOX_NUM; i++)
     {
@@ -571,7 +572,7 @@ void Sample::CreateDescriptorSet()
 void Sample::CreateGeometry()
 {
     const nri::DeviceDesc& deviceDesc = NRI.GetDeviceDesc(*m_Device);
-    const uint64_t constantRangeSize = helper::GetAlignedSize(sizeof(float4x4), deviceDesc.constantBufferOffsetAlignment);
+    const uint64_t constantRangeSize = helper::Align(sizeof(float4x4), deviceDesc.constantBufferOffsetAlignment);
 
     Box box;
     SetBoxGeometry(64, 0.5f, box);

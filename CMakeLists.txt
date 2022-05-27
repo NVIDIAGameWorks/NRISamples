@@ -5,9 +5,9 @@ message("Processing 'NRI samples'...")
 set(DXC_CUSTOM_PATH "custom/path/to/dxc" CACHE STRING "This DXC will be used if Vulkan SDK is not installed")
 
 # Settings
-option(DISABLE_SHADER_COMPILATION "disable compilation of shaders" OFF)
-option(USE_MINIMAL_DATA "use minimal _Data (90MB)" OFF)
-option(USE_DXC_FROM_PACKMAN_ON_AARCH64 "download DXC for aarch64 using Packman" ON)
+option(DISABLE_SHADER_COMPILATION "Disable compilation of shaders" OFF)
+option(USE_MINIMAL_DATA "Use minimal '_Data' (90MB)" OFF)
+option(USE_DXC_FROM_PACKMAN_ON_AARCH64 "Download DXC for aarch64 using Packman" ON)
 
 project(NRISamples LANGUAGES C CXX)
 
@@ -79,7 +79,6 @@ if (NOT DISABLE_SHADER_COMPILATION)
     set(SHADER_INCLUDE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/Source/Shaders")
     set(MATHLIB_INCLUDE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/External/NRIFramework/External/MathLib")
     set(EXTERNAL_INCLUDE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/External")
-    set(NRD_SHADER_HEADER_INCLUDE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/External/NRD/Include")
     set(SHADER_OUTPUT_PATH "${CMAKE_CURRENT_SOURCE_DIR}/_Shaders")
 
     # List HLSL shaders and headers
@@ -125,7 +124,7 @@ set(NRI_OUTPUT_BIN_PATH "${OUTPUT_BIN_PATH}")
 option(NRI_DISABLE_WAYLAND_SUPPORT "" ON)
 add_subdirectory("External/NRIFramework/External/NRI")
 
-# NRIFramework
+# NRI framework
 set(NRIF_OUTPUT_PATH "${OUTPUT_BIN_PATH}")
 add_subdirectory("External/NRIFramework")
 
@@ -153,6 +152,11 @@ function(add_sample SAMPLE_NAME)
 
     set_property(TARGET ${SAMPLE_NAME} PROPERTY FOLDER "Samples")
     set_property(TARGET ${SAMPLE_NAME} PROPERTY VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}")
+
+    # Copy arguments for Visual Studio Smart Command Line Arguments extension
+    if (WIN32 AND MSVC)
+        configure_file(.args "${CMAKE_BINARY_DIR}/${SAMPLE_NAME}.args.json" COPYONLY)
+    endif()
 endfunction()
 
 add_sample(00_Clear)
@@ -164,3 +168,9 @@ add_sample(05_Multithreading)
 add_sample(06_MultiGPU)
 add_sample(07_RayTracing_Triangle)
 add_sample(08_RayTracing_Boxes)
+add_sample(09_Wrapper)
+
+if (WIN32)
+    target_link_libraries(09_Wrapper PRIVATE d3d11 d3d12)  
+endif()
+target_include_directories(09_Wrapper PRIVATE "External/NRIFramework/External/NRI/External/vulkan/include")

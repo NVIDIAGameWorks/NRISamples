@@ -159,6 +159,7 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
     deviceCreationDesc.enableNRIValidation = m_DebugNRI;
     deviceCreationDesc.spirvBindingOffsets = SPIRV_BINDING_OFFSETS;
     deviceCreationDesc.physicalDeviceGroup = &physicalDeviceGroup;
+    deviceCreationDesc.memoryAllocatorInterface = m_MemoryAllocatorInterface;
     NRI_ABORT_ON_FAILURE( nri::CreateDevice(deviceCreationDesc, m_Device) );
 
     NRI_ABORT_ON_FAILURE( nri::GetInterface(*m_Device, NRI_INTERFACE(nri::CoreInterface), (nri::CoreInterface*)&NRI) );
@@ -516,7 +517,7 @@ void Sample::CreateBottomLevelAccelerationStructure()
 {
     nri::Buffer* buffer = nullptr;
     nri::Memory* memory = nullptr;
-    CreateUploadBuffer(sizeof(positions) + sizeof(indices), nri::BufferUsageBits::NONE, buffer, memory);
+    CreateUploadBuffer(sizeof(positions) + sizeof(indices), nri::BufferUsageBits::ACCELERATION_STRUCTURE_BUILD_READ, buffer, memory);
 
     uint8_t* data = (uint8_t*)NRI.MapBuffer(*buffer, 0, sizeof(positions) + sizeof(indices));
     memcpy(data, positions, sizeof(positions));
@@ -600,7 +601,7 @@ void Sample::CreateTopLevelAccelerationStructure()
 
     nri::Buffer* buffer = nullptr;
     nri::Memory* memory = nullptr;
-    CreateUploadBuffer(helper::GetByteSizeOf(geometryObjectInstances), nri::BufferUsageBits::RAY_TRACING_BUFFER, buffer, memory);
+    CreateUploadBuffer(helper::GetByteSizeOf(geometryObjectInstances), nri::BufferUsageBits::ACCELERATION_STRUCTURE_BUILD_READ, buffer, memory);
 
     void* data = NRI.MapBuffer(*buffer, 0, nri::WHOLE_SIZE);
     memcpy(data, geometryObjectInstances.data(), helper::GetByteSizeOf(geometryObjectInstances));
@@ -710,9 +711,9 @@ void Sample::CreateShaderTable()
     const uint64_t tableAlignment = deviceDesc.rayTracingShaderTableAligment;
 
     m_ShaderGroupIdentifierSize = identifierSize;
-    m_MissShaderOffset = helper::GetAlignedSize(identifierSize, tableAlignment);
-    m_HitShaderGroupOffset = helper::GetAlignedSize(m_MissShaderOffset + identifierSize, tableAlignment);
-    const uint64_t shaderTableSize = helper::GetAlignedSize(m_HitShaderGroupOffset + identifierSize, tableAlignment);
+    m_MissShaderOffset = helper::Align(identifierSize, tableAlignment);
+    m_HitShaderGroupOffset = helper::Align(m_MissShaderOffset + identifierSize, tableAlignment);
+    const uint64_t shaderTableSize = helper::Align(m_HitShaderGroupOffset + identifierSize, tableAlignment);
 
     const nri::BufferDesc bufferDesc = { shaderTableSize, 0, (nri::BufferUsageBits)0 };
     NRI_ABORT_ON_FAILURE(NRI.CreateBuffer(*m_Device, bufferDesc, m_ShaderTable));
@@ -728,7 +729,7 @@ void Sample::CreateShaderTable()
 
     std::vector<uint8_t> content((size_t)shaderTableSize, 0);
     for (uint32_t i = 0; i < 3; i++)
-        NRI.WriteShaderGroupIdentifiers(*m_Pipeline, i, 1, content.data() + i * helper::GetAlignedSize(identifierSize, tableAlignment));
+        NRI.WriteShaderGroupIdentifiers(*m_Pipeline, i, 1, content.data() + i * helper::Align(identifierSize, tableAlignment));
 
     nri::BufferUploadDesc dataDesc = {};
     dataDesc.data = content.data();

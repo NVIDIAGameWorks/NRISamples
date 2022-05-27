@@ -26,6 +26,7 @@ call :TestSample 05_Multithreading
 call :TestSample 06_MultiGPU
 call :TestSample 07_RayTracing_Triangle
 call :TestSample 08_RayTracing_Boxes
+call :TestSample 09_Wrapper
 
 pause
 

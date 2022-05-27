@@ -243,6 +243,7 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
     deviceCreationDesc.D3D11CommandBufferEmulation = D3D11_COMMANDBUFFER_EMULATION;
     deviceCreationDesc.spirvBindingOffsets = SPIRV_BINDING_OFFSETS;
     deviceCreationDesc.physicalDeviceGroup = &physicalDeviceGroup;
+    deviceCreationDesc.memoryAllocatorInterface = m_MemoryAllocatorInterface;
     NRI_ABORT_ON_FAILURE( nri::CreateDevice(deviceCreationDesc, m_Device) );
 
     // NRI
@@ -793,7 +794,7 @@ void Sample::CreateTransformConstantBuffer()
     const nri::DeviceDesc& deviceDesc = NRI.GetDeviceDesc(*m_Device);
 
     const uint32_t matrixSize = uint32_t(sizeof(float4x4));
-    const uint32_t alignedMatrixSize = helper::GetAlignedSize(matrixSize, deviceDesc.constantBufferOffsetAlignment);
+    const uint32_t alignedMatrixSize = helper::Align(matrixSize, deviceDesc.constantBufferOffsetAlignment);
 
     nri::BufferDesc bufferDesc = {};
     bufferDesc.size = m_Boxes.size() * alignedMatrixSize;
@@ -965,7 +966,7 @@ void Sample::CreateFakeConstantBuffers()
 {
     const nri::DeviceDesc& deviceDesc = NRI.GetDeviceDesc(*m_Device);
 
-    const uint32_t constantRangeSize = (uint32_t)helper::GetAlignedSize(sizeof(float4), deviceDesc.constantBufferOffsetAlignment);
+    const uint32_t constantRangeSize = (uint32_t)helper::Align(sizeof(float4), deviceDesc.constantBufferOffsetAlignment);
     constexpr uint32_t fakeConstantBufferRangeNum = 16384;
 
     nri::BufferDesc bufferDesc = {};
@@ -1008,7 +1009,7 @@ void Sample::CreateViewConstantBuffer()
 {
     const nri::DeviceDesc& deviceDesc = NRI.GetDeviceDesc(*m_Device);
 
-    const uint32_t constantRangeSize = (uint32_t)helper::GetAlignedSize(sizeof(float4x4), deviceDesc.constantBufferOffsetAlignment);
+    const uint32_t constantRangeSize = (uint32_t)helper::Align(sizeof(float4x4), deviceDesc.constantBufferOffsetAlignment);
 
     nri::BufferDesc bufferDesc = {};
     bufferDesc.size = constantRangeSize;

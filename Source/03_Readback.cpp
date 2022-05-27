@@ -99,6 +99,7 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
     deviceCreationDesc.D3D11CommandBufferEmulation = D3D11_COMMANDBUFFER_EMULATION;
     deviceCreationDesc.spirvBindingOffsets = SPIRV_BINDING_OFFSETS;
     deviceCreationDesc.physicalDeviceGroup = &physicalDeviceGroup;
+    deviceCreationDesc.memoryAllocatorInterface = m_MemoryAllocatorInterface;
     NRI_ABORT_ON_FAILURE( nri::CreateDevice(deviceCreationDesc, m_Device) );
 
     // NRI
@@ -159,7 +160,7 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
     // Readback buffer
     {
         nri::BufferDesc bufferDesc = {};
-        bufferDesc.size = helper::GetAlignedSize(4, deviceDesc.uploadBufferTextureRowAlignment);
+        bufferDesc.size = helper::Align(4, deviceDesc.uploadBufferTextureRowAlignment);
         NRI_ABORT_ON_FAILURE( NRI.CreateBuffer(*m_Device, bufferDesc, m_ReadbackBuffer) );
 
         nri::ResourceGroupDesc resourceGroupDesc = {};
@@ -264,15 +265,15 @@ void Sample::RenderFrame(uint32_t frameIndex)
             nri::ClearDesc clearDesc = {};
             clearDesc.colorAttachmentIndex = 0;
 
-            clearDesc.value.rgba32f = {1.00f, 1.00f, 1.00f, 1.00f};
+            clearDesc.value.rgba32f = {1.0f, 0.0f, 0.0f, 1.0f};
             nri::Rect rect1 = { 0, 0, windowWidth, windowHeight / 3 };
             NRI.CmdClearAttachments(commandBuffer, &clearDesc, 1, &rect1, 1);
 
-            clearDesc.value.rgba32f = {0.00f, 0.22f, 0.65f, 1.00f};
+            clearDesc.value.rgba32f = {0.0f, 1.0f, 0.0f, 1.0f};
             nri::Rect rect2 = { 0, (int32_t)windowHeight / 3, windowWidth, windowHeight / 3 };
             NRI.CmdClearAttachments(commandBuffer, &clearDesc, 1, &rect2, 1);
 
-            clearDesc.value.rgba32f = {0.83f, 0.17f, 0.11f, 1.00f};
+            clearDesc.value.rgba32f = {0.0f, 0.0f, 1.0f, 1.0f};
             nri::Rect rect3 = { 0, (int32_t)(windowHeight * 2) / 3, windowWidth, windowHeight / 3 };
             NRI.CmdClearAttachments(commandBuffer, &clearDesc, 1, &rect3, 1);
 
