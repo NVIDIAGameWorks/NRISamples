@@ -8,32 +8,28 @@ distribution of this software and related documentation without an express
 license agreement from NVIDIA CORPORATION is strictly prohibited.
 */
 
-#include "SampleBase.h"
-#include "Extensions/NRIWrapperD3D11.h"
-#include "Extensions/NRIWrapperD3D12.h"
-#include "Extensions/NRIWrapperVK.h"
-
 #if defined(_WIN32)
-#include <d3d11.h>
-#include <d3d12.h>
-#define VK_USE_PLATFORM_WIN32_KHR 1
+    #include <d3d11.h>
+    #include <d3d12.h>
+    #define VK_USE_PLATFORM_WIN32_KHR 1
+    const char* VULKAN_LOADER_NAME = "vulkan-1.dll";
 #else
-#define VK_USE_PLATFORM_XLIB_KHR 1
+    #define VK_USE_PLATFORM_XLIB_KHR 1
+    const char* VULKAN_LOADER_NAME = "libvulkan.so";
 #endif
 
 #define VK_NO_PROTOTYPES 1
 #include "vulkan/vulkan.h"
 
+#include "SampleBase.h"
+#include "Extensions/NRIWrapperD3D11.h"
+#include "Extensions/NRIWrapperD3D12.h"
+#include "Extensions/NRIWrapperVK.h"
+
 struct Library;
 Library* LoadSharedLibrary(const char* path);
 void* GetSharedLibraryFunction(Library& library, const char* name);
 void UnloadSharedLibrary(Library& library);
-
-#if defined(_WIN32)
-const char* VULKAN_LOADER_NAME = "vulkan-1.dll";
-#else
-const char* VULKAN_LOADER_NAME = "libvulkan.so";
-#endif
 
 constexpr nri::Color<float> COLOR_0 = { 1.0f, 1.0f, 0.0f, 1.0f };
 constexpr nri::Color<float> COLOR_1 = { 0.46f, 0.72f, 0.0f, 1.0f };
@@ -183,14 +179,9 @@ Sample::~Sample()
 
 void Sample::CreateD3D11Device()
 {
-    ID3D11DeviceContext* d3d11ImmediateContext = nullptr;
-
-    const HRESULT result = D3D11CreateDevice(nullptr, D3D_DRIVER_TYPE_HARDWARE, nullptr, 0, nullptr, 0, D3D11_SDK_VERSION, &m_D3D11Device,
-        nullptr, &d3d11ImmediateContext);
+    const HRESULT result = D3D11CreateDevice(nullptr, D3D_DRIVER_TYPE_HARDWARE, nullptr, 0, nullptr, 0, D3D11_SDK_VERSION, &m_D3D11Device, nullptr, nullptr);
 
     NRI_ABORT_ON_FALSE(SUCCEEDED(result));
-
-    d3d11ImmediateContext->Release();
 
     nri::DeviceCreationD3D11Desc deviceDesc = {};
     deviceDesc.d3d11Device = m_D3D11Device;
@@ -298,13 +289,9 @@ void Sample::CreateVulkanDevice()
     deviceDesc.memoryAllocatorInterface = m_MemoryAllocatorInterface;
     deviceDesc.enableAPIValidation = m_DebugAPI;
     deviceDesc.enableNRIValidation = m_DebugNRI;
+    deviceDesc.spirvBindingOffsets = SPIRV_BINDING_OFFSETS;
 
     NRI_ABORT_ON_FAILURE(nri::CreateDeviceFromVkDevice(deviceDesc, m_Device));
-
-    nri::WrapperSPIRVOffsetsInterface wrapperSPIRVOffsetsInterface = {};
-    NRI_ABORT_ON_FAILURE(nri::GetInterface(*m_Device, NRI_INTERFACE(nri::WrapperSPIRVOffsetsInterface), &wrapperSPIRVOffsetsInterface));
-
-    wrapperSPIRVOffsetsInterface.SetSPIRVBindingOffsets(*m_Device, SPIRV_BINDING_OFFSETS);
 }
 
 bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
@@ -740,42 +727,46 @@ void Sample::RenderFrame(uint32_t frameIndex)
 }
 
 #if defined(_WIN32)
-#include <windows.h>
-#undef LoadLibrary
 
-Library* LoadSharedLibrary(const char* path)
-{
-    return (Library*)LoadLibraryA(path);
-}
+    #include <windows.h>
+    #undef LoadLibrary
 
-void* GetSharedLibraryFunction(Library& library, const char* name)
-{
-    return (void*)GetProcAddress((HMODULE)&library, name);
-}
+    Library* LoadSharedLibrary(const char* path)
+    {
+        return (Library*)LoadLibraryA(path);
+    }
 
-void UnloadSharedLibrary(Library& library)
-{
-    FreeLibrary((HMODULE)&library);
-}
+    void* GetSharedLibraryFunction(Library& library, const char* name)
+    {
+        return (void*)GetProcAddress((HMODULE)&library, name);
+    }
+
+    void UnloadSharedLibrary(Library& library)
+    {
+        FreeLibrary((HMODULE)&library);
+    }
+
 #elif defined(__linux__)
-#include <dlfcn.h>
 
-Library* LoadSharedLibrary(const char* path)
-{
-    return (Library*)dlopen(path, RTLD_NOW);
-}
+    #include <dlfcn.h>
 
-void* GetSharedLibraryFunction(Library& library, const char* name)
-{
-    return dlsym((void*)&library, name);
-}
+    Library* LoadSharedLibrary(const char* path)
+    {
+        return (Library*)dlopen(path, RTLD_NOW);
+    }
 
-void UnloadSharedLibrary(Library& library)
-{
-    dlclose((void*)&library);
-}
-#else 
-#error unknown platform
+    void* GetSharedLibraryFunction(Library& library, const char* name)
+    {
+        return dlsym((void*)&library, name);
+    }
+
+    void UnloadSharedLibrary(Library& library)
+    {
+        dlclose((void*)&library);
+    }
+
+#else
+    #error unknown platform
 #endif
 
 SAMPLE_MAIN(Sample, 0);

@@ -8,6 +8,10 @@ distribution of this software and related documentation without an express
 license agreement from NVIDIA CORPORATION is strictly prohibited.
 */
 
+#if _WIN32
+    #include <windows.h>
+#endif
+
 #include "SampleBase.h"
 
 #include <array>
@@ -16,10 +20,6 @@ license agreement from NVIDIA CORPORATION is strictly prohibited.
 #include <mutex>
 #include <condition_variable>
 #include <string>
-
-#if _WIN32
-    #include <windows.h>
-#endif
 
 constexpr uint32_t BOX_NUM = 100000;
 constexpr uint32_t DRAW_CALLS_PER_PIPELINE = 4;
