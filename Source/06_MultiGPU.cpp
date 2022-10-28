@@ -196,7 +196,7 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
     CreateDescriptorSet();
     CreateGeometry();
 
-    return CreateUserInterface(*m_Device, NRI, NRI, GetWindowWidth(), GetWindowHeight(), swapChainFormat);
+    return CreateUserInterface(*m_Device, NRI, NRI, swapChainFormat);
 }
 
 void Sample::PrepareFrame(uint32_t frameIndex)
@@ -246,7 +246,7 @@ void Sample::RecordGraphics(nri::CommandBuffer& commandBuffer, uint32_t physical
 
     NRI.CmdBeginRenderPass(commandBuffer, *m_FrameBuffer, nri::RenderPassBeginFlag::NONE);
 
-    const nri::Rect scissorRect = { 0, 0, GetWindowWidth(), GetWindowHeight() };
+    const nri::Rect scissorRect = { 0, 0, GetWindowResolution().x, GetWindowResolution().y };
     const nri::Viewport viewport = { 0.0f, 0.0f, (float)scissorRect.width, (float)scissorRect.height, 0.0f, 1.0f };
     NRI.CmdSetViewports(commandBuffer, &viewport, 1);
     NRI.CmdSetScissors(commandBuffer, &scissorRect, 1);
@@ -372,8 +372,8 @@ void Sample::CreateMainFrameBuffer(nri::Format swapChainFormat)
 {
     nri::TextureDesc textureDesc = { };
     textureDesc.type = nri::TextureType::TEXTURE_2D;
-    textureDesc.size[0] = GetWindowWidth();
-    textureDesc.size[1] = GetWindowHeight();
+    textureDesc.size[0] = GetWindowResolution().x;
+    textureDesc.size[1] = GetWindowResolution().y;
     textureDesc.size[2] = 1;
     textureDesc.mipNum = 1;
     textureDesc.arraySize = 1;
@@ -444,9 +444,9 @@ void Sample::CreateSwapChain(nri::Format& swapChainFormat)
     swapChainDesc.window = GetWindow();
     swapChainDesc.commandQueue = m_CommandQueue;
     swapChainDesc.format = nri::SwapChainFormat::BT709_G22_8BIT;
-    swapChainDesc.verticalSyncInterval = m_SwapInterval;
-    swapChainDesc.width = GetWindowWidth();
-    swapChainDesc.height = GetWindowHeight();
+    swapChainDesc.verticalSyncInterval = m_VsyncInterval;
+    swapChainDesc.width = GetWindowResolution().x;
+    swapChainDesc.height = GetWindowResolution().y;
     swapChainDesc.textureNum = SWAP_CHAIN_TEXTURE_NUM;
 
     NRI_ABORT_ON_FAILURE(NRI.CreateSwapChain(*m_Device, swapChainDesc, m_SwapChain));
@@ -647,8 +647,8 @@ void Sample::CreateGeometry()
 
 void Sample::SetupProjViewMatrix(float4x4& projViewMatrix)
 {
-    const uint32_t windowWidth = GetWindowWidth();
-    const uint32_t windowHeight = GetWindowHeight();
+    const uint32_t windowWidth = GetWindowResolution().x;
+    const uint32_t windowHeight = GetWindowResolution().y;
     const float aspect = float(windowWidth) / float(windowHeight);
 
     float4x4 projectionMatrix;

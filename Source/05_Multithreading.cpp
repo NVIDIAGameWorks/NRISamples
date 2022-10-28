@@ -281,7 +281,7 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
             m_ThreadContexts[i].thread = std::thread(&Sample::ThreadEntryPoint, this, i);
     }
 
-    return CreateUserInterface(*m_Device, NRI, NRI, GetWindowWidth(), GetWindowHeight(), swapChainFormat);
+    return CreateUserInterface(*m_Device, NRI, NRI, swapChainFormat);
 }
 
 void Sample::PrepareFrame(uint32_t frameIndex)
@@ -440,7 +440,7 @@ void Sample::RenderFrame(uint32_t frameIndex)
 
 void Sample::RenderBoxes(nri::CommandBuffer& commandBuffer, uint32_t offset, uint32_t number)
 {
-    const nri::Rect scissorRect = { 0, 0, GetWindowWidth(), GetWindowHeight() };
+    const nri::Rect scissorRect = { 0, 0, GetWindowResolution().x, GetWindowResolution().y };
     const nri::Viewport viewport = { 0.0f, 0.0f, (float)scissorRect.width, (float)scissorRect.height, 0.0f, 1.0f };
     NRI.CmdSetViewports(commandBuffer, &viewport, 1);
     NRI.CmdSetScissors(commandBuffer, &scissorRect, 1);
@@ -534,9 +534,9 @@ void Sample::CreateSwapChain(nri::Format& swapChainFormat)
     swapChainDesc.window = GetWindow();
     swapChainDesc.commandQueue = m_CommandQueue;
     swapChainDesc.format = nri::SwapChainFormat::BT709_G22_8BIT;
-    swapChainDesc.verticalSyncInterval = m_SwapInterval;
-    swapChainDesc.width = GetWindowWidth();
-    swapChainDesc.height = GetWindowHeight();
+    swapChainDesc.verticalSyncInterval = m_VsyncInterval;
+    swapChainDesc.width = GetWindowResolution().x;
+    swapChainDesc.height = GetWindowResolution().y;
     swapChainDesc.textureNum = SWAP_CHAIN_TEXTURE_NUM;
 
     NRI_ABORT_ON_FAILURE(NRI.CreateSwapChain(*m_Device, swapChainDesc, m_SwapChain));
@@ -697,7 +697,7 @@ bool Sample::CreatePipeline(nri::Format swapChainFormat)
 
 void Sample::CreateDepthTexture()
 {
-    nri::CTextureDesc textureDesc = nri::CTextureDesc::Texture2D(m_DepthFormat, GetWindowWidth(), GetWindowHeight(), 1, 1,
+    nri::CTextureDesc textureDesc = nri::CTextureDesc::Texture2D(m_DepthFormat, GetWindowResolution().x, GetWindowResolution().y, 1, 1,
         nri::TextureUsageBits::DEPTH_STENCIL_ATTACHMENT);
 
     NRI_ABORT_ON_FAILURE(NRI.CreateTexture(*m_Device, textureDesc, m_DepthTexture));
@@ -1044,7 +1044,7 @@ void Sample::CreateViewConstantBuffer()
 
 void Sample::SetupProjViewMatrix(float4x4& projViewMatrix)
 {
-    const float aspect = float( GetWindowWidth() ) / float( GetWindowHeight() );
+    const float aspect = float( GetWindowResolution().x ) / float( GetWindowResolution().y );
 
     float4x4 projectionMatrix;
     projectionMatrix.SetupByHalfFovxInf(DegToRad(45.0f), aspect, 0.1f, 0);

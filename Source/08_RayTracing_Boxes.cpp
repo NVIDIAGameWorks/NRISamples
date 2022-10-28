@@ -184,7 +184,7 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
     CreateShaderTable();
     CreateShaderResources();
 
-    return CreateUserInterface(*m_Device, NRI, NRI, GetWindowWidth(), GetWindowHeight(), swapChainFormat);
+    return CreateUserInterface(*m_Device, NRI, NRI, swapChainFormat);
 }
 
 void Sample::PrepareFrame(uint32_t frameIndex)
@@ -241,8 +241,8 @@ void Sample::RenderFrame(uint32_t frameIndex)
     dispatchRaysDesc.raygenShader = { m_ShaderTable, 0, m_ShaderGroupIdentifierSize, m_ShaderGroupIdentifierSize };
     dispatchRaysDesc.missShaders = { m_ShaderTable, m_MissShaderOffset, m_ShaderGroupIdentifierSize, m_ShaderGroupIdentifierSize };
     dispatchRaysDesc.hitShaderGroups = { m_ShaderTable, m_HitShaderGroupOffset, m_ShaderGroupIdentifierSize, m_ShaderGroupIdentifierSize };
-    dispatchRaysDesc.width = GetWindowWidth();
-    dispatchRaysDesc.height = GetWindowHeight();
+    dispatchRaysDesc.width = GetWindowResolution().x;
+    dispatchRaysDesc.height = GetWindowResolution().y;
     dispatchRaysDesc.depth = 1;
     NRI.CmdDispatchRays(commandBuffer, dispatchRaysDesc);
 
@@ -307,9 +307,9 @@ void Sample::CreateSwapChain(nri::Format& swapChainFormat)
     swapChainDesc.window = GetWindow();
     swapChainDesc.commandQueue = m_CommandQueue;
     swapChainDesc.format = nri::SwapChainFormat::BT709_G22_8BIT;
-    swapChainDesc.verticalSyncInterval = m_SwapInterval;
-    swapChainDesc.width = GetWindowWidth();
-    swapChainDesc.height = GetWindowHeight();
+    swapChainDesc.verticalSyncInterval = m_VsyncInterval;
+    swapChainDesc.width = GetWindowResolution().x;
+    swapChainDesc.height = GetWindowResolution().y;
     swapChainDesc.textureNum = SWAP_CHAIN_TEXTURE_NUM;
 
     NRI_ABORT_ON_FAILURE(NRI.CreateSwapChain(*m_Device, swapChainDesc, m_SwapChain));
@@ -404,8 +404,8 @@ void Sample::CreateRayTracingOutput(nri::Format swapChainFormat)
     nri::TextureDesc rayTracingOutputDesc = {};
     rayTracingOutputDesc.type = nri::TextureType::TEXTURE_2D;
     rayTracingOutputDesc.format = swapChainFormat;
-    rayTracingOutputDesc.size[0] = GetWindowWidth();
-    rayTracingOutputDesc.size[1] = GetWindowHeight();
+    rayTracingOutputDesc.size[0] = GetWindowResolution().x;
+    rayTracingOutputDesc.size[1] = GetWindowResolution().y;
     rayTracingOutputDesc.size[2] = 1;
     rayTracingOutputDesc.arraySize = 1;
     rayTracingOutputDesc.mipNum = 1;

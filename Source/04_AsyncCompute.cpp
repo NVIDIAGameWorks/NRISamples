@@ -149,9 +149,9 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
         swapChainDesc.window = GetWindow();
         swapChainDesc.commandQueue = m_CommandQueueGraphics;
         swapChainDesc.format = nri::SwapChainFormat::BT709_G22_8BIT;
-        swapChainDesc.verticalSyncInterval = m_SwapInterval;
-        swapChainDesc.width = GetWindowWidth();
-        swapChainDesc.height = GetWindowHeight();
+        swapChainDesc.verticalSyncInterval = m_VsyncInterval;
+        swapChainDesc.width = GetWindowResolution().x;
+        swapChainDesc.height = GetWindowResolution().y;
         swapChainDesc.textureNum = SWAP_CHAIN_TEXTURE_NUM;
         NRI_ABORT_ON_FAILURE( NRI.CreateSwapChain(*m_Device, swapChainDesc, m_SwapChain) );
 
@@ -274,7 +274,7 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
 
     // Storage texture
     {
-        nri::CTextureDesc textureDesc = nri::CTextureDesc::Texture2D(swapChainFormat, GetWindowWidth() / 2, GetWindowHeight(), 1, 1,
+        nri::CTextureDesc textureDesc = nri::CTextureDesc::Texture2D(swapChainFormat, GetWindowResolution().x / 2, GetWindowResolution().y, 1, 1,
             nri::TextureUsageBits::SHADER_RESOURCE_STORAGE);
         NRI_ABORT_ON_FAILURE( NRI.CreateTexture(*m_Device, textureDesc, m_Texture) );
     }
@@ -358,7 +358,7 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
         NRI_ABORT_ON_FAILURE( NRI.UploadData(*m_CommandQueueGraphics, &textureData, 1, &bufferData, 1) );
     }
 
-    return CreateUserInterface(*m_Device, NRI, NRI, GetWindowWidth(), GetWindowHeight(), swapChainFormat);
+    return CreateUserInterface(*m_Device, NRI, NRI, swapChainFormat);
 }
 
 void Sample::PrepareFrame(uint32_t frameIndex)
@@ -377,8 +377,8 @@ void Sample::PrepareFrame(uint32_t frameIndex)
 
 void Sample::RenderFrame(uint32_t frameIndex)
 {
-    const uint32_t windowWidth = GetWindowWidth();
-    const uint32_t windowHeight = GetWindowHeight();
+    const uint32_t windowWidth = GetWindowResolution().x;
+    const uint32_t windowHeight = GetWindowResolution().y;
     const uint32_t bufferedFrameIndex = frameIndex % BUFFERED_FRAME_MAX_NUM;
     const Frame& frame = m_Frames[bufferedFrameIndex];
 

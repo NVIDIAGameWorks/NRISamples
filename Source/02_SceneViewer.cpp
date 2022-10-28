@@ -153,9 +153,9 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
         swapChainDesc.window = GetWindow();
         swapChainDesc.commandQueue = m_CommandQueue;
         swapChainDesc.format = nri::SwapChainFormat::BT709_G22_10BIT;
-        swapChainDesc.verticalSyncInterval = m_SwapInterval;
-        swapChainDesc.width = GetWindowWidth();
-        swapChainDesc.height = GetWindowHeight();
+        swapChainDesc.verticalSyncInterval = m_VsyncInterval;
+        swapChainDesc.width = GetWindowResolution().x;
+        swapChainDesc.height = GetWindowResolution().y;
         swapChainDesc.textureNum = SWAP_CHAIN_TEXTURE_NUM;
         NRI_ABORT_ON_FAILURE( NRI.CreateSwapChain(*m_Device, swapChainDesc, m_SwapChain) );
     }
@@ -334,7 +334,7 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
     // Depth attachment
     nri::Texture* depthTexture;
     {
-        nri::CTextureDesc textureDesc = nri::CTextureDesc::Texture2D(m_DepthFormat, GetWindowWidth(), GetWindowHeight(), 1, 1,
+        nri::CTextureDesc textureDesc = nri::CTextureDesc::Texture2D(m_DepthFormat, GetWindowResolution().x, GetWindowResolution().y, 1, 1,
             nri::TextureUsageBits::DEPTH_STENCIL_ATTACHMENT);
 
         NRI_ABORT_ON_FAILURE( NRI.CreateTexture(*m_Device, textureDesc, depthTexture) );
@@ -573,7 +573,7 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
 void Sample::PrepareFrame(uint32_t frameIndex)
 {
     CameraDesc desc = {};
-    desc.aspectRatio = float( GetWindowWidth() ) / float( GetWindowHeight() );
+    desc.aspectRatio = float( GetWindowResolution().x ) / float( GetWindowResolution().y );
     desc.horizontalFov = 90.0f;
     desc.nearZ = 0.1f;
     desc.isProjectionReversed = (CLEAR_DEPTH == 0.0f);
@@ -586,8 +586,8 @@ void Sample::RenderFrame(uint32_t frameIndex)
 {
     const uint32_t bufferedFrameIndex = frameIndex % BUFFERED_FRAME_MAX_NUM;
     const Frame& frame = m_Frames[bufferedFrameIndex];
-    const uint32_t windowWidth = GetWindowWidth();
-    const uint32_t windowHeight = GetWindowHeight();
+    const uint32_t windowWidth = GetWindowResolution().x;
+    const uint32_t windowHeight = GetWindowResolution().y;
 
     const uint32_t currentTextureIndex = NRI.AcquireNextSwapChainTexture(*m_SwapChain, *m_AcquireSemaphore);
     BackBuffer& currentBackBuffer = m_SwapChainBuffers[currentTextureIndex];

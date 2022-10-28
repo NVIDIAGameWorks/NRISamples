@@ -117,9 +117,9 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
         swapChainDesc.window = GetWindow();
         swapChainDesc.commandQueue = m_CommandQueue;
         swapChainDesc.format = nri::SwapChainFormat::BT709_G22_8BIT;
-        swapChainDesc.verticalSyncInterval = m_SwapInterval;
-        swapChainDesc.width = GetWindowWidth();
-        swapChainDesc.height = GetWindowHeight();
+        swapChainDesc.verticalSyncInterval = m_VsyncInterval;
+        swapChainDesc.width = GetWindowResolution().x;
+        swapChainDesc.height = GetWindowResolution().y;
         swapChainDesc.textureNum = SWAP_CHAIN_TEXTURE_NUM;
         NRI_ABORT_ON_FAILURE( NRI.CreateSwapChain(*m_Device, swapChainDesc, m_SwapChain) );
 
@@ -172,7 +172,7 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
         NRI_ABORT_ON_FAILURE( NRI.AllocateAndBindMemory(*m_Device, resourceGroupDesc, m_MemoryAllocations.data()) );
     }
 
-    return CreateUserInterface(*m_Device, NRI, NRI, GetWindowWidth(), GetWindowHeight(), m_SwapChainFormat);
+    return CreateUserInterface(*m_Device, NRI, NRI, m_SwapChainFormat);
 }
 
 void Sample::PrepareFrame(uint32_t frameIndex)
@@ -211,8 +211,8 @@ void Sample::PrepareFrame(uint32_t frameIndex)
 
 void Sample::RenderFrame(uint32_t frameIndex)
 {
-    const uint32_t windowWidth = GetWindowWidth();
-    const uint32_t windowHeight = GetWindowHeight();
+    const uint32_t windowWidth = GetWindowResolution().x;
+    const uint32_t windowHeight = GetWindowResolution().y;
     const uint32_t bufferedFrameIndex = frameIndex % BUFFERED_FRAME_MAX_NUM;
     const Frame& frame = m_Frames[bufferedFrameIndex];
 
