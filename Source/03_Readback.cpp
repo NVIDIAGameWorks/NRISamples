@@ -8,7 +8,7 @@ distribution of this software and related documentation without an express
 license agreement from NVIDIA CORPORATION is strictly prohibited.
 */
 
-#include "SampleBase.h"
+#include "NRIFramework.h"
 
 #include <array>
 

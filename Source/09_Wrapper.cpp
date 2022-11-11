@@ -21,7 +21,7 @@ license agreement from NVIDIA CORPORATION is strictly prohibited.
 #define VK_NO_PROTOTYPES 1
 #include "vulkan/vulkan.h"
 
-#include "SampleBase.h"
+#include "NRIFramework.h"
 #include "Extensions/NRIWrapperD3D11.h"
 #include "Extensions/NRIWrapperD3D12.h"
 #include "Extensions/NRIWrapperVK.h"

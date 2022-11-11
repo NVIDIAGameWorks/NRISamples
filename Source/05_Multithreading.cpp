@@ -12,7 +12,7 @@ license agreement from NVIDIA CORPORATION is strictly prohibited.
     #include <windows.h>
 #endif
 
-#include "SampleBase.h"
+#include "NRIFramework.h"
 
 #include <array>
 #include <atomic>
@@ -545,14 +545,13 @@ void Sample::CreateSwapChain(nri::Format& swapChainFormat)
     nri::Texture* const* swapChainTextures = NRI.GetSwapChainTextures(*m_SwapChain, swapChainTextureNum, swapChainFormat);
 
     nri::ClearValueDesc clearDepth = {};
-    clearDepth.depthStencil = { 1.0f, 0 };
+    clearDepth.depthStencil = {1.0f, 0};
 
     nri::ClearValueDesc clearColor = {};
     nri::FrameBufferDesc frameBufferDesc = {};
     frameBufferDesc.colorAttachmentNum = 1;
     frameBufferDesc.colorClearValues = &clearColor;
     frameBufferDesc.depthStencilClearValue = &clearDepth;
-    frameBufferDesc.depthStencilAttachment = m_DepthTextureView;
 
     for (uint32_t i = 0; i < swapChainTextureNum; i++)
     {

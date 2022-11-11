@@ -8,7 +8,7 @@ distribution of this software and related documentation without an express
 license agreement from NVIDIA CORPORATION is strictly prohibited.
 */
 
-#include "SampleBase.h"
+#include "NRIFramework.h"
 
 #include <array>
 
@@ -565,7 +565,8 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
         NRI_ABORT_ON_FAILURE( NRI.UploadData(*m_CommandQueue, textureData.data(), (uint32_t)textureData.size(), bufferData, helper::GetCountOf(bufferData)) );
     }
 
-    m_Scene.UnloadResources();
+    m_Scene.UnloadGeometryData();
+    m_Scene.UnloadTextureData();
 
     return true;
 }
