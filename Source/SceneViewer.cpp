@@ -49,9 +49,9 @@ public:
 
     ~Sample();
 
-    bool Initialize(nri::GraphicsAPI graphicsAPI);
-    void PrepareFrame(uint32_t frameIndex);
-    void RenderFrame(uint32_t frameIndex);
+    bool Initialize(nri::GraphicsAPI graphicsAPI) override;
+    void PrepareFrame(uint32_t frameIndex) override;
+    void RenderFrame(uint32_t frameIndex) override;
 
 private:
 
@@ -154,8 +154,8 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
         swapChainDesc.commandQueue = m_CommandQueue;
         swapChainDesc.format = nri::SwapChainFormat::BT709_G22_10BIT;
         swapChainDesc.verticalSyncInterval = m_VsyncInterval;
-        swapChainDesc.width = GetWindowResolution().x;
-        swapChainDesc.height = GetWindowResolution().y;
+        swapChainDesc.width = (uint16_t)GetWindowResolution().x;
+        swapChainDesc.height = (uint16_t)GetWindowResolution().y;
         swapChainDesc.textureNum = SWAP_CHAIN_TEXTURE_NUM;
         NRI_ABORT_ON_FAILURE( NRI.CreateSwapChain(*m_Device, swapChainDesc, m_SwapChain) );
     }
@@ -188,8 +188,8 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
 
         nri::DescriptorSetDesc descriptorSetDescs[] =
         {
-            {globalDescriptorRange, helper::GetCountOf(globalDescriptorRange)},
-            {materialDescriptorRange, helper::GetCountOf(materialDescriptorRange)},
+            {0, globalDescriptorRange, helper::GetCountOf(globalDescriptorRange)},
+            {1, materialDescriptorRange, helper::GetCountOf(materialDescriptorRange)},
         };
 
         nri::PipelineLayoutDesc pipelineLayoutDesc = {};
@@ -254,8 +254,8 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
 
         nri::ShaderDesc shaderStages[] =
         {
-            utils::LoadShader(deviceDesc.graphicsAPI, "02_Forward.vs", shaderCodeStorage),
-            utils::LoadShader(deviceDesc.graphicsAPI, "02_Forward.fs", shaderCodeStorage),
+            utils::LoadShader(deviceDesc.graphicsAPI, "Forward.vs", shaderCodeStorage),
+            utils::LoadShader(deviceDesc.graphicsAPI, "Forward.fs", shaderCodeStorage),
         };
 
         nri::GraphicsPipelineDesc graphicsPipelineDesc = {};
@@ -276,7 +276,7 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
 
         // Alpha opaque
         {
-            shaderStages[1] = utils::LoadShader(deviceDesc.graphicsAPI, "02_ForwardDiscard.fs", shaderCodeStorage);
+            shaderStages[1] = utils::LoadShader(deviceDesc.graphicsAPI, "ForwardDiscard.fs", shaderCodeStorage);
 
             rasterizationDesc.cullMode = nri::CullMode::NONE;
             outputMergerDesc.depth.write = true;
@@ -285,7 +285,7 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
             m_Pipelines.push_back(pipeline);
         }
 
-        shaderStages[1] = utils::LoadShader(deviceDesc.graphicsAPI, "02_ForwardTransparent.fs", shaderCodeStorage);
+        shaderStages[1] = utils::LoadShader(deviceDesc.graphicsAPI, "ForwardTransparent.fs", shaderCodeStorage);
 
         // Transparent (back faces)
         {
@@ -322,7 +322,7 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
     {
         for (const utils::Texture* textureData : m_Scene.textures)
         {
-            nri::CTextureDesc textureDesc = nri::CTextureDesc::Texture2D(textureData->GetFormat(),
+            nri::TextureDesc textureDesc = nri::Texture2D(textureData->GetFormat(),
                 textureData->GetWidth(), textureData->GetHeight(), textureData->GetMipNum(), textureData->GetArraySize());
 
             nri::Texture* texture;
@@ -334,7 +334,7 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
     // Depth attachment
     nri::Texture* depthTexture;
     {
-        nri::CTextureDesc textureDesc = nri::CTextureDesc::Texture2D(m_DepthFormat, GetWindowResolution().x, GetWindowResolution().y, 1, 1,
+        nri::TextureDesc textureDesc = nri::Texture2D(m_DepthFormat, (uint16_t)GetWindowResolution().x, (uint16_t)GetWindowResolution().y, 1, 1,
             nri::TextureUsageBits::DEPTH_STENCIL_ATTACHMENT);
 
         NRI_ABORT_ON_FAILURE( NRI.CreateTexture(*m_Device, textureDesc, depthTexture) );
@@ -440,7 +440,7 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
             NRI_ABORT_ON_FAILURE( NRI.CreateTexture2DView(textureViewDesc, colorAttachment) );
 
             nri::ClearValueDesc clearColor = {};
-            clearColor.rgba32f = {0.0f, 0.63f, 1.0f};
+            clearColor.color32f = {0.0f, 0.63f, 1.0f};
 
             nri::ClearValueDesc clearDepth = {};
             clearDepth.depthStencil.depth = CLEAR_DEPTH;
@@ -638,7 +638,7 @@ void Sample::RenderFrame(uint32_t frameIndex)
             NRI.CmdSetIndexBuffer(commandBuffer, *m_Buffers[INDEX_BUFFER], 0, nri::IndexType::UINT16);
 
             NRI.CmdSetPipelineLayout(commandBuffer, *m_PipelineLayout);
-            NRI.CmdSetDescriptorSets(commandBuffer, GLOBAL_DESCRIPTOR_SET, 1, &m_DescriptorSets[bufferedFrameIndex], nullptr);
+            NRI.CmdSetDescriptorSet(commandBuffer, GLOBAL_DESCRIPTOR_SET, *m_DescriptorSets[bufferedFrameIndex], nullptr);
 
             for (size_t i = 0; i < m_Scene.materialsGroups.size(); i++)
             {
@@ -652,7 +652,7 @@ void Sample::RenderFrame(uint32_t frameIndex)
                 {
                     const uint32_t materialIndex = materialGroup.materialOffset + j;
                     nri::DescriptorSet* descriptorSet = m_DescriptorSets[BUFFERED_FRAME_MAX_NUM + materialIndex];
-                    NRI.CmdSetDescriptorSets(commandBuffer, MATERIAL_DESCRIPTOR_SET, 1, &descriptorSet, nullptr);
+                    NRI.CmdSetDescriptorSet(commandBuffer, MATERIAL_DESCRIPTOR_SET, *descriptorSet, nullptr);
 
                     const utils::Material& material = m_Scene.materials[materialIndex];
                     for (uint32_t k = 0; k < material.instanceNum; k++)

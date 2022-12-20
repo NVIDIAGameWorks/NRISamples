@@ -17,18 +17,26 @@ if not exist "%DIR_BIN%" (
 echo Running samples from '%DIR_BIN%'...
 echo.
 
-call :TestSample 00_Clear
-call :TestSample 01_Triangle
-call :TestSample 02_SceneViewer
-call :TestSample 03_Readback
-call :TestSample 04_AsyncCompute
-call :TestSample 05_Multithreading
-call :TestSample 06_MultiGPU
-call :TestSample 07_RayTracing_Triangle
-call :TestSample 08_RayTracing_Boxes
-call :TestSample 09_Wrapper
+:: API independent samples
+"%DIR_BIN%\DeviceInfo.exe"
+if %ERRORLEVEL% equ 0 (
+    echo =^> OK
+) else (
+    echo =^> FAILED!
+)
+echo.
 
-pause
+:: API dependent samples
+call :TestSample Clear
+call :TestSample Triangle
+call :TestSample SceneViewer
+call :TestSample Readback
+call :TestSample AsyncCompute
+call :TestSample MultiThreading
+call :TestSample MultiGPU
+call :TestSample RayTracingTriangle
+call :TestSample RayTracingBoxes
+call :TestSample Wrapper
 
 exit /b
 

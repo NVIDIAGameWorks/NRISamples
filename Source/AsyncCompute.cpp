@@ -43,9 +43,9 @@ public:
 
     ~Sample();
 
-    bool Initialize(nri::GraphicsAPI graphicsAPI);
-    void PrepareFrame(uint32_t frameIndex);
-    void RenderFrame(uint32_t frameIndex);
+    bool Initialize(nri::GraphicsAPI graphicsAPI) override;
+    void PrepareFrame(uint32_t frameIndex) override;
+    void RenderFrame(uint32_t frameIndex) override;
 
 private:
 
@@ -150,8 +150,8 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
         swapChainDesc.commandQueue = m_CommandQueueGraphics;
         swapChainDesc.format = nri::SwapChainFormat::BT709_G22_8BIT;
         swapChainDesc.verticalSyncInterval = m_VsyncInterval;
-        swapChainDesc.width = GetWindowResolution().x;
-        swapChainDesc.height = GetWindowResolution().y;
+        swapChainDesc.width = (uint16_t)GetWindowResolution().x;
+        swapChainDesc.height = (uint16_t)GetWindowResolution().y;
         swapChainDesc.textureNum = SWAP_CHAIN_TEXTURE_NUM;
         NRI_ABORT_ON_FAILURE( NRI.CreateSwapChain(*m_Device, swapChainDesc, m_SwapChain) );
 
@@ -240,8 +240,8 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
 
         nri::ShaderDesc shaderStages[] =
         {
-            utils::LoadShader(deviceDesc.graphicsAPI, "04_Triangles.vs", shaderCodeStorage),
-            utils::LoadShader(deviceDesc.graphicsAPI, "04_Triangles.fs", shaderCodeStorage),
+            utils::LoadShader(deviceDesc.graphicsAPI, "Triangles.vs", shaderCodeStorage),
+            utils::LoadShader(deviceDesc.graphicsAPI, "Triangles.fs", shaderCodeStorage),
         };
 
         nri::GraphicsPipelineDesc graphicsPipelineDesc = {};
@@ -258,7 +258,7 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
     {
         nri::DescriptorRangeDesc descriptorRangeStorage = {0, 1, nri::DescriptorType::STORAGE_TEXTURE, nri::ShaderStage::COMPUTE};
 
-        nri::DescriptorSetDesc descriptorSetDesc = {&descriptorRangeStorage, 1};
+        nri::DescriptorSetDesc descriptorSetDesc = {0, &descriptorRangeStorage, 1};
 
         nri::PipelineLayoutDesc pipelineLayoutDesc = {};
         pipelineLayoutDesc.descriptorSetNum = 1;
@@ -268,13 +268,13 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
 
         nri::ComputePipelineDesc computePipelineDesc = {};
         computePipelineDesc.pipelineLayout = m_ComputePipelineLayout;
-        computePipelineDesc.computeShader = utils::LoadShader(deviceDesc.graphicsAPI, "04_Surface.cs", shaderCodeStorage);
+        computePipelineDesc.computeShader = utils::LoadShader(deviceDesc.graphicsAPI, "Surface.cs", shaderCodeStorage);
         NRI_ABORT_ON_FAILURE( NRI.CreateComputePipeline(*m_Device, computePipelineDesc, m_ComputePipeline) );
     }
 
     // Storage texture
     {
-        nri::CTextureDesc textureDesc = nri::CTextureDesc::Texture2D(swapChainFormat, GetWindowResolution().x / 2, GetWindowResolution().y, 1, 1,
+        nri::TextureDesc textureDesc = nri::Texture2D(swapChainFormat, (uint16_t)GetWindowResolution().x / 2, (uint16_t)GetWindowResolution().y, 1, 1,
             nri::TextureUsageBits::SHADER_RESOURCE_STORAGE);
         NRI_ABORT_ON_FAILURE( NRI.CreateTexture(*m_Device, textureDesc, m_Texture) );
     }
@@ -361,7 +361,7 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
     return CreateUserInterface(*m_Device, NRI, NRI, swapChainFormat);
 }
 
-void Sample::PrepareFrame(uint32_t frameIndex)
+void Sample::PrepareFrame(uint32_t)
 {
     PrepareUserInterface();
 
@@ -421,7 +421,7 @@ void Sample::RenderFrame(uint32_t frameIndex)
 
         NRI.CmdSetPipelineLayout(commandBuffer0, *m_ComputePipelineLayout);
         NRI.CmdSetPipeline(commandBuffer0, *m_ComputePipeline);
-        NRI.CmdSetDescriptorSets(commandBuffer0, 0, 1, &m_DescriptorSet, nullptr);
+        NRI.CmdSetDescriptorSet(commandBuffer0, 0, *m_DescriptorSet, nullptr);
         NRI.CmdDispatch(commandBuffer0, nx, ny, 1);
     }
     NRI.EndCommandBuffer(commandBuffer0);

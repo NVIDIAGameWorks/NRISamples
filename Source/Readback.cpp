@@ -34,9 +34,9 @@ public:
 
     ~Sample();
 
-    bool Initialize(nri::GraphicsAPI graphicsAPI);
-    void PrepareFrame(uint32_t frameIndex);
-    void RenderFrame(uint32_t frameIndex);
+    bool Initialize(nri::GraphicsAPI graphicsAPI) override;
+    void PrepareFrame(uint32_t frameIndex) override;
+    void RenderFrame(uint32_t frameIndex) override;
 
 private:
 
@@ -118,8 +118,8 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
         swapChainDesc.commandQueue = m_CommandQueue;
         swapChainDesc.format = nri::SwapChainFormat::BT709_G22_8BIT;
         swapChainDesc.verticalSyncInterval = m_VsyncInterval;
-        swapChainDesc.width = GetWindowResolution().x;
-        swapChainDesc.height = GetWindowResolution().y;
+        swapChainDesc.width = (uint16_t)GetWindowResolution().x;
+        swapChainDesc.height = (uint16_t)GetWindowResolution().y;
         swapChainDesc.textureNum = SWAP_CHAIN_TEXTURE_NUM;
         NRI_ABORT_ON_FAILURE( NRI.CreateSwapChain(*m_Device, swapChainDesc, m_SwapChain) );
 
@@ -175,7 +175,7 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
     return CreateUserInterface(*m_Device, NRI, NRI, m_SwapChainFormat);
 }
 
-void Sample::PrepareFrame(uint32_t frameIndex)
+void Sample::PrepareFrame(uint32_t)
 {
     uint32_t color = 0;
     const uint32_t* data = (uint32_t*)NRI.MapBuffer(*m_ReadbackBuffer, 0, 128);
@@ -265,15 +265,15 @@ void Sample::RenderFrame(uint32_t frameIndex)
             nri::ClearDesc clearDesc = {};
             clearDesc.colorAttachmentIndex = 0;
 
-            clearDesc.value.rgba32f = {1.0f, 0.0f, 0.0f, 1.0f};
+            clearDesc.value.color32f = {1.0f, 0.0f, 0.0f, 1.0f};
             nri::Rect rect1 = { 0, 0, windowWidth, windowHeight / 3 };
             NRI.CmdClearAttachments(commandBuffer, &clearDesc, 1, &rect1, 1);
 
-            clearDesc.value.rgba32f = {0.0f, 1.0f, 0.0f, 1.0f};
+            clearDesc.value.color32f = {0.0f, 1.0f, 0.0f, 1.0f};
             nri::Rect rect2 = { 0, (int32_t)windowHeight / 3, windowWidth, windowHeight / 3 };
             NRI.CmdClearAttachments(commandBuffer, &clearDesc, 1, &rect2, 1);
 
-            clearDesc.value.rgba32f = {0.0f, 0.0f, 1.0f, 1.0f};
+            clearDesc.value.color32f = {0.0f, 0.0f, 1.0f, 1.0f};
             nri::Rect rect3 = { 0, (int32_t)(windowHeight * 2) / 3, windowWidth, windowHeight / 3 };
             NRI.CmdClearAttachments(commandBuffer, &clearDesc, 1, &rect3, 1);
 

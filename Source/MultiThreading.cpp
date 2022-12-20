@@ -65,9 +65,10 @@ public:
     ~Sample();
 
 private:
-    bool Initialize(nri::GraphicsAPI graphicsAPI);
-    void PrepareFrame(uint32_t frameIndex);
-    void RenderFrame(uint32_t frameIndex);
+    bool Initialize(nri::GraphicsAPI graphicsAPI) override;
+    void PrepareFrame(uint32_t frameIndex) override;
+    void RenderFrame(uint32_t frameIndex) override;
+
     void RenderBoxes(nri::CommandBuffer& commandBuffer, uint32_t offset, uint32_t number);
     void ThreadEntryPoint(uint32_t threadIndex);
     void CreateSwapChain(nri::Format& swapChainFormat);
@@ -109,6 +110,9 @@ private:
     std::vector<nri::Descriptor*> m_TextureViews;
     nri::Texture* m_DepthTexture = nullptr;
     nri::Descriptor* m_DepthTextureView = nullptr;
+
+    nri::DescriptorSet* m_DescriptorSetWithSharedSampler = nullptr;
+    nri::Descriptor* m_Sampler = nullptr;
 
     nri::Buffer* m_VertexBuffer = nullptr;
     nri::Buffer* m_IndexBuffer = nullptr;
@@ -176,6 +180,8 @@ Sample::~Sample()
 
     for (size_t i = 0; i < m_Textures.size(); i++)
         NRI.DestroyTexture(*m_Textures[i]);
+
+    NRI.DestroyDescriptor(*m_Sampler);
 
     NRI.DestroyDescriptor(*m_DepthTextureView);
     NRI.DestroyTexture(*m_DepthTexture);
@@ -284,7 +290,7 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
     return CreateUserInterface(*m_Device, NRI, NRI, swapChainFormat);
 }
 
-void Sample::PrepareFrame(uint32_t frameIndex)
+void Sample::PrepareFrame(uint32_t)
 {
     PrepareUserInterface();
 
@@ -453,7 +459,8 @@ void Sample::RenderBoxes(nri::CommandBuffer& commandBuffer, uint32_t offset, uin
         const Box& box = m_Boxes[offset + i];
 
         NRI.CmdSetPipeline(commandBuffer, *box.pipeline);
-        NRI.CmdSetDescriptorSets(commandBuffer, 0, 1, &box.descriptorSet, &box.dynamicConstantBufferOffset);
+        NRI.CmdSetDescriptorSet(commandBuffer, 0, *box.descriptorSet, &box.dynamicConstantBufferOffset);
+        NRI.CmdSetDescriptorSet(commandBuffer, 1, *m_DescriptorSetWithSharedSampler, nullptr);
         NRI.CmdSetIndexBuffer(commandBuffer, *m_IndexBuffer, 0, nri::IndexType::UINT16);
         NRI.CmdSetVertexBuffers(commandBuffer, 0, 1, &m_VertexBuffer, &nullOffset);
         NRI.CmdDrawIndexed(commandBuffer, m_IndexNum, 1, 0, 0, 0);
@@ -535,8 +542,8 @@ void Sample::CreateSwapChain(nri::Format& swapChainFormat)
     swapChainDesc.commandQueue = m_CommandQueue;
     swapChainDesc.format = nri::SwapChainFormat::BT709_G22_8BIT;
     swapChainDesc.verticalSyncInterval = m_VsyncInterval;
-    swapChainDesc.width = GetWindowResolution().x;
-    swapChainDesc.height = GetWindowResolution().y;
+    swapChainDesc.width = (uint16_t)GetWindowResolution().x;
+    swapChainDesc.height = (uint16_t)GetWindowResolution().y;
     swapChainDesc.textureNum = SWAP_CHAIN_TEXTURE_NUM;
 
     NRI_ABORT_ON_FAILURE(NRI.CreateSwapChain(*m_Device, swapChainDesc, m_SwapChain));
@@ -589,13 +596,16 @@ void Sample::CreateCommandBuffers()
 
 bool Sample::CreatePipeline(nri::Format swapChainFormat)
 {
-    nri::DescriptorRangeDesc descriptorRanges[] =
+    nri::DescriptorRangeDesc descriptorRanges0[] =
     {
         { 1, 3, nri::DescriptorType::CONSTANT_BUFFER, nri::ShaderStage::ALL },
-        { 0, 3, nri::DescriptorType::TEXTURE, nri::ShaderStage::FRAGMENT },
+        { 0, 3, nri::DescriptorType::TEXTURE, nri::ShaderStage::FRAGMENT }
     };
 
-    nri::DynamicConstantBufferDesc dynamicConstantBufferDesc = { 0, nri::ShaderStage::VERTEX };
+    nri::DescriptorRangeDesc descriptorRanges1[] =
+    {
+        { 0, 1, nri::DescriptorType::SAMPLER, nri::ShaderStage::FRAGMENT }
+    };
 
     nri::SamplerDesc samplerDesc = {};
     samplerDesc.anisotropy = 4;
@@ -605,13 +615,19 @@ bool Sample::CreatePipeline(nri::Format swapChainFormat)
     samplerDesc.mip = nri::Filter::LINEAR;
     samplerDesc.mipMax = 16.0f;
 
-    nri::StaticSamplerDesc staticSamplerDesc = { samplerDesc, 0, nri::ShaderStage::FRAGMENT };
+    NRI_ABORT_ON_FAILURE(NRI.CreateSampler(*m_Device, samplerDesc, m_Sampler));
 
-    nri::DescriptorSetDesc descriptorSetDesc = { descriptorRanges, helper::GetCountOf(descriptorRanges), &staticSamplerDesc, 1, &dynamicConstantBufferDesc, 1 };
+    nri::DynamicConstantBufferDesc dynamicConstantBufferDesc = { 0, nri::ShaderStage::VERTEX };
+
+    nri::DescriptorSetDesc descriptorSetDescs[] =
+    {
+        {0, descriptorRanges0, helper::GetCountOf(descriptorRanges0), &dynamicConstantBufferDesc, 1},
+        {1, descriptorRanges1, helper::GetCountOf(descriptorRanges1)},
+    };
 
     nri::PipelineLayoutDesc pipelineLayoutDesc = {};
-    pipelineLayoutDesc.descriptorSets = &descriptorSetDesc;
-    pipelineLayoutDesc.descriptorSetNum = 1;
+    pipelineLayoutDesc.descriptorSets = descriptorSetDescs;
+    pipelineLayoutDesc.descriptorSetNum = helper::GetCountOf(descriptorSetDescs);
     pipelineLayoutDesc.stageMask = nri::PipelineLayoutShaderStageBits::VERTEX | nri::PipelineLayoutShaderStageBits::FRAGMENT;
 
     NRI_ABORT_ON_FAILURE(NRI.CreatePipelineLayout(*m_Device, pipelineLayoutDesc, m_PipelineLayout));
@@ -622,9 +638,9 @@ bool Sample::CreatePipeline(nri::Format swapChainFormat)
     utils::ShaderCodeStorage shaderCodeStorage;
 
     nri::ShaderDesc shaders[1 + pipelineNum];
-    shaders[0] = utils::LoadShader(deviceDesc.graphicsAPI, "05_Box.vs", shaderCodeStorage);
+    shaders[0] = utils::LoadShader(deviceDesc.graphicsAPI, "Box.vs", shaderCodeStorage);
     for (uint32_t i = 0; i < pipelineNum; i++)
-        shaders[1 + i] = utils::LoadShader(deviceDesc.graphicsAPI, "05_Box" + std::to_string(i) + ".fs", shaderCodeStorage);
+        shaders[1 + i] = utils::LoadShader(deviceDesc.graphicsAPI, "Box" + std::to_string(i) + ".fs", shaderCodeStorage);
 
     nri::VertexStreamDesc vertexStreamDesc = {};
     vertexStreamDesc.bindingSlot = 0;
@@ -696,7 +712,7 @@ bool Sample::CreatePipeline(nri::Format swapChainFormat)
 
 void Sample::CreateDepthTexture()
 {
-    nri::CTextureDesc textureDesc = nri::CTextureDesc::Texture2D(m_DepthFormat, GetWindowResolution().x, GetWindowResolution().y, 1, 1,
+    nri::TextureDesc textureDesc = nri::Texture2D(m_DepthFormat, (uint16_t)GetWindowResolution().x, (uint16_t)GetWindowResolution().y, 1, 1,
         nri::TextureUsageBits::DEPTH_STENCIL_ATTACHMENT);
 
     NRI_ABORT_ON_FAILURE(NRI.CreateTexture(*m_Device, textureDesc, m_DepthTexture));
@@ -848,26 +864,27 @@ void Sample::CreateTransformConstantBuffer()
 
 void Sample::CreateDescriptorSets()
 {
+    // DescriptorSet 0 (per box)
     std::vector<nri::DescriptorSet*> descriptorSets(m_Boxes.size());
-    NRI.AllocateDescriptorSets(*m_DescriptorPool, *m_PipelineLayout, 0, descriptorSets.data(), (uint32_t)descriptorSets.size(),
-        nri::WHOLE_DEVICE_GROUP, 0);
+    NRI.AllocateDescriptorSets(*m_DescriptorPool, *m_PipelineLayout, 0, descriptorSets.data(), (uint32_t)descriptorSets.size(), nri::WHOLE_DEVICE_GROUP, 0);
 
     for (size_t i = 0; i < m_Boxes.size(); i++)
     {
         Box& box = m_Boxes[i];
 
-        nri::Descriptor* constantBuffers[] = {
+        nri::Descriptor* constantBuffers[] =
+        {
             m_FakeConstantBufferViews[0],
             m_ViewConstantBufferView,
             m_FakeConstantBufferViews[rand() % m_FakeConstantBufferViews.size()]
         };
 
         const nri::Descriptor* textureViews[3] = {};
-
         for (size_t j = 0; j < helper::GetCountOf(textureViews); j++)
             textureViews[j] = m_TextureViews[rand() % m_TextureViews.size()];
 
-        const nri::DescriptorRangeUpdateDesc rangeUpdates[] = {
+        const nri::DescriptorRangeUpdateDesc rangeUpdates[] =
+        {
             { constantBuffers, helper::GetCountOf(constantBuffers) },
             { textureViews, helper::GetCountOf(textureViews) }
         };
@@ -877,6 +894,17 @@ void Sample::CreateDescriptorSets()
         box.descriptorSet = descriptorSets[i];
         NRI.UpdateDescriptorRanges(*box.descriptorSet, nri::WHOLE_DEVICE_GROUP, 0, helper::GetCountOf(rangeUpdates), rangeUpdates);
         NRI.UpdateDynamicConstantBuffers(*box.descriptorSet, nri::WHOLE_DEVICE_GROUP, 0, 1, &m_TransformConstantBufferView);
+    }
+
+    // DescriptorSet 1 (shared)
+    {
+        const nri::DescriptorRangeUpdateDesc rangeUpdates[] =
+        {
+            { &m_Sampler, 1 }
+        };
+
+        NRI.AllocateDescriptorSets(*m_DescriptorPool, *m_PipelineLayout, 1, &m_DescriptorSetWithSharedSampler, 1, nri::WHOLE_DEVICE_GROUP, 0);
+        NRI.UpdateDescriptorRanges(*m_DescriptorSetWithSharedSampler, nri::WHOLE_DEVICE_GROUP, 0, helper::GetCountOf(rangeUpdates), rangeUpdates);
     }
 }
 
@@ -888,8 +916,8 @@ void Sample::CreateDescriptorPool()
     descriptorPoolDesc.constantBufferMaxNum = 3 * boxNum;
     descriptorPoolDesc.dynamicConstantBufferMaxNum = 1 * boxNum;
     descriptorPoolDesc.textureMaxNum = 3 * boxNum;
-    descriptorPoolDesc.descriptorSetMaxNum = boxNum;
-    descriptorPoolDesc.staticSamplerMaxNum = boxNum;
+    descriptorPoolDesc.descriptorSetMaxNum = boxNum + 1;
+    descriptorPoolDesc.samplerMaxNum = 1;
 
     NRI_ABORT_ON_FAILURE(NRI.CreateDescriptorPool(*m_Device, descriptorPoolDesc, m_DescriptorPool));
 }
@@ -914,7 +942,7 @@ void Sample::LoadTextures()
     {
         const utils::Texture& loadedTexture = loadedTextures[i % textureNum];
 
-        nri::CTextureDesc textureDesc = nri::CTextureDesc::Texture2D(loadedTexture.GetFormat(),
+        nri::TextureDesc textureDesc = nri::Texture2D(loadedTexture.GetFormat(),
             loadedTexture.GetWidth(), loadedTexture.GetHeight(), loadedTexture.GetMipNum());
         NRI_ABORT_ON_FAILURE(NRI.CreateTexture(*m_Device, textureDesc, m_Textures[i]));
     }
@@ -1082,9 +1110,7 @@ uint32_t Sample::GetPhysicalCoreNum() const
         if (res == TRUE)
             break;
 
-        const DWORD error = GetLastError();
-        assert(error == ERROR_INSUFFICIENT_BUFFER);
-
+        GetLastError();
         SetLastError(0);
 
         free(buffer);

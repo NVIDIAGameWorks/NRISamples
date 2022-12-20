@@ -1,4 +1,4 @@
-﻿/*
+/*
 Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
 
 NVIDIA CORPORATION and its licensors retain all intellectual property
@@ -14,11 +14,6 @@ license agreement from NVIDIA CORPORATION is strictly prohibited.
 #include <array>
 
 constexpr auto BUILD_FLAGS = nri::AccelerationStructureBuildBits::PREFER_FAST_TRACE;
-constexpr uint32_t BOX_NUM = 100000;
-
-extern const float positions[24 * 3];
-extern const float texCoords[24 * 2];
-extern const uint16_t indices[36];
 
 struct NRIInterface
     : public nri::CoreInterface
@@ -45,14 +40,15 @@ public:
     ~Sample();
 
 private:
-    bool Initialize(nri::GraphicsAPI graphicsAPI);
-    void PrepareFrame(uint32_t frameIndex);
-    void RenderFrame(uint32_t frameIndex);
+    bool Initialize(nri::GraphicsAPI graphicsAPI) override;
+    void PrepareFrame(uint32_t frameIndex) override;
+    void RenderFrame(uint32_t frameIndex) override;
+
     void CreateSwapChain(nri::Format& swapChainFormat);
     void CreateCommandBuffers();
     void CreateRayTracingPipeline();
     void CreateRayTracingOutput(nri::Format swapChainFormat);
-    void CreateDescriptorSets();
+    void CreateDescriptorSet();
     void CreateBottomLevelAccelerationStructure();
     void CreateTopLevelAccelerationStructure();
     void CreateShaderTable();
@@ -60,7 +56,6 @@ private:
     void CreateScratchBuffer(nri::AccelerationStructure& accelerationStructure, nri::Buffer*& buffer, nri::Memory*& memory);
     void BuildBottomLevelAccelerationStructure(nri::AccelerationStructure& accelerationStructure, const nri::GeometryObject* objects, const uint32_t objectNum);
     void BuildTopLevelAccelerationStructure(nri::AccelerationStructure& accelerationStructure, uint32_t instanceNum, nri::Buffer& instanceBuffer);
-    void CreateShaderResources();
 
     NRIInterface NRI = {};
     nri::Device* m_Device = nullptr;
@@ -71,10 +66,11 @@ private:
 
     std::array<Frame, BUFFERED_FRAME_MAX_NUM> m_Frames = {};
 
-    nri::PipelineLayout* m_PipelineLayout = nullptr;
     nri::Pipeline* m_Pipeline = nullptr;
+    nri::PipelineLayout* m_PipelineLayout = nullptr;
 
     nri::Buffer* m_ShaderTable = nullptr;
+    nri::Memory* m_ShaderTableMemory = nullptr;
     uint64_t m_ShaderGroupIdentifierSize = 0;
     uint64_t m_MissShaderOffset = 0;
     uint64_t m_HitShaderGroupOffset = 0;
@@ -82,17 +78,14 @@ private:
     nri::Texture* m_RayTracingOutput = nullptr;
     nri::Descriptor* m_RayTracingOutputView = nullptr;
 
-    nri::Buffer* m_TexCoordBuffer = nullptr;
-    nri::Buffer* m_IndexBuffer = nullptr;
-    nri::Descriptor* m_TexCoordBufferView = nullptr;
-    nri::Descriptor* m_IndexBufferView = nullptr;
-
     nri::DescriptorPool* m_DescriptorPool = nullptr;
-    nri::DescriptorSet* m_DescriptorSets[3] = {};
+    nri::DescriptorSet* m_DescriptorSet = nullptr;
 
     nri::AccelerationStructure* m_BLAS = nullptr;
     nri::AccelerationStructure* m_TLAS = nullptr;
     nri::Descriptor* m_TLASDescriptor = nullptr;
+    nri::Memory* m_BLASMemory = nullptr;
+    nri::Memory* m_TLASMemory = nullptr;
 
     const BackBuffer* m_BackBuffer = nullptr;
     std::vector<BackBuffer> m_SwapChainBuffers;
@@ -126,11 +119,6 @@ Sample::~Sample()
     NRI.DestroyDescriptor(*m_TLASDescriptor);
     NRI.DestroyBuffer(*m_ShaderTable);
 
-    NRI.DestroyDescriptor(*m_TexCoordBufferView);
-    NRI.DestroyDescriptor(*m_IndexBufferView);
-    NRI.DestroyBuffer(*m_TexCoordBuffer);
-    NRI.DestroyBuffer(*m_IndexBuffer);
-
     NRI.DestroyPipeline(*m_Pipeline);
     NRI.DestroyPipelineLayout(*m_PipelineLayout);
 
@@ -141,6 +129,10 @@ Sample::~Sample()
 
     for (size_t i = 0; i < m_MemoryAllocations.size(); i++)
         NRI.FreeMemory(*m_MemoryAllocations[i]);
+
+    NRI.FreeMemory(*m_BLASMemory);
+    NRI.FreeMemory(*m_TLASMemory);
+    NRI.FreeMemory(*m_ShaderTableMemory);
 
     DestroyUserInterface();
 
@@ -177,17 +169,16 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
     CreateSwapChain(swapChainFormat);
 
     CreateRayTracingPipeline();
-    CreateDescriptorSets();
+    CreateDescriptorSet();
     CreateRayTracingOutput(swapChainFormat);
     CreateBottomLevelAccelerationStructure();
     CreateTopLevelAccelerationStructure();
     CreateShaderTable();
-    CreateShaderResources();
 
     return CreateUserInterface(*m_Device, NRI, NRI, swapChainFormat);
 }
 
-void Sample::PrepareFrame(uint32_t frameIndex)
+void Sample::PrepareFrame(uint32_t)
 {
     PrepareUserInterface();
 }
@@ -235,14 +226,14 @@ void Sample::RenderFrame(uint32_t frameIndex)
 
     NRI.CmdSetPipelineLayout(commandBuffer, *m_PipelineLayout);
     NRI.CmdSetPipeline(commandBuffer, *m_Pipeline);
-    NRI.CmdSetDescriptorSets(commandBuffer, 0, helper::GetCountOf(m_DescriptorSets), m_DescriptorSets, nullptr);
+    NRI.CmdSetDescriptorSet(commandBuffer, 0, *m_DescriptorSet, nullptr);
 
     nri::DispatchRaysDesc dispatchRaysDesc = {};
     dispatchRaysDesc.raygenShader = { m_ShaderTable, 0, m_ShaderGroupIdentifierSize, m_ShaderGroupIdentifierSize };
     dispatchRaysDesc.missShaders = { m_ShaderTable, m_MissShaderOffset, m_ShaderGroupIdentifierSize, m_ShaderGroupIdentifierSize };
     dispatchRaysDesc.hitShaderGroups = { m_ShaderTable, m_HitShaderGroupOffset, m_ShaderGroupIdentifierSize, m_ShaderGroupIdentifierSize };
-    dispatchRaysDesc.width = GetWindowResolution().x;
-    dispatchRaysDesc.height = GetWindowResolution().y;
+    dispatchRaysDesc.width = (uint16_t)GetWindowResolution().x;
+    dispatchRaysDesc.height = (uint16_t)GetWindowResolution().y;
     dispatchRaysDesc.depth = 1;
     NRI.CmdDispatchRays(commandBuffer, dispatchRaysDesc);
 
@@ -267,7 +258,6 @@ void Sample::RenderFrame(uint32_t frameIndex)
     textureTransitions[0].nextLayout = nri::TextureLayout::COLOR_ATTACHMENT;
     transitionBarriers.textures = textureTransitions;
     transitionBarriers.textureNum = 1;
-
     NRI.CmdPipelineBarrier(commandBuffer, &transitionBarriers, nullptr, nri::BarrierDependency::COPY_STAGE);
 
     NRI.CmdBeginRenderPass(commandBuffer, *m_BackBuffer->frameBufferUI, nri::RenderPassBeginFlag::SKIP_FRAME_BUFFER_CLEAR);
@@ -308,8 +298,8 @@ void Sample::CreateSwapChain(nri::Format& swapChainFormat)
     swapChainDesc.commandQueue = m_CommandQueue;
     swapChainDesc.format = nri::SwapChainFormat::BT709_G22_8BIT;
     swapChainDesc.verticalSyncInterval = m_VsyncInterval;
-    swapChainDesc.width = GetWindowResolution().x;
-    swapChainDesc.height = GetWindowResolution().y;
+    swapChainDesc.width = (uint16_t)GetWindowResolution().x;
+    swapChainDesc.height = (uint16_t)GetWindowResolution().y;
     swapChainDesc.textureNum = SWAP_CHAIN_TEXTURE_NUM;
 
     NRI_ABORT_ON_FAILURE(NRI.CreateSwapChain(*m_Device, swapChainDesc, m_SwapChain));
@@ -351,24 +341,23 @@ void Sample::CreateCommandBuffers()
 
 void Sample::CreateRayTracingPipeline()
 {
-    nri::DescriptorRangeDesc descriptorRanges[] =
-    {
-        {0, 1, nri::DescriptorType::STORAGE_TEXTURE, nri::ShaderStage::RAYGEN},
-        {1, 1, nri::DescriptorType::ACCELERATION_STRUCTURE, nri::ShaderStage::RAYGEN},
-        {0, BOX_NUM, nri::DescriptorType::BUFFER, nri::ShaderStage::CLOSEST_HIT, nri::VARIABLE_DESCRIPTOR_NUM, nri::DESCRIPTOR_ARRAY},
-    };
+    nri::DescriptorRangeDesc descriptorRanges[2] = {};
+    descriptorRanges[0].descriptorNum = 1;
+    descriptorRanges[0].descriptorType = nri::DescriptorType::STORAGE_TEXTURE;
+    descriptorRanges[0].baseRegisterIndex = 0;
+    descriptorRanges[0].visibility = nri::ShaderStage::RAYGEN;
 
-    nri::DescriptorSetDesc descriptorSetDescs[] =
-    {
-        {descriptorRanges, 2},
-        {descriptorRanges + 2, 1},
-        {descriptorRanges + 2, 1},
-    };
+    descriptorRanges[1].descriptorNum = 1;
+    descriptorRanges[1].descriptorType = nri::DescriptorType::ACCELERATION_STRUCTURE;
+    descriptorRanges[1].baseRegisterIndex = 1;
+    descriptorRanges[1].visibility = nri::ShaderStage::RAYGEN;
+
+    nri::DescriptorSetDesc descriptorSetDesc = {0, descriptorRanges, helper::GetCountOf(descriptorRanges)};
 
     nri::PipelineLayoutDesc pipelineLayoutDesc = {};
-    pipelineLayoutDesc.descriptorSets = descriptorSetDescs;
-    pipelineLayoutDesc.descriptorSetNum = helper::GetCountOf(descriptorSetDescs);
-    pipelineLayoutDesc.stageMask = nri::PipelineLayoutShaderStageBits::RAYGEN | nri::PipelineLayoutShaderStageBits::CLOSEST_HIT;
+    pipelineLayoutDesc.descriptorSets = &descriptorSetDesc;
+    pipelineLayoutDesc.descriptorSetNum = 1;
+    pipelineLayoutDesc.stageMask = nri::PipelineLayoutShaderStageBits::RAYGEN;
 
     NRI_ABORT_ON_FAILURE(NRI.CreatePipelineLayout(*m_Device, pipelineLayoutDesc, m_PipelineLayout));
 
@@ -376,16 +365,16 @@ void Sample::CreateRayTracingPipeline()
     utils::ShaderCodeStorage shaderCodeStorage;
     nri::ShaderDesc shaderDescs[] =
     {
-        utils::LoadShader(deviceDesc.graphicsAPI, "08_RayTracing_Box.rgen", shaderCodeStorage, "raygen"),
-        utils::LoadShader(deviceDesc.graphicsAPI, "08_RayTracing_Box.rmiss", shaderCodeStorage, "miss"),
-        utils::LoadShader(deviceDesc.graphicsAPI, "08_RayTracing_Box.rchit", shaderCodeStorage, "closest_hit"),
+        utils::LoadShader(deviceDesc.graphicsAPI, "RayTracingTriangle.rgen", shaderCodeStorage, "raygen"),
+        utils::LoadShader(deviceDesc.graphicsAPI, "RayTracingTriangle.rmiss", shaderCodeStorage, "miss"),
+        utils::LoadShader(deviceDesc.graphicsAPI, "RayTracingTriangle.rchit", shaderCodeStorage, "closest_hit"),
     };
 
     nri::ShaderLibrary shaderLibrary = {};
     shaderLibrary.shaderDescs = shaderDescs;
     shaderLibrary.shaderNum = helper::GetCountOf(shaderDescs);
 
-    const nri::ShaderGroupDesc shaderGroupDescs[] = { { 1 },{ 2 },{ 3 } };
+    const nri::ShaderGroupDesc shaderGroupDescs[] = { { 1 }, { 2 }, { 3 } };
 
     nri::RayTracingPipelineDesc pipelineDesc = {};
     pipelineDesc.recursionDepthMax = 1;
@@ -404,8 +393,8 @@ void Sample::CreateRayTracingOutput(nri::Format swapChainFormat)
     nri::TextureDesc rayTracingOutputDesc = {};
     rayTracingOutputDesc.type = nri::TextureType::TEXTURE_2D;
     rayTracingOutputDesc.format = swapChainFormat;
-    rayTracingOutputDesc.size[0] = GetWindowResolution().x;
-    rayTracingOutputDesc.size[1] = GetWindowResolution().y;
+    rayTracingOutputDesc.size[0] = (uint16_t)GetWindowResolution().x;
+    rayTracingOutputDesc.size[1] = (uint16_t)GetWindowResolution().y;
     rayTracingOutputDesc.size[2] = 1;
     rayTracingOutputDesc.arraySize = 1;
     rayTracingOutputDesc.mipNum = 1;
@@ -428,100 +417,35 @@ void Sample::CreateRayTracingOutput(nri::Format swapChainFormat)
     NRI_ABORT_ON_FAILURE(NRI.CreateTexture2DView(textureViewDesc, m_RayTracingOutputView));
 
     const nri::DescriptorRangeUpdateDesc descriptorRangeUpdateDesc = { &m_RayTracingOutputView, 1, 0 };
-    NRI.UpdateDescriptorRanges(*m_DescriptorSets[0], nri::WHOLE_DEVICE_GROUP, 0, 1, &descriptorRangeUpdateDesc);
+    NRI.UpdateDescriptorRanges(*m_DescriptorSet, nri::WHOLE_DEVICE_GROUP, 0, 1, &descriptorRangeUpdateDesc);
 }
 
-void Sample::CreateDescriptorSets()
+void Sample::CreateDescriptorSet()
 {
     nri::DescriptorPoolDesc descriptorPoolDesc = {};
     descriptorPoolDesc.storageTextureMaxNum = 1;
     descriptorPoolDesc.accelerationStructureMaxNum = 1;
-    descriptorPoolDesc.bufferMaxNum = BOX_NUM * 2;
-    descriptorPoolDesc.descriptorSetMaxNum = helper::GetCountOf(m_DescriptorSets);
+    descriptorPoolDesc.descriptorSetMaxNum = 1;
 
     NRI_ABORT_ON_FAILURE(NRI.CreateDescriptorPool(*m_Device, descriptorPoolDesc, m_DescriptorPool));
-    NRI_ABORT_ON_FAILURE(NRI.AllocateDescriptorSets(*m_DescriptorPool, *m_PipelineLayout, 0, &m_DescriptorSets[0], 1, nri::WHOLE_DEVICE_GROUP, 0));
-    NRI_ABORT_ON_FAILURE(NRI.AllocateDescriptorSets(*m_DescriptorPool, *m_PipelineLayout, 1, &m_DescriptorSets[1], 1, nri::WHOLE_DEVICE_GROUP, BOX_NUM));
-    NRI_ABORT_ON_FAILURE(NRI.AllocateDescriptorSets(*m_DescriptorPool, *m_PipelineLayout, 2, &m_DescriptorSets[2], 1, nri::WHOLE_DEVICE_GROUP, BOX_NUM));
-}
-
-void Sample::CreateShaderResources()
-{
-    const uint32_t triangleNum = helper::GetCountOf(indices) / 3;
-    std::vector<uint16_t> paddedIndices(triangleNum * 4, 0);
-    for (uint32_t i = 0; i < triangleNum; i++)
-    {
-        paddedIndices[i * 4] = indices[i * 3];
-        paddedIndices[i * 4 + 1] = indices[i * 3 + 1];
-        paddedIndices[i * 4 + 2] = indices[i * 3 + 2];
-    }
-
-    const nri::BufferDesc texCoordBufferDesc = { sizeof(texCoords), 0, nri::BufferUsageBits::SHADER_RESOURCE };
-    const nri::BufferDesc indexBufferDesc = { helper::GetByteSizeOf(paddedIndices), 0, nri::BufferUsageBits::SHADER_RESOURCE };
-    NRI_ABORT_ON_FAILURE(NRI.CreateBuffer(*m_Device, texCoordBufferDesc, m_TexCoordBuffer));
-    NRI_ABORT_ON_FAILURE(NRI.CreateBuffer(*m_Device, indexBufferDesc, m_IndexBuffer));
-
-    nri::Buffer* buffers[] = { m_TexCoordBuffer, m_IndexBuffer };
-
-    nri::ResourceGroupDesc resourceGroupDesc = {};
-    resourceGroupDesc.memoryLocation = nri::MemoryLocation::DEVICE;
-    resourceGroupDesc.bufferNum = helper::GetCountOf(buffers);
-    resourceGroupDesc.buffers = buffers;
-
-    const size_t baseAllocation = m_MemoryAllocations.size();
-    m_MemoryAllocations.resize(baseAllocation + NRI.CalculateAllocationNumber(*m_Device, resourceGroupDesc), nullptr);
-    NRI_ABORT_ON_FAILURE(NRI.AllocateAndBindMemory(*m_Device, resourceGroupDesc, m_MemoryAllocations.data() + baseAllocation));
-
-    nri::BufferUploadDesc dataDescArray[] = {
-        { texCoords, texCoordBufferDesc.size, m_TexCoordBuffer, 0, nri::AccessBits::UNKNOWN, nri::AccessBits::SHADER_RESOURCE },
-        { paddedIndices.data(), indexBufferDesc.size, m_IndexBuffer, 0, nri::AccessBits::UNKNOWN, nri::AccessBits::SHADER_RESOURCE }
-    };
-    NRI_ABORT_ON_FAILURE(NRI.UploadData(*m_CommandQueue, nullptr, 0, dataDescArray, helper::GetCountOf(dataDescArray)));
-
-    nri::BufferViewDesc texCoordBufferViewDesc = {};
-    texCoordBufferViewDesc.buffer = m_TexCoordBuffer;
-    texCoordBufferViewDesc.viewType = nri::BufferViewType::SHADER_RESOURCE;
-    texCoordBufferViewDesc.format = nri::Format::RG32_SFLOAT;
-    texCoordBufferViewDesc.size = texCoordBufferDesc.size;
-
-    nri::BufferViewDesc indexBufferViewDesc = {};
-    indexBufferViewDesc.buffer = m_IndexBuffer;
-    indexBufferViewDesc.viewType = nri::BufferViewType::SHADER_RESOURCE;
-    indexBufferViewDesc.format = nri::Format::RGBA16_UINT;
-    indexBufferViewDesc.size = indexBufferDesc.size;
-
-    NRI_ABORT_ON_FAILURE(NRI.CreateBufferView(texCoordBufferViewDesc, m_TexCoordBufferView));
-    NRI_ABORT_ON_FAILURE(NRI.CreateBufferView(indexBufferViewDesc, m_IndexBufferView));
-
-    nri::DescriptorRangeUpdateDesc rangeUpdateDesc = {};
-    rangeUpdateDesc.descriptorNum = 1;
-    rangeUpdateDesc.descriptors = &m_TexCoordBufferView;
-
-    for (uint32_t i = 0; i < BOX_NUM; i++)
-    {
-        rangeUpdateDesc.offsetInRange = i;
-        NRI.UpdateDescriptorRanges(*m_DescriptorSets[1], nri::WHOLE_DEVICE_GROUP, 0, 1, &rangeUpdateDesc);
-    }
-
-    rangeUpdateDesc.descriptorNum = 1;
-    rangeUpdateDesc.descriptors = &m_IndexBufferView;
-
-    for (uint32_t i = 0; i < BOX_NUM; i++)
-    {
-        rangeUpdateDesc.offsetInRange = i;
-        NRI.UpdateDescriptorRanges(*m_DescriptorSets[2], nri::WHOLE_DEVICE_GROUP, 0, 1, &rangeUpdateDesc);
-    }
+    NRI_ABORT_ON_FAILURE(NRI.AllocateDescriptorSets(*m_DescriptorPool, *m_PipelineLayout, 0, &m_DescriptorSet, 1, nri::WHOLE_DEVICE_GROUP, 0));
 }
 
 void Sample::CreateBottomLevelAccelerationStructure()
 {
+    const uint64_t vertexDataSize = 3 * 3 * sizeof(float);
+    const uint64_t indexDataSize = 3 * sizeof(uint16_t);
+
     nri::Buffer* buffer = nullptr;
     nri::Memory* memory = nullptr;
-    CreateUploadBuffer(sizeof(positions) + sizeof(indices), nri::BufferUsageBits::ACCELERATION_STRUCTURE_BUILD_READ, buffer, memory);
+    CreateUploadBuffer(vertexDataSize + indexDataSize, nri::BufferUsageBits::ACCELERATION_STRUCTURE_BUILD_READ, buffer, memory);
 
-    uint8_t* data = (uint8_t*)NRI.MapBuffer(*buffer, 0, sizeof(positions) + sizeof(indices));
+    const float positions[] = { -0.5f, -0.5f, 0.0f, 0.0f, 0.5f, 0.0f, 0.5f, -0.5f, 0.0f };
+    const uint16_t indices[] = { 0, 1, 2 };
+
+    uint8_t* data = (uint8_t*)NRI.MapBuffer(*buffer, 0, vertexDataSize + indexDataSize);
     memcpy(data, positions, sizeof(positions));
-    memcpy(data + sizeof(positions), indices, sizeof(indices));
+    memcpy(data + vertexDataSize, indices, sizeof(indices));
     NRI.UnmapBuffer(*buffer);
 
     nri::GeometryObject geometryObject = {};
@@ -529,11 +453,11 @@ void Sample::CreateBottomLevelAccelerationStructure()
     geometryObject.flags = nri::BottomLevelGeometryBits::OPAQUE_GEOMETRY;
     geometryObject.triangles.vertexBuffer = buffer;
     geometryObject.triangles.vertexFormat = nri::Format::RGB32_SFLOAT;
-    geometryObject.triangles.vertexNum = helper::GetCountOf(positions) / 3;
+    geometryObject.triangles.vertexNum = 3;
     geometryObject.triangles.vertexStride = 3 * sizeof(float);
     geometryObject.triangles.indexBuffer = buffer;
-    geometryObject.triangles.indexOffset = sizeof(positions);
-    geometryObject.triangles.indexNum = helper::GetCountOf(indices);
+    geometryObject.triangles.indexOffset = vertexDataSize;
+    geometryObject.triangles.indexNum = 3;
     geometryObject.triangles.indexType = nri::IndexType::UINT16;
 
     nri::AccelerationStructureDesc accelerationStructureBLASDesc = {};
@@ -547,11 +471,9 @@ void Sample::CreateBottomLevelAccelerationStructure()
     nri::MemoryDesc memoryDesc = {};
     NRI.GetAccelerationStructureMemoryInfo(*m_BLAS, memoryDesc);
 
-    nri::Memory* ASMemory = nullptr;
-    NRI_ABORT_ON_FAILURE(NRI.AllocateMemory(*m_Device, nri::WHOLE_DEVICE_GROUP, memoryDesc.type, memoryDesc.size, ASMemory));
-    m_MemoryAllocations.push_back(ASMemory);
+    NRI_ABORT_ON_FAILURE(NRI.AllocateMemory(*m_Device, nri::WHOLE_DEVICE_GROUP, memoryDesc.type, memoryDesc.size, m_BLASMemory));
 
-    const nri::AccelerationStructureMemoryBindingDesc memoryBindingDesc = { ASMemory, m_BLAS };
+    const nri::AccelerationStructureMemoryBindingDesc memoryBindingDesc = { m_BLASMemory, m_BLAS };
     NRI_ABORT_ON_FAILURE(NRI.BindAccelerationStructureMemory(*m_Device, &memoryBindingDesc, 1));
 
     BuildBottomLevelAccelerationStructure(*m_BLAS, &geometryObject, 1);
@@ -565,49 +487,35 @@ void Sample::CreateTopLevelAccelerationStructure()
     nri::AccelerationStructureDesc accelerationStructureTLASDesc = {};
     accelerationStructureTLASDesc.type = nri::AccelerationStructureType::TOP_LEVEL;
     accelerationStructureTLASDesc.flags = BUILD_FLAGS;
-    accelerationStructureTLASDesc.instanceOrGeometryObjectNum = BOX_NUM;
+    accelerationStructureTLASDesc.instanceOrGeometryObjectNum = 1;
 
     NRI_ABORT_ON_FAILURE(NRI.CreateAccelerationStructure(*m_Device, accelerationStructureTLASDesc, m_TLAS));
 
     nri::MemoryDesc memoryDesc = {};
     NRI.GetAccelerationStructureMemoryInfo(*m_TLAS, memoryDesc);
 
-    nri::Memory* ASMemory = nullptr;
-    NRI_ABORT_ON_FAILURE(NRI.AllocateMemory(*m_Device, nri::WHOLE_DEVICE_GROUP, memoryDesc.type, memoryDesc.size, ASMemory));
-    m_MemoryAllocations.push_back(ASMemory);
+    NRI_ABORT_ON_FAILURE(NRI.AllocateMemory(*m_Device, nri::WHOLE_DEVICE_GROUP, memoryDesc.type, memoryDesc.size, m_TLASMemory));
 
-    const nri::AccelerationStructureMemoryBindingDesc memoryBindingDesc = { ASMemory, m_TLAS };
+    const nri::AccelerationStructureMemoryBindingDesc memoryBindingDesc = { m_TLASMemory, m_TLAS };
     NRI_ABORT_ON_FAILURE(NRI.BindAccelerationStructureMemory(*m_Device, &memoryBindingDesc, 1));
-
-    std::vector<nri::GeometryObjectInstance> geometryObjectInstances(BOX_NUM, nri::GeometryObjectInstance{});
-
-    const float lineWidth = 120.0f;
-    const uint32_t lineSize = 100;
-    const float step = lineWidth / (lineSize - 1);
-
-    for (uint32_t i = 0; i < geometryObjectInstances.size(); i++)
-    {
-        nri::GeometryObjectInstance& instance = geometryObjectInstances[i];
-        instance.accelerationStructureHandle = NRI.GetAccelerationStructureHandle(*m_BLAS, 0);
-        instance.instanceId = i;
-        instance.transform[0][0] = 1.0f;
-        instance.transform[1][1] = 1.0f;
-        instance.transform[2][2] = 1.0f;
-        instance.transform[0][3] = -lineWidth * 0.5f + (i % lineSize) * step;
-        instance.transform[1][3] = -10.0f + (i / lineSize) * step;
-        instance.transform[2][3] = 10.0f + (i / lineSize) * step;
-        instance.mask = 0xff;
-    }
 
     nri::Buffer* buffer = nullptr;
     nri::Memory* memory = nullptr;
-    CreateUploadBuffer(helper::GetByteSizeOf(geometryObjectInstances), nri::BufferUsageBits::ACCELERATION_STRUCTURE_BUILD_READ, buffer, memory);
+    CreateUploadBuffer(sizeof(nri::GeometryObjectInstance), nri::BufferUsageBits::ACCELERATION_STRUCTURE_BUILD_READ, buffer, memory);
 
-    void* data = NRI.MapBuffer(*buffer, 0, nri::WHOLE_SIZE);
-    memcpy(data, geometryObjectInstances.data(), helper::GetByteSizeOf(geometryObjectInstances));
+    nri::GeometryObjectInstance geometryObjectInstance = {};
+    geometryObjectInstance.accelerationStructureHandle = NRI.GetAccelerationStructureHandle(*m_BLAS, 0);
+    geometryObjectInstance.transform[0][0] = 1.0f;
+    geometryObjectInstance.transform[1][1] = 1.0f;
+    geometryObjectInstance.transform[2][2] = 1.0f;
+    geometryObjectInstance.mask = 0xFF;
+    geometryObjectInstance.flags = nri::TopLevelInstanceBits::FORCE_OPAQUE;
+
+    void* data = NRI.MapBuffer(*buffer, 0, sizeof(geometryObjectInstance));
+    memcpy(data, &geometryObjectInstance, sizeof(geometryObjectInstance));
     NRI.UnmapBuffer(*buffer);
 
-    BuildTopLevelAccelerationStructure(*m_TLAS, (uint32_t)geometryObjectInstances.size(), *buffer);
+    BuildTopLevelAccelerationStructure(*m_TLAS, 1, *buffer);
 
     NRI.DestroyBuffer(*buffer);
     NRI.FreeMemory(*memory);
@@ -615,7 +523,7 @@ void Sample::CreateTopLevelAccelerationStructure()
     NRI.CreateAccelerationStructureDescriptor(*m_TLAS, 0, m_TLASDescriptor);
 
     const nri::DescriptorRangeUpdateDesc descriptorRangeUpdateDesc = { &m_TLASDescriptor, 1, 0 };
-    NRI.UpdateDescriptorRanges(*m_DescriptorSets[0], nri::WHOLE_DEVICE_GROUP, 1, 1, &descriptorRangeUpdateDesc);
+    NRI.UpdateDescriptorRanges(*m_DescriptorSet, nri::WHOLE_DEVICE_GROUP, 1, 1, &descriptorRangeUpdateDesc);
 }
 
 void Sample::CreateUploadBuffer(uint64_t size, nri::BufferUsageBits usage, nri::Buffer*& buffer, nri::Memory*& memory)
@@ -718,67 +626,43 @@ void Sample::CreateShaderTable()
     const nri::BufferDesc bufferDesc = { shaderTableSize, 0, (nri::BufferUsageBits)0 };
     NRI_ABORT_ON_FAILURE(NRI.CreateBuffer(*m_Device, bufferDesc, m_ShaderTable));
 
-    nri::ResourceGroupDesc resourceGroupDesc = {};
-    resourceGroupDesc.memoryLocation = nri::MemoryLocation::DEVICE;
-    resourceGroupDesc.bufferNum = 1;
-    resourceGroupDesc.buffers = &m_ShaderTable;
+    nri::MemoryDesc memoryDesc = {};
+    NRI.GetBufferMemoryInfo(*m_ShaderTable, nri::MemoryLocation::DEVICE, memoryDesc);
 
-    const size_t baseAllocation = m_MemoryAllocations.size();
-    m_MemoryAllocations.resize(baseAllocation + 1, nullptr);
-    NRI_ABORT_ON_FAILURE(NRI.AllocateAndBindMemory(*m_Device, resourceGroupDesc, m_MemoryAllocations.data() + baseAllocation));
+    NRI_ABORT_ON_FAILURE(NRI.AllocateMemory(*m_Device, nri::WHOLE_DEVICE_GROUP, memoryDesc.type, memoryDesc.size, m_ShaderTableMemory));
 
-    std::vector<uint8_t> content((size_t)shaderTableSize, 0);
+    const nri::BufferMemoryBindingDesc bufferMemoryBindingDesc = { m_ShaderTableMemory, m_ShaderTable };
+    NRI_ABORT_ON_FAILURE(NRI.BindBufferMemory(*m_Device, &bufferMemoryBindingDesc, 1));
+
+    nri::Buffer* buffer = nullptr;
+    nri::Memory* memory = nullptr;
+    CreateUploadBuffer(shaderTableSize, nri::BufferUsageBits::NONE, buffer, memory);
+
+    uint8_t* data = (uint8_t*)NRI.MapBuffer(*buffer, 0, shaderTableSize);
     for (uint32_t i = 0; i < 3; i++)
-        NRI.WriteShaderGroupIdentifiers(*m_Pipeline, i, 1, content.data() + i * helper::Align(identifierSize, tableAlignment));
+        NRI.WriteShaderGroupIdentifiers(*m_Pipeline, i, 1, data + i * helper::Align(identifierSize, tableAlignment));
+    NRI.UnmapBuffer(*buffer);
 
-    nri::BufferUploadDesc dataDesc = {};
-    dataDesc.data = content.data();
-    dataDesc.dataSize = content.size();
-    dataDesc.buffer = m_ShaderTable;
-    dataDesc.nextAccess = nri::AccessBits::UNKNOWN;
-    NRI_ABORT_ON_FAILURE(NRI.UploadData(*m_CommandQueue, nullptr, 0, &dataDesc, 1));
+    nri::CommandAllocator* commandAllocator = nullptr;
+    nri::CommandBuffer* commandBuffer = nullptr;
+    NRI.CreateCommandAllocator(*m_CommandQueue, nri::WHOLE_DEVICE_GROUP, commandAllocator);
+    NRI.CreateCommandBuffer(*commandAllocator, commandBuffer);
+
+    nri::WorkSubmissionDesc workSubmissionDesc = {};
+    workSubmissionDesc.commandBuffers = &commandBuffer;
+    workSubmissionDesc.commandBufferNum = 1;
+
+    NRI.BeginCommandBuffer(*commandBuffer, nullptr, 0);
+    NRI.CmdCopyBuffer(*commandBuffer, *m_ShaderTable, 0, 0, *buffer, 0, 0, shaderTableSize);
+    NRI.EndCommandBuffer(*commandBuffer);
+    NRI.SubmitQueueWork(*m_CommandQueue, workSubmissionDesc, nullptr);
+    NRI.WaitForIdle(*m_CommandQueue);
+
+    NRI.DestroyCommandBuffer(*commandBuffer);
+    NRI.DestroyCommandAllocator(*commandAllocator);
+
+    NRI.DestroyBuffer(*buffer);
+    NRI.FreeMemory(*memory);
 }
 
 SAMPLE_MAIN(Sample, 0);
-
-constexpr float boxHalfSize = 0.5f;
-
-const float positions[24 * 3] = {
-    -boxHalfSize, -boxHalfSize, -boxHalfSize, -boxHalfSize, -boxHalfSize, boxHalfSize,
-    -boxHalfSize, boxHalfSize, -boxHalfSize, -boxHalfSize, boxHalfSize, boxHalfSize,
-    boxHalfSize, -boxHalfSize, -boxHalfSize, boxHalfSize, -boxHalfSize, boxHalfSize,
-    boxHalfSize, boxHalfSize, -boxHalfSize, boxHalfSize, boxHalfSize, boxHalfSize,
-    -boxHalfSize, -boxHalfSize, -boxHalfSize, -boxHalfSize, -boxHalfSize, boxHalfSize,
-    boxHalfSize, -boxHalfSize, -boxHalfSize, boxHalfSize, -boxHalfSize, boxHalfSize,
-    -boxHalfSize, boxHalfSize, -boxHalfSize, -boxHalfSize, boxHalfSize, boxHalfSize,
-    boxHalfSize, boxHalfSize, -boxHalfSize, boxHalfSize, boxHalfSize, boxHalfSize,
-    -boxHalfSize, -boxHalfSize, -boxHalfSize, -boxHalfSize, boxHalfSize, -boxHalfSize,
-    boxHalfSize, -boxHalfSize, -boxHalfSize, boxHalfSize, boxHalfSize, -boxHalfSize,
-    -boxHalfSize, -boxHalfSize, boxHalfSize, -boxHalfSize, boxHalfSize, boxHalfSize,
-    boxHalfSize, -boxHalfSize, boxHalfSize, boxHalfSize, boxHalfSize, boxHalfSize,
-};
-
-const float texCoords[24 * 2]
-{
-    0.0f, 0.0f, 1.0f, 0.0f,
-    0.0f, 1.0f, 1.0f, 1.0f,
-    0.0f, 0.0f, 1.0f, 0.0f,
-    0.0f, 1.0f, 1.0f, 1.0f,
-    0.0f, 0.0f, 1.0f, 0.0f,
-    0.0f, 1.0f, 1.0f, 1.0f,
-    0.0f, 0.0f, 1.0f, 0.0f,
-    0.0f, 1.0f, 1.0f, 1.0f,
-    0.0f, 0.0f, 1.0f, 0.0f,
-    0.0f, 1.0f, 1.0f, 1.0f,
-    0.0f, 0.0f, 1.0f, 0.0f,
-    0.0f, 1.0f, 1.0f, 1.0f,
-};
-
-const uint16_t indices[36] = {
-    0, 1, 2, 1, 2, 3,
-    4, 5, 6, 5, 6, 7,
-    8, 9, 10, 9, 10, 11,
-    12, 13, 14, 13, 14, 15,
-    16, 17, 18, 17, 18, 19,
-    20, 21, 22, 21, 22, 23
-};

@@ -1,6 +1,7 @@
 # NRI Samples
 
 ## Build instructions
+
 ### Windows
 - Install **WindowsSDK** and **VulkanSDK**
 - Clone project and init submodules

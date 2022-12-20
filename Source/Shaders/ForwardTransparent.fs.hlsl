@@ -9,14 +9,14 @@ license agreement from NVIDIA CORPORATION is strictly prohibited.
 */
 
 #include "BindingBridge.hlsli"
-#include "02_Resources.hlsli"
+#include "ForwardResources.hlsli"
 
-float4 main( in Attributes input ) : SV_Target
+float4 main( in Attributes input, bool isFrontFace : SV_IsFrontFace ) : SV_Target
 {
     PS_INPUT;
-    float4 output = Shade( float4( albedo, diffuse.w ), Rf0, roughness, emissive, N, L, V, Clight, FAKE_AMBIENT );
-    if( output.w < 0.5 )
-        discard;
+    N = isFrontFace ? N : -N;
+
+    float4 output = Shade( float4( albedo, diffuse.w ), Rf0, roughness, emissive, N, L, V, Clight, FAKE_AMBIENT | GLASS_HACK );
 
     output.xyz = STL::Color::HdrToLinear( output.xyz * exposure );
     return output;

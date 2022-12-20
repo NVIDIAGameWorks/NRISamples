@@ -48,9 +48,10 @@ public:
     ~Sample();
 
 private:
-    bool Initialize(nri::GraphicsAPI graphicsAPI);
-    void PrepareFrame(uint32_t frameIndex);
-    void RenderFrame(uint32_t frameIndex);
+    bool Initialize(nri::GraphicsAPI graphicsAPI) override;
+    void PrepareFrame(uint32_t frameIndex) override;
+    void RenderFrame(uint32_t frameIndex) override;
+
     void CreateSwapChain(nri::Format& swapChainFormat);
     void CreateCommandBuffers();
     void CreatePipeline(nri::Format swapChainFormat);
@@ -199,7 +200,7 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
     return CreateUserInterface(*m_Device, NRI, NRI, swapChainFormat);
 }
 
-void Sample::PrepareFrame(uint32_t frameIndex)
+void Sample::PrepareFrame(uint32_t)
 {
     PrepareUserInterface();
 
@@ -264,7 +265,7 @@ void Sample::RecordGraphics(nri::CommandBuffer& commandBuffer, uint32_t physical
     for (uint32_t i = 0; i < BOX_NUM; i++)
     {
         const uint32_t dynamicOffset = i * constantRangeSize;
-        NRI.CmdSetDescriptorSets(commandBuffer, 0, 1, &m_DescriptorSet, &dynamicOffset);
+        NRI.CmdSetDescriptorSet(commandBuffer, 0, *m_DescriptorSet, &dynamicOffset);
         NRI.CmdDrawIndexed(commandBuffer, m_BoxIndexNum, 1, 0, 0, 0);
     }
 
@@ -372,8 +373,8 @@ void Sample::CreateMainFrameBuffer(nri::Format swapChainFormat)
 {
     nri::TextureDesc textureDesc = { };
     textureDesc.type = nri::TextureType::TEXTURE_2D;
-    textureDesc.size[0] = GetWindowResolution().x;
-    textureDesc.size[1] = GetWindowResolution().y;
+    textureDesc.size[0] = (uint16_t)GetWindowResolution().x;
+    textureDesc.size[1] = (uint16_t)GetWindowResolution().y;
     textureDesc.size[2] = 1;
     textureDesc.mipNum = 1;
     textureDesc.arraySize = 1;
@@ -445,8 +446,8 @@ void Sample::CreateSwapChain(nri::Format& swapChainFormat)
     swapChainDesc.commandQueue = m_CommandQueue;
     swapChainDesc.format = nri::SwapChainFormat::BT709_G22_8BIT;
     swapChainDesc.verticalSyncInterval = m_VsyncInterval;
-    swapChainDesc.width = GetWindowResolution().x;
-    swapChainDesc.height = GetWindowResolution().y;
+    swapChainDesc.width = (uint16_t)GetWindowResolution().x;
+    swapChainDesc.height = (uint16_t)GetWindowResolution().y;
     swapChainDesc.textureNum = SWAP_CHAIN_TEXTURE_NUM;
 
     NRI_ABORT_ON_FAILURE(NRI.CreateSwapChain(*m_Device, swapChainDesc, m_SwapChain));
@@ -543,8 +544,8 @@ void Sample::CreatePipeline(nri::Format swapChainFormat)
 
     nri::ShaderDesc shaderStages[] =
     {
-        utils::LoadShader(deviceDesc.graphicsAPI, "06_Simple.vs", shaderCodeStorage),
-        utils::LoadShader(deviceDesc.graphicsAPI, "06_Simple.fs", shaderCodeStorage),
+        utils::LoadShader(deviceDesc.graphicsAPI, "Simple.vs", shaderCodeStorage),
+        utils::LoadShader(deviceDesc.graphicsAPI, "Simple.fs", shaderCodeStorage),
     };
 
     nri::GraphicsPipelineDesc graphicsPipelineDesc = {};
