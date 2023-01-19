@@ -79,7 +79,7 @@ private:
     nri::FrameBuffer* m_FrameBuffer = nullptr;
     nri::FrameBuffer* m_FrameBufferUI = nullptr;
 
-    uint32_t m_PhyiscalDeviceGroupSize = 0;
+    uint32_t m_PhysicalDeviceGroupSize = 0;
     uint32_t m_BoxIndexNum = 0;
     bool m_IsMGPUEnabled = true;
 
@@ -181,9 +181,9 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
 
     m_DepthFormat = nri::GetSupportedDepthFormat(NRI, *m_Device, 24, false);
 
-    m_PhyiscalDeviceGroupSize = NRI.GetDeviceDesc(*m_Device).phyiscalDeviceGroupSize;
+    m_PhysicalDeviceGroupSize = NRI.GetDeviceDesc(*m_Device).physicalDeviceNum;
 
-    m_QueueSemaphores.resize(m_PhyiscalDeviceGroupSize);
+    m_QueueSemaphores.resize(m_PhysicalDeviceGroupSize);
     for (size_t i = 0; i < m_QueueSemaphores.size(); i++)
         NRI_ABORT_ON_FAILURE(NRI.CreateQueueSemaphore(*m_Device, m_QueueSemaphores[i]));
 
@@ -206,12 +206,12 @@ void Sample::PrepareFrame(uint32_t)
 
     ImGui::Begin("Multi-GPU", nullptr, ImGuiWindowFlags_NoResize);
     {
-        if (m_PhyiscalDeviceGroupSize == 1)
+        if (m_PhysicalDeviceGroupSize == 1)
             ImGui::PushStyleVar(ImGuiStyleVar_Alpha, ImGui::GetStyle().Alpha * 0.5f);
 
         ImGui::Checkbox("Use multiple GPUs", &m_IsMGPUEnabled);
 
-        if (m_PhyiscalDeviceGroupSize == 1)
+        if (m_PhysicalDeviceGroupSize == 1)
         {
             ImGui::PopStyleVar();
             m_IsMGPUEnabled = false;
@@ -220,7 +220,7 @@ void Sample::PrepareFrame(uint32_t)
         m_FrameTime.UpdateElapsedTimeSinceLastSave();
         m_FrameTime.SaveCurrentTime();
 
-        ImGui::Text("Phyiscal device group size: %u", m_PhyiscalDeviceGroupSize);
+        ImGui::Text("Physical device group size: %u", m_PhysicalDeviceGroupSize);
         ImGui::Text("Frametime: %.2f ms", m_FrameTime.GetSmoothedElapsedTime());
     }
     ImGui::End();
@@ -334,7 +334,7 @@ void Sample::RenderFrame(uint32_t frameIndex)
     NRI.ResetCommandAllocator(commandAllocator);
 
     constexpr uint32_t presentingDeviceIndex = 0;
-    const uint32_t renderingDeviceIndex = m_IsMGPUEnabled ? (frameIndex % m_PhyiscalDeviceGroupSize) : presentingDeviceIndex;
+    const uint32_t renderingDeviceIndex = m_IsMGPUEnabled ? (frameIndex % m_PhysicalDeviceGroupSize) : presentingDeviceIndex;
 
     nri::WorkSubmissionDesc workSubmissionDesc = {};
 
@@ -562,8 +562,8 @@ void Sample::CreatePipeline(nri::Format swapChainFormat)
 void Sample::CreateDescriptorSet()
 {
     nri::DescriptorPoolDesc descriptorPoolDesc = {};
-    descriptorPoolDesc.dynamicConstantBufferMaxNum = m_PhyiscalDeviceGroupSize;
-    descriptorPoolDesc.descriptorSetMaxNum = m_PhyiscalDeviceGroupSize;
+    descriptorPoolDesc.dynamicConstantBufferMaxNum = m_PhysicalDeviceGroupSize;
+    descriptorPoolDesc.descriptorSetMaxNum = m_PhysicalDeviceGroupSize;
     NRI_ABORT_ON_FAILURE(NRI.CreateDescriptorPool(*m_Device, descriptorPoolDesc, m_DescriptorPool));
 
     NRI_ABORT_ON_FAILURE(NRI.AllocateDescriptorSets(*m_DescriptorPool, *m_PipelineLayout, 0, &m_DescriptorSet, 1,

@@ -237,9 +237,9 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
     m_Boxes.resize(std::max(BOX_NUM, m_ThreadNum));
     m_BoxesPerThread = (uint32_t)m_Boxes.size() / m_ThreadNum;
 
-    nri::PhysicalDeviceGroup physicalDeviceGroup = {};
-    if (!helper::FindPhysicalDeviceGroup(physicalDeviceGroup))
-        return false;
+    nri::PhysicalDeviceGroup mostPerformantPhysicalDeviceGroup = {};
+    uint32_t deviceGroupNum = 1;
+    NRI_ABORT_ON_FAILURE(nri::GetPhysicalDevices(&mostPerformantPhysicalDeviceGroup, deviceGroupNum));
 
     // Device
     nri::DeviceCreationDesc deviceCreationDesc = {};
@@ -248,7 +248,7 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
     deviceCreationDesc.enableNRIValidation = m_DebugNRI;
     deviceCreationDesc.D3D11CommandBufferEmulation = D3D11_COMMANDBUFFER_EMULATION;
     deviceCreationDesc.spirvBindingOffsets = SPIRV_BINDING_OFFSETS;
-    deviceCreationDesc.physicalDeviceGroup = &physicalDeviceGroup;
+    deviceCreationDesc.physicalDeviceGroup = &mostPerformantPhysicalDeviceGroup;
     deviceCreationDesc.memoryAllocatorInterface = m_MemoryAllocatorInterface;
     NRI_ABORT_ON_FAILURE( nri::CreateDevice(deviceCreationDesc, m_Device) );
 
