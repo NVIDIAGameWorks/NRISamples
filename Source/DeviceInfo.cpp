@@ -49,7 +49,7 @@ bool EnumeratePhysicalDeviceGroups()
         const nri_PhysicalDeviceGroup* p = groups + i;
 
         printf("\nGroup #%u\n", i + 1);
-        printf("\tDescription: %ls\n", p->description);
+        printf("\tDescription: %s\n", p->description);
         printf("\tLUID: 0x%016llX\n", p->luid);
         printf("\tVideo memory (Mb): %llu\n", p->dedicatedVideoMemory >> 20);
         printf("\tID: 0x%08X\n", p->deviceID);

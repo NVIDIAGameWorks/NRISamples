@@ -64,7 +64,6 @@ struct NRIInterface
 
 struct Frame
 {
-    nri::DeviceSemaphore* deviceSemaphore;
     nri::CommandAllocator* commandAllocator;
     nri::CommandBuffer* commandBuffer;
     nri::Descriptor* constantBufferView;
@@ -92,20 +91,19 @@ private:
     void CreateVulkanDevice();
 
     NRIInterface NRI = {};
-    nri::Device* m_Device = {};
-    nri::SwapChain* m_SwapChain = {};
-    nri::CommandQueue* m_CommandQueue = {};
-    nri::QueueSemaphore* m_AcquireSemaphore = nullptr;
-    nri::QueueSemaphore* m_ReleaseSemaphore = nullptr;
-    nri::DescriptorPool* m_DescriptorPool = {};
-    nri::PipelineLayout* m_PipelineLayout = {};
-    nri::Pipeline* m_Pipeline = {};
-    nri::DescriptorSet* m_TextureDescriptorSet = {};
-    nri::Descriptor* m_TextureShaderResource = {};
-    nri::Descriptor* m_Sampler = {};
-    nri::Buffer* m_ConstantBuffer = {};
-    nri::Buffer* m_GeometryBuffer = {};
-    nri::Texture* m_Texture = {};
+    nri::Device* m_Device = nullptr;
+    nri::SwapChain* m_SwapChain = nullptr;
+    nri::CommandQueue* m_CommandQueue = nullptr;
+    nri::Fence* m_FrameFence = nullptr;
+    nri::DescriptorPool* m_DescriptorPool = nullptr;
+    nri::PipelineLayout* m_PipelineLayout = nullptr;
+    nri::Pipeline* m_Pipeline = nullptr;
+    nri::DescriptorSet* m_TextureDescriptorSet = nullptr;
+    nri::Descriptor* m_TextureShaderResource = nullptr;
+    nri::Descriptor* m_Sampler = nullptr;
+    nri::Buffer* m_ConstantBuffer = nullptr;
+    nri::Buffer* m_GeometryBuffer = nullptr;
+    nri::Texture* m_Texture = nullptr;
 
     std::array<Frame, BUFFERED_FRAME_MAX_NUM> m_Frames = {};
     std::vector<BackBuffer> m_SwapChainBuffers;
@@ -130,7 +128,6 @@ Sample::~Sample()
     {
         NRI.DestroyCommandBuffer(*frame.commandBuffer);
         NRI.DestroyCommandAllocator(*frame.commandAllocator);
-        NRI.DestroyDeviceSemaphore(*frame.deviceSemaphore);
         NRI.DestroyDescriptor(*frame.constantBufferView);
     }
 
@@ -148,8 +145,7 @@ Sample::~Sample()
     NRI.DestroyBuffer(*m_GeometryBuffer);
     NRI.DestroyTexture(*m_Texture);
     NRI.DestroyDescriptorPool(*m_DescriptorPool);
-    NRI.DestroyQueueSemaphore(*m_AcquireSemaphore);
-    NRI.DestroyQueueSemaphore(*m_ReleaseSemaphore);
+    NRI.DestroyFence(*m_FrameFence);
     NRI.DestroySwapChain(*m_SwapChain);
 
     for (nri::Memory* memory : m_MemoryAllocations)
@@ -159,7 +155,7 @@ Sample::~Sample()
 
     nri::DestroyDevice(*m_Device);
 
-    if (m_VulkanLoader != nullptr)
+    if (m_VulkanLoader)
     {
         auto vkGetInstanceProcAddr = (PFN_vkGetInstanceProcAddr)GetSharedLibraryFunction(*m_VulkanLoader, "vkGetInstanceProcAddr");
         auto vkDestroyInstance = (PFN_vkDestroyInstance)vkGetInstanceProcAddr(m_VKInstance, "vkDestroyInstance");
@@ -170,10 +166,10 @@ Sample::~Sample()
         UnloadSharedLibrary(*m_VulkanLoader);
     }
 
-    if (m_D3D11Device != nullptr)
+    if (m_D3D11Device)
         m_D3D11Device->Release();
 
-    if (m_D3D12Device != nullptr)
+    if (m_D3D12Device)
         m_D3D12Device->Release();
 }
 
@@ -216,16 +212,14 @@ void Sample::CreateVulkanDevice()
 
     VkApplicationInfo applicationInfo = {};
     applicationInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
-    applicationInfo.apiVersion = VK_API_VERSION_1_2;
+    applicationInfo.apiVersion = VK_API_VERSION_1_3;
 
 #if defined(_WIN32)
     const char* instanceExtensions[] = { VK_KHR_WIN32_SURFACE_EXTENSION_NAME, VK_KHR_SURFACE_EXTENSION_NAME };
 #else
     const char* instanceExtensions[] = { VK_KHR_XLIB_SURFACE_EXTENSION_NAME };
 #endif
-
     const char* deviceExtensions[] = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
-
     const char* layers[] = { "VK_LAYER_KHRONOS_validation" };
 
     VkInstanceCreateInfo instanceCreateInfo = {};
@@ -240,8 +234,8 @@ void Sample::CreateVulkanDevice()
     NRI_ABORT_ON_FALSE(result == VK_SUCCESS);
 
     auto vkEnumeratePhysicalDevices = (PFN_vkEnumeratePhysicalDevices)vkGetInstanceProcAddr(m_VKInstance, "vkEnumeratePhysicalDevices");
-    auto vkGetPhysicalDeviceFeatures = (PFN_vkGetPhysicalDeviceFeatures)vkGetInstanceProcAddr(m_VKInstance, "vkGetPhysicalDeviceFeatures");
     auto vkCreateDevice = (PFN_vkCreateDevice)vkGetInstanceProcAddr(m_VKInstance, "vkCreateDevice");
+    auto vkGetPhysicalDeviceFeatures2 = (PFN_vkGetPhysicalDeviceFeatures2)vkGetInstanceProcAddr(m_VKInstance, "vkGetPhysicalDeviceFeatures2");
 
     uint32_t physicalDeviceNum = 0;
     vkEnumeratePhysicalDevices(m_VKInstance, &physicalDeviceNum, nullptr);
@@ -253,14 +247,20 @@ void Sample::CreateVulkanDevice()
 
     VkPhysicalDevice physicalDevice = physicalDevices[0];
 
-    VkPhysicalDeviceFeatures supportedFeatures = {};
-    vkGetPhysicalDeviceFeatures(physicalDevice, &supportedFeatures);
-
-    VkPhysicalDeviceFeatures enabledFeatures = supportedFeatures;
-
     uint32_t queueFamilyIndices[1] = {};
 
     const float priority = 1.0f;
+
+    VkPhysicalDeviceVulkan11Features featuresVulkan11 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES };
+    VkPhysicalDeviceVulkan12Features featuresVulkan12 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES };
+    VkPhysicalDeviceVulkan13Features featuresVulkan13 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES };
+
+    VkPhysicalDeviceFeatures2 deviceFeatures2 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2 };
+    deviceFeatures2.pNext = &featuresVulkan11;
+    featuresVulkan11.pNext = &featuresVulkan12;
+    featuresVulkan12.pNext = &featuresVulkan13;
+
+    vkGetPhysicalDeviceFeatures2(physicalDevice, &deviceFeatures2);
 
     VkDeviceQueueCreateInfo queueCreateInfo = {};
     queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
@@ -270,7 +270,7 @@ void Sample::CreateVulkanDevice()
 
     VkDeviceCreateInfo deviceCreateInfo = {};
     deviceCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-    deviceCreateInfo.pEnabledFeatures = &enabledFeatures;
+    deviceCreateInfo.pNext = &deviceFeatures2;
     deviceCreateInfo.pQueueCreateInfos = &queueCreateInfo;
     deviceCreateInfo.queueCreateInfoCount = 1;
     deviceCreateInfo.enabledExtensionCount = helper::GetCountOf(deviceExtensions);
@@ -317,6 +317,9 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
     // Command queue
     NRI_ABORT_ON_FAILURE(NRI.GetCommandQueue(*m_Device, nri::CommandQueueType::GRAPHICS, m_CommandQueue));
 
+    // Fences
+    NRI_ABORT_ON_FAILURE(NRI.CreateFence(*m_Device, 0, m_FrameFence));
+
     // Swap chain
     nri::Format swapChainFormat;
     {
@@ -357,13 +360,9 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
         }
     }
 
-    NRI_ABORT_ON_FAILURE(NRI.CreateQueueSemaphore(*m_Device, m_AcquireSemaphore));
-    NRI_ABORT_ON_FAILURE(NRI.CreateQueueSemaphore(*m_Device, m_ReleaseSemaphore));
-
     // Buffered resources
     for (Frame& frame : m_Frames)
     {
-        NRI_ABORT_ON_FAILURE(NRI.CreateDeviceSemaphore(*m_Device, true, frame.deviceSemaphore));
         NRI_ABORT_ON_FAILURE(NRI.CreateCommandAllocator(*m_CommandQueue, nri::WHOLE_DEVICE_GROUP, frame.commandAllocator));
         NRI_ABORT_ON_FAILURE(NRI.CreateCommandBuffer(*frame.commandAllocator, frame.commandBuffer));
     }
@@ -627,11 +626,11 @@ void Sample::RenderFrame(uint32_t frameIndex)
     const uint32_t bufferedFrameIndex = frameIndex % BUFFERED_FRAME_MAX_NUM;
     const Frame& frame = m_Frames[bufferedFrameIndex];
 
-    const uint32_t currentTextureIndex = NRI.AcquireNextSwapChainTexture(*m_SwapChain, *m_AcquireSemaphore);
-    BackBuffer& currentBackBuffer = m_SwapChainBuffers[currentTextureIndex];
-
-    NRI.WaitForSemaphore(*m_CommandQueue, *frame.deviceSemaphore);
-    NRI.ResetCommandAllocator(*frame.commandAllocator);
+    if (frameIndex >= BUFFERED_FRAME_MAX_NUM)
+    {
+        NRI.Wait(*m_FrameFence, 1 + frameIndex - BUFFERED_FRAME_MAX_NUM);
+        NRI.ResetCommandAllocator(*frame.commandAllocator);
+    }
 
     ConstantBufferLayout* commonConstants = (ConstantBufferLayout*)NRI.MapBuffer(*m_ConstantBuffer, frame.constantBufferViewOffset, sizeof(ConstantBufferLayout));
     if (commonConstants)
@@ -643,6 +642,9 @@ void Sample::RenderFrame(uint32_t frameIndex)
 
         NRI.UnmapBuffer(*m_ConstantBuffer);
     }
+
+    const uint32_t currentTextureIndex = NRI.AcquireNextSwapChainTexture(*m_SwapChain);
+    BackBuffer& currentBackBuffer = m_SwapChainBuffers[currentTextureIndex];
 
     nri::TextureTransitionBarrierDesc textureTransitionBarrierDesc = {};
     textureTransitionBarrierDesc.texture = currentBackBuffer.texture;
@@ -716,16 +718,14 @@ void Sample::RenderFrame(uint32_t frameIndex)
     }
     NRI.EndCommandBuffer(*commandBuffer);
 
-    nri::WorkSubmissionDesc workSubmissionDesc = {};
-    workSubmissionDesc.commandBufferNum = 1;
-    workSubmissionDesc.commandBuffers = &commandBuffer;
-    workSubmissionDesc.wait = &m_AcquireSemaphore;
-    workSubmissionDesc.waitNum = 1;
-    workSubmissionDesc.signal = &m_ReleaseSemaphore;
-    workSubmissionDesc.signalNum = 1;
-    NRI.SubmitQueueWork(*m_CommandQueue, workSubmissionDesc, frame.deviceSemaphore);
+    nri::QueueSubmitDesc queueSubmitDesc = {};
+    queueSubmitDesc.commandBuffers = &frame.commandBuffer;
+    queueSubmitDesc.commandBufferNum = 1;
+    NRI.QueueSubmit(*m_CommandQueue, queueSubmitDesc);
 
-    NRI.SwapChainPresent(*m_SwapChain, *m_ReleaseSemaphore);
+    NRI.SwapChainPresent(*m_SwapChain);
+
+    NRI.QueueSignal(*m_CommandQueue, *m_FrameFence, 1 + frameIndex);
 }
 
 #if defined(_WIN32)

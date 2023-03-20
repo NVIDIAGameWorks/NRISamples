@@ -20,7 +20,6 @@ struct NRIInterface
 
 struct Frame
 {
-    nri::DeviceSemaphore* deviceSemaphore;
     nri::CommandAllocator* commandAllocator;
     nri::CommandBuffer* commandBuffer;
 };
@@ -44,8 +43,7 @@ private:
     nri::Device* m_Device = nullptr;
     nri::SwapChain* m_SwapChain = nullptr;
     nri::CommandQueue* m_CommandQueue = nullptr;
-    nri::QueueSemaphore* m_AcquireSemaphore = nullptr;
-    nri::QueueSemaphore* m_ReleaseSemaphore = nullptr;
+    nri::Fence* m_FrameFence = nullptr;
 
     std::array<Frame, BUFFERED_FRAME_MAX_NUM> m_Frames = {};
     std::vector<BackBuffer> m_SwapChainBuffers;
@@ -59,7 +57,6 @@ Sample::~Sample()
     {
         NRI.DestroyCommandBuffer(*frame.commandBuffer);
         NRI.DestroyCommandAllocator(*frame.commandAllocator);
-        NRI.DestroyDeviceSemaphore(*frame.deviceSemaphore);
     }
 
     for (BackBuffer& backBuffer : m_SwapChainBuffers)
@@ -68,8 +65,7 @@ Sample::~Sample()
         NRI.DestroyDescriptor(*backBuffer.colorAttachment);
     }
 
-    NRI.DestroyQueueSemaphore(*m_AcquireSemaphore);
-    NRI.DestroyQueueSemaphore(*m_ReleaseSemaphore);
+    NRI.DestroyFence(*m_FrameFence);
     NRI.DestroySwapChain(*m_SwapChain);
 
     nri::DestroyDevice(*m_Device);
@@ -99,6 +95,9 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
 
     // Command queue
     NRI_ABORT_ON_FAILURE( NRI.GetCommandQueue(*m_Device, nri::CommandQueueType::GRAPHICS, m_CommandQueue) );
+
+    // Fences
+    NRI_ABORT_ON_FAILURE( NRI.CreateFence(*m_Device, 0, m_FrameFence) );
 
     // Swap chain
     nri::Format swapChainFormat;
@@ -135,13 +134,9 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
         }
     }
 
-    NRI_ABORT_ON_FAILURE( NRI.CreateQueueSemaphore(*m_Device, m_AcquireSemaphore) );
-    NRI_ABORT_ON_FAILURE( NRI.CreateQueueSemaphore(*m_Device, m_ReleaseSemaphore) );
-
     // Buffered resources
     for (Frame& frame : m_Frames)
     {
-        NRI_ABORT_ON_FAILURE( NRI.CreateDeviceSemaphore(*m_Device, true, frame.deviceSemaphore) );
         NRI_ABORT_ON_FAILURE( NRI.CreateCommandAllocator(*m_CommandQueue, nri::WHOLE_DEVICE_GROUP, frame.commandAllocator) );
         NRI_ABORT_ON_FAILURE( NRI.CreateCommandBuffer(*frame.commandAllocator, frame.commandBuffer) );
     }
@@ -156,11 +151,14 @@ void Sample::RenderFrame(uint32_t frameIndex)
     const uint32_t bufferedFrameIndex = frameIndex % BUFFERED_FRAME_MAX_NUM;
     const Frame& frame = m_Frames[bufferedFrameIndex];
 
-    const uint32_t backBufferIndex = NRI.AcquireNextSwapChainTexture(*m_SwapChain, *m_AcquireSemaphore);
-    const BackBuffer& backBuffer = m_SwapChainBuffers[backBufferIndex];
+    if (frameIndex >= BUFFERED_FRAME_MAX_NUM)
+    {
+        NRI.Wait(*m_FrameFence, 1 + frameIndex - BUFFERED_FRAME_MAX_NUM);
+        NRI.ResetCommandAllocator(*frame.commandAllocator);
+    }
 
-    NRI.WaitForSemaphore(*m_CommandQueue, *frame.deviceSemaphore);
-    NRI.ResetCommandAllocator(*frame.commandAllocator);
+    const uint32_t backBufferIndex = NRI.AcquireNextSwapChainTexture(*m_SwapChain);
+    const BackBuffer& backBuffer = m_SwapChainBuffers[backBufferIndex];
 
     nri::CommandBuffer& commandBuffer = *frame.commandBuffer;
     NRI.BeginCommandBuffer(commandBuffer, nullptr, 0);
@@ -209,18 +207,14 @@ void Sample::RenderFrame(uint32_t frameIndex)
     }
     NRI.EndCommandBuffer(commandBuffer);
 
-    const nri::CommandBuffer* commandBufferArray[] = { &commandBuffer };
+    nri::QueueSubmitDesc queueSubmitDesc = {};
+    queueSubmitDesc.commandBuffers = &frame.commandBuffer;
+    queueSubmitDesc.commandBufferNum = 1;
+    NRI.QueueSubmit(*m_CommandQueue, queueSubmitDesc);
 
-    nri::WorkSubmissionDesc workSubmissionDesc = {};
-    workSubmissionDesc.commandBufferNum = helper::GetCountOf(commandBufferArray);
-    workSubmissionDesc.commandBuffers = commandBufferArray;
-    workSubmissionDesc.wait = &m_AcquireSemaphore;
-    workSubmissionDesc.waitNum = 1;
-    workSubmissionDesc.signal = &m_ReleaseSemaphore;
-    workSubmissionDesc.signalNum = 1;
+    NRI.SwapChainPresent(*m_SwapChain);
 
-    NRI.SubmitQueueWork(*m_CommandQueue, workSubmissionDesc, frame.deviceSemaphore);
-    NRI.SwapChainPresent(*m_SwapChain, *m_ReleaseSemaphore);
+    NRI.QueueSignal(*m_CommandQueue, *m_FrameFence, 1 + frameIndex);
 }
 
 SAMPLE_MAIN(Sample, 0);

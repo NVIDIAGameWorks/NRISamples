@@ -23,27 +23,25 @@ struct Box
 void SetBoxGeometry(uint32_t subdivisions, float boxHalfSize, Box& box);
 
 constexpr uint32_t BOX_NUM = 1000;
+constexpr uint32_t COMMAND_BUFFER_NUM = 2;
 
 struct NRIInterface
     : public nri::CoreInterface
     , public nri::SwapChainInterface
     , public nri::HelperInterface
-{
-};
+{};
 
 struct Frame
 {
-    nri::DeviceSemaphore* deviceSemaphore;
     nri::CommandAllocator* commandAllocator;
-    std::vector<nri::CommandBuffer*> commandBuffers;
+    std::array<nri::CommandBuffer*, COMMAND_BUFFER_NUM> commandBuffers;
 };
 
 class Sample : public SampleBase
 {
 public:
     Sample()
-    {
-    }
+    {}
 
     ~Sample();
 
@@ -62,29 +60,17 @@ private:
     void RecordGraphics(nri::CommandBuffer& commandBuffer, uint32_t physicalDeviceIndex);
     void CopyToSwapChainTexture(nri::CommandBuffer& commandBuffer, uint32_t renderingDeviceIndex, uint32_t presentingDeviceIndex);
 
-    NRIInterface NRI = { };
+    NRIInterface NRI = {};
     nri::Device* m_Device = nullptr;
     nri::SwapChain* m_SwapChain = nullptr;
     nri::CommandQueue* m_CommandQueue = nullptr;
-    nri::QueueSemaphore* m_BackBufferAcquireSemaphore = nullptr;
-    nri::QueueSemaphore* m_BackBufferReleaseSemaphore = nullptr;
-
-    std::array<Frame, BUFFERED_FRAME_MAX_NUM> m_Frames = {};
-    std::vector<nri::QueueSemaphore*> m_QueueSemaphores;
-
+    nri::Fence* m_FrameFence = nullptr;
     nri::DescriptorSet* m_DescriptorSet = nullptr;
     nri::Descriptor* m_TransformBufferView = nullptr;
     nri::Descriptor* m_ColorTextureView = nullptr;
     nri::Descriptor* m_DepthTextureView = nullptr;
     nri::FrameBuffer* m_FrameBuffer = nullptr;
     nri::FrameBuffer* m_FrameBufferUI = nullptr;
-
-    uint32_t m_PhysicalDeviceGroupSize = 0;
-    uint32_t m_BoxIndexNum = 0;
-    bool m_IsMGPUEnabled = true;
-
-    Timer m_FrameTime;
-
     nri::Pipeline* m_Pipeline = nullptr;
     nri::PipelineLayout* m_PipelineLayout = nullptr;
     nri::Buffer* m_VertexBuffer = nullptr;
@@ -93,8 +79,14 @@ private:
     nri::Texture* m_DepthTexture = nullptr;
     nri::Texture* m_ColorTexture = nullptr;
     nri::DescriptorPool* m_DescriptorPool = nullptr;
-
     nri::Format m_DepthFormat = nri::Format::UNKNOWN;
+
+    std::array<Frame, BUFFERED_FRAME_MAX_NUM> m_Frames = {};
+    std::vector<nri::Fence*> m_QueueFences;
+
+    uint32_t m_PhysicalDeviceGroupSize = 0;
+    uint32_t m_BoxIndexNum = 0;
+    bool m_IsMGPUEnabled = true;
 
     const BackBuffer* m_BackBuffer = nullptr;
     std::vector<BackBuffer> m_SwapChainBuffers;
@@ -105,14 +97,10 @@ Sample::~Sample()
 {
     NRI.WaitForIdle(*m_CommandQueue);
 
-    for (uint32_t i = 0; i < m_Frames.size(); i++)
+    for (Frame& frame : m_Frames)
     {
-        Frame& frame = m_Frames[i];
-
-        NRI.DestroyDeviceSemaphore(*frame.deviceSemaphore);
-
-        for (uint32_t j = 0; j < frame.commandBuffers.size(); j++)
-            NRI.DestroyCommandBuffer(*frame.commandBuffers[j]);
+        for (nri::CommandBuffer* commandBuffer : frame.commandBuffers)
+            NRI.DestroyCommandBuffer(*commandBuffer);
 
         NRI.DestroyCommandAllocator(*frame.commandAllocator);
     }
@@ -123,8 +111,8 @@ Sample::~Sample()
     NRI.DestroyDescriptor(*m_DepthTextureView);
     NRI.DestroyDescriptor(*m_TransformBufferView);
 
-    for (uint32_t i = 0; i < m_QueueSemaphores.size(); i++)
-        NRI.DestroyQueueSemaphore(*m_QueueSemaphores[i]);
+    for (nri::Fence* fence : m_QueueFences)
+        NRI.DestroyFence(*fence);
 
     NRI.DestroyTexture(*m_ColorTexture);
     NRI.DestroyTexture(*m_DepthTexture);
@@ -135,10 +123,9 @@ Sample::~Sample()
     NRI.DestroyPipeline(*m_Pipeline);
     NRI.DestroyPipelineLayout(*m_PipelineLayout);
 
-    NRI.DestroyQueueSemaphore(*m_BackBufferAcquireSemaphore);
-    NRI.DestroyQueueSemaphore(*m_BackBufferReleaseSemaphore);
     NRI.DestroyDescriptorPool(*m_DescriptorPool);
 
+    NRI.DestroyFence(*m_FrameFence);
     NRI.DestroySwapChain(*m_SwapChain);
 
     for (size_t i = 0; i < m_MemoryAllocations.size(); i++)
@@ -176,16 +163,14 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
     NRI_ABORT_ON_FAILURE(nri::GetInterface(*m_Device, NRI_INTERFACE(nri::HelperInterface), (nri::HelperInterface*)&NRI));
 
     NRI_ABORT_ON_FAILURE(NRI.GetCommandQueue(*m_Device, nri::CommandQueueType::GRAPHICS, m_CommandQueue));
-    NRI_ABORT_ON_FAILURE(NRI.CreateQueueSemaphore(*m_Device, m_BackBufferAcquireSemaphore));
-    NRI_ABORT_ON_FAILURE(NRI.CreateQueueSemaphore(*m_Device, m_BackBufferReleaseSemaphore));
+    NRI_ABORT_ON_FAILURE(NRI.CreateFence(*m_Device, 0, m_FrameFence));
 
     m_DepthFormat = nri::GetSupportedDepthFormat(NRI, *m_Device, 24, false);
-
     m_PhysicalDeviceGroupSize = NRI.GetDeviceDesc(*m_Device).physicalDeviceNum;
 
-    m_QueueSemaphores.resize(m_PhysicalDeviceGroupSize);
-    for (size_t i = 0; i < m_QueueSemaphores.size(); i++)
-        NRI_ABORT_ON_FAILURE(NRI.CreateQueueSemaphore(*m_Device, m_QueueSemaphores[i]));
+    m_QueueFences.resize(m_PhysicalDeviceGroupSize);
+    for (size_t i = 0; i < m_QueueFences.size(); i++)
+        NRI_ABORT_ON_FAILURE(NRI.CreateFence(*m_Device, 0, m_QueueFences[i]));
 
     CreateCommandBuffers();
 
@@ -217,11 +202,8 @@ void Sample::PrepareFrame(uint32_t)
             m_IsMGPUEnabled = false;
         }
 
-        m_FrameTime.UpdateElapsedTimeSinceLastSave();
-        m_FrameTime.SaveCurrentTime();
-
         ImGui::Text("Physical device group size: %u", m_PhysicalDeviceGroupSize);
-        ImGui::Text("Frametime: %.2f ms", m_FrameTime.GetSmoothedElapsedTime());
+        ImGui::Text("Frametime: %.2f ms", m_Timer.GetSmoothedFrameTime());
     }
     ImGui::End();
 }
@@ -327,46 +309,42 @@ void Sample::RenderFrame(uint32_t frameIndex)
 {
     const Frame& frame = m_Frames[frameIndex % BUFFERED_FRAME_MAX_NUM];
 
-    nri::DeviceSemaphore& deviceSemaphore = *frame.deviceSemaphore;
-    NRI.WaitForSemaphore(*m_CommandQueue, deviceSemaphore);
-
-    nri::CommandAllocator& commandAllocator = *frame.commandAllocator;
-    NRI.ResetCommandAllocator(commandAllocator);
+    if (frameIndex >= BUFFERED_FRAME_MAX_NUM)
+    {
+        NRI.Wait(*m_FrameFence, 1 + frameIndex - BUFFERED_FRAME_MAX_NUM);
+        NRI.ResetCommandAllocator(*frame.commandAllocator);
+    }
 
     constexpr uint32_t presentingDeviceIndex = 0;
     const uint32_t renderingDeviceIndex = m_IsMGPUEnabled ? (frameIndex % m_PhysicalDeviceGroupSize) : presentingDeviceIndex;
 
-    nri::WorkSubmissionDesc workSubmissionDesc = {};
-
     nri::CommandBuffer* graphics = frame.commandBuffers[0];
     RecordGraphics(*graphics, renderingDeviceIndex);
 
-    workSubmissionDesc.commandBuffers = &graphics;
-    workSubmissionDesc.commandBufferNum = 1;
-    workSubmissionDesc.signal = &m_QueueSemaphores[renderingDeviceIndex];
-    workSubmissionDesc.signalNum = 1;
-    workSubmissionDesc.physicalDeviceIndex = renderingDeviceIndex;
+    nri::QueueSubmitDesc queueSubmitDesc = {};
+    queueSubmitDesc.commandBuffers = &graphics;
+    queueSubmitDesc.commandBufferNum = 1;
+    queueSubmitDesc.physicalDeviceIndex = renderingDeviceIndex;
+    NRI.QueueSubmit(*m_CommandQueue, queueSubmitDesc);
 
-    NRI.SubmitQueueWork(*m_CommandQueue, workSubmissionDesc, nullptr);
+    NRI.QueueSignal(*m_CommandQueue, *m_QueueFences[renderingDeviceIndex], 1 + frameIndex);
 
-    const uint32_t backBufferIndex = NRI.AcquireNextSwapChainTexture(*m_SwapChain, *m_BackBufferAcquireSemaphore);
+    const uint32_t backBufferIndex = NRI.AcquireNextSwapChainTexture(*m_SwapChain);
     m_BackBuffer = &m_SwapChainBuffers[backBufferIndex];
 
     nri::CommandBuffer* presenting = frame.commandBuffers[1];
     CopyToSwapChainTexture(*presenting, renderingDeviceIndex, presentingDeviceIndex);
 
-    nri::QueueSemaphore* waitSemaphores[] = { m_BackBufferAcquireSemaphore, m_QueueSemaphores[renderingDeviceIndex] };
+    NRI.QueueWait(*m_CommandQueue, *m_QueueFences[renderingDeviceIndex], 1 + frameIndex);
 
-    workSubmissionDesc.commandBuffers = &presenting;
-    workSubmissionDesc.commandBufferNum = 1;
-    workSubmissionDesc.wait = waitSemaphores;
-    workSubmissionDesc.waitNum = helper::GetCountOf(waitSemaphores);
-    workSubmissionDesc.signal = &m_BackBufferReleaseSemaphore;
-    workSubmissionDesc.signalNum = 1;
-    workSubmissionDesc.physicalDeviceIndex = presentingDeviceIndex;
+    queueSubmitDesc.commandBuffers = &presenting;
+    queueSubmitDesc.commandBufferNum = 1;
+    queueSubmitDesc.physicalDeviceIndex = presentingDeviceIndex;
+    NRI.QueueSubmit(*m_CommandQueue, queueSubmitDesc);
 
-    NRI.SubmitQueueWork(*m_CommandQueue, workSubmissionDesc, &deviceSemaphore);
-    NRI.SwapChainPresent(*m_SwapChain, *m_BackBufferReleaseSemaphore);
+    NRI.SwapChainPresent(*m_SwapChain);
+
+    NRI.QueueSignal(*m_CommandQueue, *m_FrameFence, 1 + frameIndex);
 }
 
 void Sample::CreateMainFrameBuffer(nri::Format swapChainFormat)
@@ -464,15 +442,12 @@ void Sample::CreateSwapChain(nri::Format& swapChainFormat)
 
 void Sample::CreateCommandBuffers()
 {
-    for (uint32_t i = 0; i < m_Frames.size(); i++)
+    for (Frame& frame : m_Frames)
     {
-        Frame& frame = m_Frames[i];
-        NRI_ABORT_ON_FAILURE(NRI.CreateDeviceSemaphore(*m_Device, true, frame.deviceSemaphore));
         NRI_ABORT_ON_FAILURE(NRI.CreateCommandAllocator(*m_CommandQueue, nri::WHOLE_DEVICE_GROUP, frame.commandAllocator));
 
-        frame.commandBuffers.resize(2);
-        for (uint32_t k = 0; k < frame.commandBuffers.size(); k++)
-            NRI_ABORT_ON_FAILURE(NRI.CreateCommandBuffer(*frame.commandAllocator, frame.commandBuffers[k]));
+        for (uint32_t i = 0; i < frame.commandBuffers.size(); i++)
+            NRI_ABORT_ON_FAILURE(NRI.CreateCommandBuffer(*frame.commandAllocator, frame.commandBuffers[i]));
     }
 }
 

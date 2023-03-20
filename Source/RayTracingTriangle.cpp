@@ -24,7 +24,6 @@ struct NRIInterface
 
 struct Frame
 {
-    nri::DeviceSemaphore* deviceSemaphore;
     nri::CommandAllocator* commandAllocator;
     nri::CommandBuffer* commandBuffer;
 };
@@ -34,8 +33,7 @@ class Sample : public SampleBase
 public:
 
     Sample()
-    {
-    }
+    {}
 
     ~Sample();
 
@@ -61,8 +59,7 @@ private:
     nri::Device* m_Device = nullptr;
     nri::SwapChain* m_SwapChain = nullptr;
     nri::CommandQueue* m_CommandQueue = nullptr;
-    nri::QueueSemaphore* m_BackBufferAcquireSemaphore = nullptr;
-    nri::QueueSemaphore* m_BackBufferReleaseSemaphore = nullptr;
+    nri::Fence* m_FrameFence = nullptr;
 
     std::array<Frame, BUFFERED_FRAME_MAX_NUM> m_Frames = {};
 
@@ -98,7 +95,6 @@ Sample::~Sample()
 
     for (uint32_t i = 0; i < m_Frames.size(); i++)
     {
-        NRI.DestroyDeviceSemaphore(*m_Frames[i].deviceSemaphore);
         NRI.DestroyCommandBuffer(*m_Frames[i].commandBuffer);
         NRI.DestroyCommandAllocator(*m_Frames[i].commandAllocator);
     }
@@ -122,8 +118,7 @@ Sample::~Sample()
     NRI.DestroyPipeline(*m_Pipeline);
     NRI.DestroyPipelineLayout(*m_PipelineLayout);
 
-    NRI.DestroyQueueSemaphore(*m_BackBufferAcquireSemaphore);
-    NRI.DestroyQueueSemaphore(*m_BackBufferReleaseSemaphore);
+    NRI.DestroyFence(*m_FrameFence);
 
     NRI.DestroySwapChain(*m_SwapChain);
 
@@ -160,8 +155,7 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
     NRI_ABORT_ON_FAILURE( nri::GetInterface(*m_Device, NRI_INTERFACE(nri::HelperInterface), (nri::HelperInterface*)&NRI) );
 
     NRI_ABORT_ON_FAILURE( NRI.GetCommandQueue(*m_Device, nri::CommandQueueType::GRAPHICS, m_CommandQueue));
-    NRI_ABORT_ON_FAILURE( NRI.CreateQueueSemaphore(*m_Device, m_BackBufferAcquireSemaphore));
-    NRI_ABORT_ON_FAILURE( NRI.CreateQueueSemaphore(*m_Device, m_BackBufferReleaseSemaphore));
+    NRI_ABORT_ON_FAILURE( NRI.CreateFence(*m_Device, 0, m_FrameFence));
 
     CreateCommandBuffers();
 
@@ -187,18 +181,19 @@ void Sample::RenderFrame(uint32_t frameIndex)
 {
     static nri::AccessBits rayTracingOutputAccessMask = nri::AccessBits::UNKNOWN;
 
-    frameIndex = frameIndex % BUFFERED_FRAME_MAX_NUM;
+    const uint32_t bufferedFrameIndex = frameIndex % BUFFERED_FRAME_MAX_NUM;
+    const Frame& frame = m_Frames[bufferedFrameIndex];
 
-    const uint32_t backBufferIndex = NRI.AcquireNextSwapChainTexture(*m_SwapChain, *m_BackBufferAcquireSemaphore);
+    if (frameIndex >= BUFFERED_FRAME_MAX_NUM)
+    {
+        NRI.Wait(*m_FrameFence, 1 + frameIndex - BUFFERED_FRAME_MAX_NUM);
+        NRI.ResetCommandAllocator(*frame.commandAllocator);
+    }
+
+    const uint32_t backBufferIndex = NRI.AcquireNextSwapChainTexture(*m_SwapChain);
     m_BackBuffer = &m_SwapChainBuffers[backBufferIndex];
 
-    nri::DeviceSemaphore& deviceSemaphore = *m_Frames[frameIndex].deviceSemaphore;
-    NRI.WaitForSemaphore(*m_CommandQueue, deviceSemaphore);
-
-    nri::CommandAllocator& commandAllocator = *m_Frames[frameIndex].commandAllocator;
-    NRI.ResetCommandAllocator(commandAllocator);
-
-    nri::CommandBuffer& commandBuffer = *m_Frames[frameIndex].commandBuffer;
+    nri::CommandBuffer& commandBuffer = *frame.commandBuffer;
     NRI.BeginCommandBuffer(commandBuffer, m_DescriptorPool, 0);
 
     nri::TextureTransitionBarrierDesc textureTransitions[2] = {};
@@ -276,18 +271,14 @@ void Sample::RenderFrame(uint32_t frameIndex)
 
     NRI.EndCommandBuffer(commandBuffer);
 
-    const nri::CommandBuffer* commandBufferArray[] = { &commandBuffer };
+    nri::QueueSubmitDesc queueSubmitDesc = {};
+    queueSubmitDesc.commandBuffers = &frame.commandBuffer;
+    queueSubmitDesc.commandBufferNum = 1;
+    NRI.QueueSubmit(*m_CommandQueue, queueSubmitDesc);
 
-    nri::WorkSubmissionDesc workSubmissionDesc = {};
-    workSubmissionDesc.commandBuffers = commandBufferArray;
-    workSubmissionDesc.commandBufferNum = 1;
-    workSubmissionDesc.signal = &m_BackBufferReleaseSemaphore;
-    workSubmissionDesc.signalNum = 1;
-    workSubmissionDesc.wait = &m_BackBufferAcquireSemaphore;
-    workSubmissionDesc.waitNum = 1;
+    NRI.SwapChainPresent(*m_SwapChain);
 
-    NRI.SubmitQueueWork(*m_CommandQueue, workSubmissionDesc, &deviceSemaphore);
-    NRI.SwapChainPresent(*m_SwapChain, *m_BackBufferReleaseSemaphore);
+    NRI.QueueSignal(*m_CommandQueue, *m_FrameFence, 1 + frameIndex);
 }
 
 void Sample::CreateSwapChain(nri::Format& swapChainFormat)
@@ -330,10 +321,8 @@ void Sample::CreateSwapChain(nri::Format& swapChainFormat)
 
 void Sample::CreateCommandBuffers()
 {
-    for (uint32_t i = 0; i < m_Frames.size(); i++)
+    for (Frame& frame : m_Frames)
     {
-        Frame& frame = m_Frames[i];
-        NRI_ABORT_ON_FAILURE(NRI.CreateDeviceSemaphore(*m_Device, true, frame.deviceSemaphore));
         NRI_ABORT_ON_FAILURE(NRI.CreateCommandAllocator(*m_CommandQueue, nri::WHOLE_DEVICE_GROUP, frame.commandAllocator));
         NRI_ABORT_ON_FAILURE(NRI.CreateCommandBuffer(*frame.commandAllocator, frame.commandBuffer));
     }
@@ -567,14 +556,14 @@ void Sample::BuildBottomLevelAccelerationStructure(nri::AccelerationStructure& a
     NRI.CreateCommandAllocator(*m_CommandQueue, nri::WHOLE_DEVICE_GROUP, commandAllocator);
     NRI.CreateCommandBuffer(*commandAllocator, commandBuffer);
 
-    nri::WorkSubmissionDesc workSubmissionDesc = {};
-    workSubmissionDesc.commandBuffers = &commandBuffer;
-    workSubmissionDesc.commandBufferNum = 1;
+    nri::QueueSubmitDesc queueSubmitDesc = {};
+    queueSubmitDesc.commandBuffers = &commandBuffer;
+    queueSubmitDesc.commandBufferNum = 1;
 
     NRI.BeginCommandBuffer(*commandBuffer, nullptr, 0);
     NRI.CmdBuildBottomLevelAccelerationStructure(*commandBuffer, objectNum, objects, BUILD_FLAGS, accelerationStructure, *scratchBuffer, 0);
     NRI.EndCommandBuffer(*commandBuffer);
-    NRI.SubmitQueueWork(*m_CommandQueue, workSubmissionDesc, nullptr);
+    NRI.QueueSubmit(*m_CommandQueue, queueSubmitDesc);
     NRI.WaitForIdle(*m_CommandQueue);
 
     NRI.DestroyCommandBuffer(*commandBuffer);
@@ -595,14 +584,14 @@ void Sample::BuildTopLevelAccelerationStructure(nri::AccelerationStructure& acce
     NRI.CreateCommandAllocator(*m_CommandQueue, nri::WHOLE_DEVICE_GROUP, commandAllocator);
     NRI.CreateCommandBuffer(*commandAllocator, commandBuffer);
 
-    nri::WorkSubmissionDesc workSubmissionDesc = {};
-    workSubmissionDesc.commandBuffers = &commandBuffer;
-    workSubmissionDesc.commandBufferNum = 1;
+    nri::QueueSubmitDesc queueSubmitDesc = {};
+    queueSubmitDesc.commandBuffers = &commandBuffer;
+    queueSubmitDesc.commandBufferNum = 1;
 
     NRI.BeginCommandBuffer(*commandBuffer, nullptr, 0);
     NRI.CmdBuildTopLevelAccelerationStructure(*commandBuffer, instanceNum, instanceBuffer, 0, BUILD_FLAGS, accelerationStructure, *scratchBuffer, 0);
     NRI.EndCommandBuffer(*commandBuffer);
-    NRI.SubmitQueueWork(*m_CommandQueue, workSubmissionDesc, nullptr);
+    NRI.QueueSubmit(*m_CommandQueue, queueSubmitDesc);
     NRI.WaitForIdle(*m_CommandQueue);
 
     NRI.DestroyCommandBuffer(*commandBuffer);
@@ -623,7 +612,7 @@ void Sample::CreateShaderTable()
     m_HitShaderGroupOffset = helper::Align(m_MissShaderOffset + identifierSize, tableAlignment);
     const uint64_t shaderTableSize = helper::Align(m_HitShaderGroupOffset + identifierSize, tableAlignment);
 
-    const nri::BufferDesc bufferDesc = { shaderTableSize, 0, (nri::BufferUsageBits)0 };
+    const nri::BufferDesc bufferDesc = { shaderTableSize, 0, nri::BufferUsageBits::RAY_TRACING_BUFFER };
     NRI_ABORT_ON_FAILURE(NRI.CreateBuffer(*m_Device, bufferDesc, m_ShaderTable));
 
     nri::MemoryDesc memoryDesc = {};
@@ -648,14 +637,14 @@ void Sample::CreateShaderTable()
     NRI.CreateCommandAllocator(*m_CommandQueue, nri::WHOLE_DEVICE_GROUP, commandAllocator);
     NRI.CreateCommandBuffer(*commandAllocator, commandBuffer);
 
-    nri::WorkSubmissionDesc workSubmissionDesc = {};
-    workSubmissionDesc.commandBuffers = &commandBuffer;
-    workSubmissionDesc.commandBufferNum = 1;
+    nri::QueueSubmitDesc queueSubmitDesc = {};
+    queueSubmitDesc.commandBuffers = &commandBuffer;
+    queueSubmitDesc.commandBufferNum = 1;
 
     NRI.BeginCommandBuffer(*commandBuffer, nullptr, 0);
     NRI.CmdCopyBuffer(*commandBuffer, *m_ShaderTable, 0, 0, *buffer, 0, 0, shaderTableSize);
     NRI.EndCommandBuffer(*commandBuffer);
-    NRI.SubmitQueueWork(*m_CommandQueue, workSubmissionDesc, nullptr);
+    NRI.QueueSubmit(*m_CommandQueue, queueSubmitDesc);
     NRI.WaitForIdle(*m_CommandQueue);
 
     NRI.DestroyCommandBuffer(*commandBuffer);

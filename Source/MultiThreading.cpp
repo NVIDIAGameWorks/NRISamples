@@ -59,8 +59,7 @@ class Sample : public SampleBase
 public:
 
     Sample()
-    {
-    }
+    {}
 
     ~Sample();
 
@@ -87,17 +86,15 @@ private:
 
     bool m_IsMultithreadingEnabled = true;
 
-    Timer m_RecordingTime;
-    Timer m_SubmitTime;
+    double m_RecordingTime = 0.0;
+    double m_SubmitTime = 0.0;
 
     NRIInterface NRI = {};
     nri::Device* m_Device = nullptr;
     nri::SwapChain* m_SwapChain = nullptr;
     nri::CommandQueue* m_CommandQueue = nullptr;
-    nri::QueueSemaphore* m_BackBufferAcquireSemaphore = nullptr;
-    nri::QueueSemaphore* m_BackBufferReleaseSemaphore = nullptr;
+    nri::Fence* m_FrameFence = nullptr;
 
-    std::array<nri::DeviceSemaphore*, BUFFERED_FRAME_MAX_NUM> m_DeviceSemaphore = {};
     std::vector<nri::CommandBuffer*> m_FrameCommandBuffers;
     uint32_t m_FrameIndex = 0;
 
@@ -165,9 +162,6 @@ Sample::~Sample()
         }
     }
 
-    for (uint32_t i = 0; i < BUFFERED_FRAME_MAX_NUM; i++)
-        NRI.DestroyDeviceSemaphore(*m_DeviceSemaphore[i]);
-
     for (uint32_t i = 0; i < m_SwapChainBuffers.size(); i++)
     {
         NRI.DestroyFrameBuffer(*m_SwapChainBuffers[i].frameBuffer);
@@ -204,8 +198,7 @@ Sample::~Sample()
 
     NRI.DestroyDescriptorPool(*m_DescriptorPool);
 
-    NRI.DestroyQueueSemaphore(*m_BackBufferAcquireSemaphore);
-    NRI.DestroyQueueSemaphore(*m_BackBufferReleaseSemaphore);
+    NRI.DestroyFence(*m_FrameFence);
 
     NRI.DestroySwapChain(*m_SwapChain);
 
@@ -258,8 +251,7 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
     NRI_ABORT_ON_FAILURE( nri::GetInterface(*m_Device, NRI_INTERFACE(nri::HelperInterface), (nri::HelperInterface*)&NRI) );
 
     NRI_ABORT_ON_FAILURE( NRI.GetCommandQueue(*m_Device, nri::CommandQueueType::GRAPHICS, m_CommandQueue));
-    NRI_ABORT_ON_FAILURE( NRI.CreateQueueSemaphore(*m_Device, m_BackBufferAcquireSemaphore));
-    NRI_ABORT_ON_FAILURE( NRI.CreateQueueSemaphore(*m_Device, m_BackBufferReleaseSemaphore));
+    NRI_ABORT_ON_FAILURE( NRI.CreateFence(*m_Device, 0, m_FrameFence) );
 
     CreateCommandBuffers();
 
@@ -301,8 +293,8 @@ void Sample::PrepareFrame(uint32_t)
         ImGui::Text("Box number: %u", (uint32_t)m_Boxes.size());
         ImGui::Text("Draw calls per pipeline: %u", DRAW_CALLS_PER_PIPELINE);
 
-        ImGui::Text("Command buffer recording: %.2f ms", m_RecordingTime.GetSmoothedElapsedTime());
-        ImGui::Text("Command buffer submit: %.2f ms", m_SubmitTime.GetSmoothedElapsedTime());
+        ImGui::Text("Command buffer recording: %.2f ms", m_RecordingTime);
+        ImGui::Text("Command buffer submit: %.2f ms", m_SubmitTime);
 
         bool isMultithreadingEnabled = m_IsMultithreadingEnabled;
         ImGui::Checkbox("Multithreading", &isMultithreadingEnabled);
@@ -336,17 +328,12 @@ void Sample::PrepareFrame(uint32_t)
 
 void Sample::RenderFrame(uint32_t frameIndex)
 {
-    frameIndex = frameIndex % BUFFERED_FRAME_MAX_NUM;
-
-    const uint32_t backBufferIndex = NRI.AcquireNextSwapChainTexture(*m_SwapChain, *m_BackBufferAcquireSemaphore);
-    m_BackBuffer = &m_SwapChainBuffers[backBufferIndex];
-
-    nri::DeviceSemaphore& deviceSemaphore = *m_DeviceSemaphore[frameIndex];
-    NRI.WaitForSemaphore(*m_CommandQueue, deviceSemaphore);
-
     m_FrameIndex = frameIndex;
 
-    m_RecordingTime.SaveCurrentTime();
+    const uint32_t backBufferIndex = NRI.AcquireNextSwapChainTexture(*m_SwapChain);
+    m_BackBuffer = &m_SwapChainBuffers[backBufferIndex];
+
+    m_RecordingTime = m_Timer.GetTimeStamp();
 
     if (m_IsMultithreadingEnabled)
     {
@@ -358,10 +345,14 @@ void Sample::RenderFrame(uint32_t frameIndex)
     const uint32_t threadIndex = 0;
     const ThreadContext& context = m_ThreadContexts[threadIndex];
 
-    nri::CommandAllocator& commandAllocator = *context.commandAllocators[frameIndex];
-    NRI.ResetCommandAllocator(commandAllocator);
+    const uint32_t bufferedFrameIndex = frameIndex % BUFFERED_FRAME_MAX_NUM;
+    if (frameIndex >= BUFFERED_FRAME_MAX_NUM)
+    {
+        NRI.Wait(*m_FrameFence, 1 + frameIndex - BUFFERED_FRAME_MAX_NUM);
+        NRI.ResetCommandAllocator(*context.commandAllocators[bufferedFrameIndex]);
+    }
 
-    nri::CommandBuffer& commandBuffer = *context.commandBuffers[frameIndex];
+    nri::CommandBuffer& commandBuffer = *context.commandBuffers[bufferedFrameIndex];
     m_FrameCommandBuffers[threadIndex] = &commandBuffer;
 
     NRI.BeginCommandBuffer(commandBuffer, m_DescriptorPool, 0);
@@ -426,22 +417,21 @@ void Sample::RenderFrame(uint32_t frameIndex)
             ;
     }
 
-    m_RecordingTime.UpdateElapsedTimeSinceLastSave();
+    m_RecordingTime = m_Timer.GetTimeStamp() - m_RecordingTime;
 
     // Submit work
-    nri::WorkSubmissionDesc workSubmissionDesc = {};
-    workSubmissionDesc.commandBuffers = m_FrameCommandBuffers.data();
-    workSubmissionDesc.commandBufferNum = m_IsMultithreadingEnabled ? m_ThreadNum : 1;
-    workSubmissionDesc.signal = &m_BackBufferReleaseSemaphore;
-    workSubmissionDesc.signalNum = 1;
-    workSubmissionDesc.wait = &m_BackBufferAcquireSemaphore;
-    workSubmissionDesc.waitNum = 1;
+    m_SubmitTime = m_Timer.GetTimeStamp();
 
-    m_SubmitTime.SaveCurrentTime();
-    NRI.SubmitQueueWork(*m_CommandQueue, workSubmissionDesc, &deviceSemaphore);
-    m_SubmitTime.UpdateElapsedTimeSinceLastSave();
+    nri::QueueSubmitDesc queueSubmitDesc = {};
+    queueSubmitDesc.commandBuffers = m_FrameCommandBuffers.data();
+    queueSubmitDesc.commandBufferNum = m_IsMultithreadingEnabled ? m_ThreadNum : 1;
+    NRI.QueueSubmit(*m_CommandQueue, queueSubmitDesc);
 
-    NRI.SwapChainPresent(*m_SwapChain, *m_BackBufferReleaseSemaphore);
+    m_SubmitTime = m_Timer.GetTimeStamp() - m_SubmitTime;
+
+    NRI.SwapChainPresent(*m_SwapChain);
+
+    NRI.QueueSignal(*m_CommandQueue, *m_FrameFence, 1 + frameIndex);
 }
 
 void Sample::RenderBoxes(nri::CommandBuffer& commandBuffer, uint32_t offset, uint32_t number)
@@ -482,10 +472,14 @@ void Sample::ThreadEntryPoint(uint32_t threadIndex)
 
         context.control.store(0, std::memory_order_seq_cst);
 
-        nri::CommandAllocator& commandAllocator = *context.commandAllocators[m_FrameIndex];
-        NRI.ResetCommandAllocator(commandAllocator);
+        const uint32_t bufferedFrameIndex = m_FrameIndex % BUFFERED_FRAME_MAX_NUM;
+        if (m_FrameIndex >= BUFFERED_FRAME_MAX_NUM)
+        {
+            NRI.Wait(*m_FrameFence, 1 + m_FrameIndex - BUFFERED_FRAME_MAX_NUM);
+            NRI.ResetCommandAllocator(*context.commandAllocators[bufferedFrameIndex]);
+        }
 
-        nri::CommandBuffer& commandBuffer = *context.commandBuffers[m_FrameIndex];
+        nri::CommandBuffer& commandBuffer = *context.commandBuffers[bufferedFrameIndex];
         m_FrameCommandBuffers[threadIndex] = &commandBuffer;
 
         NRI.BeginCommandBuffer(commandBuffer, m_DescriptorPool, 0);
@@ -589,8 +583,6 @@ void Sample::CreateCommandBuffers()
             NRI_ABORT_ON_FAILURE(NRI.CreateCommandAllocator(*m_CommandQueue, nri::WHOLE_DEVICE_GROUP, context.commandAllocators[j]));
             NRI_ABORT_ON_FAILURE(NRI.CreateCommandBuffer(*context.commandAllocators[j], context.commandBuffers[j]));
         }
-
-        NRI_ABORT_ON_FAILURE(NRI.CreateDeviceSemaphore(*m_Device, true, m_DeviceSemaphore[j]));
     }
 }
 
