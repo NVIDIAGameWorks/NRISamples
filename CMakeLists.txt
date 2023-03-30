@@ -99,7 +99,7 @@ if (NOT DISABLE_SHADER_COMPILATION)
 
     if (WIN32)
         add_custom_target (${PROJECT_NAME}_Shaders ALL
-            COMMAND ShaderMake
+            COMMAND ShaderMake --useAPI
                 --binary --flatten --stripReflection --compiler "${DXC_PATH}"
                 --sourceDir "Shaders"
                 -p DXIL
@@ -111,7 +111,7 @@ if (NOT DISABLE_SHADER_COMPILATION)
                 -D COMPILER_DXC
                 -D NRD_NORMAL_ENCODING=${NRD_NORMAL_ENCODING}
                 -D NRD_ROUGHNESS_ENCODING=${NRD_ROUGHNESS_ENCODING}
-            COMMAND ShaderMake
+            COMMAND ShaderMake --useAPI
                 --binary --flatten --stripReflection --compiler "${DXC_SPIRV_PATH}"
                 --sourceDir "Shaders"
                 -p SPIRV
@@ -124,7 +124,7 @@ if (NOT DISABLE_SHADER_COMPILATION)
                 -D VULKAN
                 -D NRD_NORMAL_ENCODING=${NRD_NORMAL_ENCODING}
                 -D NRD_ROUGHNESS_ENCODING=${NRD_ROUGHNESS_ENCODING}
-            COMMAND ShaderMake
+            COMMAND ShaderMake --useAPI
                 --binary --flatten --stripReflection --compiler "${FXC_PATH}"
                 --sourceDir "Shaders"
                 -p DXBC
@@ -198,7 +198,7 @@ add_sample (Clear cpp)
 add_sample (CTest c)
 add_sample (DeviceInfo cpp)
 add_sample (MultiGPU cpp)
-add_sample (Multithreading cpp)
+add_sample (MultiThreading cpp)
 add_sample (RayTracingTriangle cpp)
 add_sample (RayTracingBoxes cpp)
 add_sample (Readback cpp)

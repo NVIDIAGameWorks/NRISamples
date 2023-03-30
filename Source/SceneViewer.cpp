@@ -300,7 +300,7 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
 
     // Scene
     std::string sceneFile = utils::GetFullPath(m_SceneFile, utils::DataFolder::SCENES);
-    NRI_ABORT_ON_FALSE( utils::LoadScene(sceneFile, m_Scene, true) );
+    NRI_ABORT_ON_FALSE( utils::LoadScene(sceneFile, m_Scene, false, true) );
 
     // Camera
     m_Camera.Initialize(m_Scene.aabb.GetCenter(), m_Scene.aabb.vMin, false);
