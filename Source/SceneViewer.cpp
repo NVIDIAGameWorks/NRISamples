@@ -279,17 +279,8 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
 
         shaderStages[1] = utils::LoadShader(deviceDesc.graphicsAPI, "ForwardTransparent.fs", shaderCodeStorage);
 
-        { // Transparent (back faces)
-            rasterizationDesc.cullMode = nri::CullMode::FRONT;
-            outputMergerDesc.depth.write = false;
-            colorAttachmentDesc.blendEnabled = true;
-            colorAttachmentDesc.colorBlend = {nri::BlendFactor::SRC_ALPHA, nri::BlendFactor::ONE_MINUS_SRC_ALPHA, nri::BlendFunc::ADD};
-            NRI_ABORT_ON_FAILURE( NRI.CreateGraphicsPipeline(*m_Device, graphicsPipelineDesc, pipeline) );
-            m_Pipelines.push_back(pipeline);
-        }
-
-        { // Transparent (front faces)
-            rasterizationDesc.cullMode = nri::CullMode::BACK;
+        { // Transparent
+            rasterizationDesc.cullMode = nri::CullMode::NONE;
             outputMergerDesc.depth.write = false;
             colorAttachmentDesc.blendEnabled = true;
             colorAttachmentDesc.colorBlend = {nri::BlendFactor::SRC_ALPHA, nri::BlendFactor::ONE_MINUS_SRC_ALPHA, nri::BlendFunc::ADD};
@@ -300,7 +291,7 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
 
     // Scene
     std::string sceneFile = utils::GetFullPath(m_SceneFile, utils::DataFolder::SCENES);
-    NRI_ABORT_ON_FALSE( utils::LoadScene(sceneFile, m_Scene, false, true) );
+    NRI_ABORT_ON_FALSE( utils::LoadScene(sceneFile, m_Scene, false) );
 
     // Camera
     m_Camera.Initialize(m_Scene.aabb.GetCenter(), m_Scene.aabb.vMin, false);
@@ -628,29 +619,21 @@ void Sample::RenderFrame(uint32_t frameIndex)
             NRI.CmdSetPipelineLayout(commandBuffer, *m_PipelineLayout);
             NRI.CmdSetDescriptorSet(commandBuffer, GLOBAL_DESCRIPTOR_SET, *m_DescriptorSets[bufferedFrameIndex], nullptr);
 
-            for (size_t i = 0; i < m_Scene.materialsGroups.size(); i++)
+            // TODO: no sorting per pipeline / material, transparency is not last
+            for (const utils::Instance& instance :m_Scene.instances)
             {
-                const utils::MaterialGroup& materialGroup = m_Scene.materialsGroups[i];
-                NRI.CmdSetPipeline(commandBuffer, *m_Pipelines[i]);
+                const utils::Material& material = m_Scene.materials[instance.materialIndex];
+                uint32_t pipelineIndex = material.IsAlphaOpaque() ? 1 : (material.IsTransparent() ? 2 : 0);
+                NRI.CmdSetPipeline(commandBuffer, *m_Pipelines[pipelineIndex]);
 
                 constexpr uint64_t offset = 0;
                 NRI.CmdSetVertexBuffers(commandBuffer, 0, 1, &m_Buffers[VERTEX_BUFFER], &offset);
 
-                for (uint32_t j = 0; j < materialGroup.materialNum; j++)
-                {
-                    const uint32_t materialIndex = materialGroup.materialOffset + j;
-                    nri::DescriptorSet* descriptorSet = m_DescriptorSets[BUFFERED_FRAME_MAX_NUM + materialIndex];
-                    NRI.CmdSetDescriptorSet(commandBuffer, MATERIAL_DESCRIPTOR_SET, *descriptorSet, nullptr);
+                nri::DescriptorSet* descriptorSet = m_DescriptorSets[BUFFERED_FRAME_MAX_NUM + instance.materialIndex];
+                NRI.CmdSetDescriptorSet(commandBuffer, MATERIAL_DESCRIPTOR_SET, *descriptorSet, nullptr);
 
-                    const utils::Material& material = m_Scene.materials[materialIndex];
-                    for (uint32_t k = 0; k < material.instanceNum; k++)
-                    {
-                        // TODO: add instance transform support!
-                        const utils::Instance& instance = m_Scene.instances[material.instanceOffset + k];
-                        const utils::Mesh& mesh = m_Scene.meshes[instance.meshIndex];
-                        NRI.CmdDrawIndexed(commandBuffer, mesh.indexNum, 1, mesh.indexOffset, mesh.vertexOffset, 0);
-                    }
-                }
+                const utils::Mesh& mesh = m_Scene.meshes[instance.meshIndex];
+                NRI.CmdDrawIndexed(commandBuffer, mesh.indexNum, 1, mesh.indexOffset, mesh.vertexOffset, 0);
             }
         }
         NRI.CmdEndRenderPass(commandBuffer);
