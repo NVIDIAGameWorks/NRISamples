@@ -476,10 +476,10 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
 
             nri::Descriptor* materialTextures[TEXTURES_PER_MATERIAL] =
             {
-                m_Descriptors[material.diffuseMapIndex],
-                m_Descriptors[material.specularMapIndex],
-                m_Descriptors[material.normalMapIndex],
-                m_Descriptors[material.emissiveMapIndex],
+                m_Descriptors[material.baseColorTexIndex],
+                m_Descriptors[material.roughnessMetalnessTexIndex],
+                m_Descriptors[material.normalTexIndex],
+                m_Descriptors[material.emissiveTexIndex],
             };
 
             nri::DescriptorRangeUpdateDesc descriptorRangeUpdateDescs = {};
@@ -553,7 +553,7 @@ void Sample::PrepareFrame(uint32_t frameIndex)
     desc.aspectRatio = float( GetWindowResolution().x ) / float( GetWindowResolution().y );
     desc.horizontalFov = 90.0f;
     desc.nearZ = 0.1f;
-    desc.isProjectionReversed = (CLEAR_DEPTH == 0.0f);
+    desc.isReversedZ = (CLEAR_DEPTH == 0.0f);
     GetCameraDescFromInputDevices(desc);
 
     m_Camera.Update(desc, frameIndex);
@@ -580,7 +580,7 @@ void Sample::RenderFrame(uint32_t frameIndex)
     auto constants = (GlobalConstantBufferLayout*)NRI.MapBuffer(*m_Buffers[CONSTANT_BUFFER], rangeOffset, sizeof(GlobalConstantBufferLayout));
     if (constants)
     {
-        constants->gWorldToClip = m_Camera.state.mWorldToClip;
+        constants->gWorldToClip = m_Camera.state.mWorldToClip * m_Scene.mSceneToWorld;
         constants->gCameraPos = m_Camera.state.position;
 
         NRI.UnmapBuffer(*m_Buffers[CONSTANT_BUFFER]);
@@ -614,7 +614,7 @@ void Sample::RenderFrame(uint32_t frameIndex)
             const nri::Rect scissor = { 0, 0, windowWidth, windowHeight };
             NRI.CmdSetViewports(commandBuffer,  &viewport, 1);
             NRI.CmdSetScissors(commandBuffer,  &scissor, 1);
-            NRI.CmdSetIndexBuffer(commandBuffer, *m_Buffers[INDEX_BUFFER], 0, nri::IndexType::UINT16);
+            NRI.CmdSetIndexBuffer(commandBuffer, *m_Buffers[INDEX_BUFFER], 0, sizeof(utils::Index) == 2 ? nri::IndexType::UINT16 : nri::IndexType::UINT32);
 
             NRI.CmdSetPipelineLayout(commandBuffer, *m_PipelineLayout);
             NRI.CmdSetDescriptorSet(commandBuffer, GLOBAL_DESCRIPTOR_SET, *m_DescriptorSets[bufferedFrameIndex], nullptr);
