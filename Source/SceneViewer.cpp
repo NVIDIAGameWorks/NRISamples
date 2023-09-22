@@ -632,7 +632,7 @@ void Sample::RenderFrame(uint32_t frameIndex)
                 nri::DescriptorSet* descriptorSet = m_DescriptorSets[BUFFERED_FRAME_MAX_NUM + instance.materialIndex];
                 NRI.CmdSetDescriptorSet(commandBuffer, MATERIAL_DESCRIPTOR_SET, *descriptorSet, nullptr);
 
-                const utils::Mesh& mesh = m_Scene.meshes[instance.meshIndex];
+                const utils::Mesh& mesh = m_Scene.meshes[instance.meshInstanceIndex];
                 NRI.CmdDrawIndexed(commandBuffer, mesh.indexNum, 1, mesh.indexOffset, mesh.vertexOffset, 0);
             }
         }
