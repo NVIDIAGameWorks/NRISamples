@@ -18,7 +18,7 @@ license agreement from NVIDIA CORPORATION is strictly prohibited.
 #include "Extensions/NRISwapChain.h"
 
 #define NRI_ABORT_ON_FAILURE(result) \
-    if ((result) != NRI_RESULT_SUCCESS) \
+    if (result != nri_Result_SUCCESS) \
         exit(1);
 
 #if _WIN32
@@ -30,11 +30,10 @@ license agreement from NVIDIA CORPORATION is strictly prohibited.
 int main()
 {
     // Creation
-    nri_DeviceCreationDesc deviceCreationDesc = {0};
-    deviceCreationDesc.graphicsAPI = NRI_GRAPHICS_API_D3D12;
-
     nri_Device* device = NULL;
-    NRI_ABORT_ON_FAILURE( nri_CreateDevice(&deviceCreationDesc, &device) );
+    NRI_ABORT_ON_FAILURE( nri_CreateDevice(&(nri_DeviceCreationDesc){
+        .graphicsAPI = nri_GraphicsAPI_D3D12
+    }, &device) );
 
     // Interfaces
     nri_CoreInterface nriCore = {0};
@@ -47,21 +46,25 @@ int main()
     NRI_ABORT_ON_FAILURE( nri_GetInterface(device, NRI_INTERFACE(nri_SwapChainInterface), &nriSwapChain) );
 
     // NRI usage
-    nri_Buffer* buffer;
-    nri_BufferDesc bufferDesc = {1024, 0, NRI_BUFFER_USAGE_BITS_SHADER_RESOURCE, 0};
-    NRI_ABORT_ON_FAILURE( nriCore.CreateBuffer(device, &bufferDesc, &buffer) );
+    nri_Buffer* buffer = NULL;
+    NRI_ABORT_ON_FAILURE( nriCore.CreateBuffer(device, &(nri_BufferDesc){
+        .size = 1024,
+        .structureStride = 0,
+        .usageMask = nri_BufferUsageBits_SHADER_RESOURCE,
+        .physicalDeviceMask = 0
+    }, &buffer) );
 
-    nri_Texture* texture;
-    nri_TextureDesc textureDesc = nri_Texture2D(NRI_FORMAT_RGBA8_UNORM, 32, 32, 1, 1, NRI_TEXTURE_USAGE_BITS_SHADER_RESOURCE, 1);
+    nri_Texture* texture = NULL;
+    nri_TextureDesc textureDesc = nri_Texture2D(nri_Format_RGBA8_UNORM, 32, 32, 1, 1, nri_TextureUsageBits_SHADER_RESOURCE, 1);
     NRI_ABORT_ON_FAILURE( nriCore.CreateTexture(device, &textureDesc, &texture) );
 
-    nri_ResourceGroupDesc resourceGroupDesc = {0};
-    resourceGroupDesc.bufferNum = 1;
-    resourceGroupDesc.buffers = &buffer;
-    resourceGroupDesc.textureNum = 1;
-    resourceGroupDesc.textures = &texture;
-    resourceGroupDesc.memoryLocation = NRI_MEMORY_LOCATION_DEVICE;
-
+    nri_ResourceGroupDesc resourceGroupDesc = {
+        .bufferNum = 1,
+        .buffers = &buffer,
+        .textureNum = 1,
+        .textures = &texture,
+        .memoryLocation = nri_MemoryLocation_DEVICE,
+    };
     uint32_t allocationNum = nriHelper.CalculateAllocationNumber(device, &resourceGroupDesc);
 
     nri_Memory** memories = (nri_Memory**)ALLOCA(allocationNum * sizeof(nri_Memory*));

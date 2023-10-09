@@ -24,12 +24,18 @@ static const char* vendors[] =
     "INTEL"
 };
 
+#if _WIN32
+    #define ALLOCA _alloca
+#else
+    #define ALLOCA alloca
+#endif
+
 bool EnumeratePhysicalDeviceGroups()
 {
     // Query device groups number
     uint32_t deviceGroupNum = 0;
     nri_Result result = nri_GetPhysicalDevices(NULL, &deviceGroupNum);
-    if (result != NRI_RESULT_SUCCESS)
+    if (result != nri_Result_SUCCESS)
         return false;
 
     printf("nri_GetPhysicalDevices: %u groups reported\n", deviceGroupNum);
@@ -38,9 +44,9 @@ bool EnumeratePhysicalDeviceGroups()
 
     // Query device groups
     size_t bytes = deviceGroupNum * sizeof(nri_PhysicalDeviceGroup);
-    nri_PhysicalDeviceGroup* groups = (nri_PhysicalDeviceGroup*)_alloca(bytes);
+    nri_PhysicalDeviceGroup* groups = (nri_PhysicalDeviceGroup*)ALLOCA(bytes);
     result = nri_GetPhysicalDevices(groups, &deviceGroupNum);
-    if (result != NRI_RESULT_SUCCESS)
+    if (result != nri_Result_SUCCESS)
         return false;
 
     // Print information
