@@ -207,7 +207,7 @@ Sample::~Sample()
 
     DestroyUserInterface();
 
-    nri::DestroyDevice(*m_Device);
+    nri::nriDestroyDevice(*m_Device);
 }
 
 bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
@@ -230,9 +230,9 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
     m_Boxes.resize(std::max(BOX_NUM, m_ThreadNum));
     m_BoxesPerThread = (uint32_t)m_Boxes.size() / m_ThreadNum;
 
-    nri::PhysicalDeviceGroup mostPerformantPhysicalDeviceGroup = {};
-    uint32_t deviceGroupNum = 1;
-    NRI_ABORT_ON_FAILURE(nri::GetPhysicalDevices(&mostPerformantPhysicalDeviceGroup, deviceGroupNum));
+    nri::AdapterDesc bestAdapterDesc = {};
+    uint32_t adapterDescsNum = 1;
+    NRI_ABORT_ON_FAILURE(nri::nriEnumerateAdapters(&bestAdapterDesc, adapterDescsNum));
 
     // Device
     nri::DeviceCreationDesc deviceCreationDesc = {};
@@ -241,14 +241,14 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
     deviceCreationDesc.enableNRIValidation = m_DebugNRI;
     deviceCreationDesc.D3D11CommandBufferEmulation = D3D11_COMMANDBUFFER_EMULATION;
     deviceCreationDesc.spirvBindingOffsets = SPIRV_BINDING_OFFSETS;
-    deviceCreationDesc.physicalDeviceGroup = &mostPerformantPhysicalDeviceGroup;
+    deviceCreationDesc.adapterDesc = &bestAdapterDesc;
     deviceCreationDesc.memoryAllocatorInterface = m_MemoryAllocatorInterface;
-    NRI_ABORT_ON_FAILURE( nri::CreateDevice(deviceCreationDesc, m_Device) );
+    NRI_ABORT_ON_FAILURE( nri::nriCreateDevice(deviceCreationDesc, m_Device) );
 
     // NRI
-    NRI_ABORT_ON_FAILURE( nri::GetInterface(*m_Device, NRI_INTERFACE(nri::CoreInterface), (nri::CoreInterface*)&NRI) );
-    NRI_ABORT_ON_FAILURE( nri::GetInterface(*m_Device, NRI_INTERFACE(nri::SwapChainInterface), (nri::SwapChainInterface*)&NRI) );
-    NRI_ABORT_ON_FAILURE( nri::GetInterface(*m_Device, NRI_INTERFACE(nri::HelperInterface), (nri::HelperInterface*)&NRI) );
+    NRI_ABORT_ON_FAILURE( nri::nriGetInterface(*m_Device, NRI_INTERFACE(nri::CoreInterface), (nri::CoreInterface*)&NRI) );
+    NRI_ABORT_ON_FAILURE( nri::nriGetInterface(*m_Device, NRI_INTERFACE(nri::SwapChainInterface), (nri::SwapChainInterface*)&NRI) );
+    NRI_ABORT_ON_FAILURE( nri::nriGetInterface(*m_Device, NRI_INTERFACE(nri::HelperInterface), (nri::HelperInterface*)&NRI) );
 
     NRI_ABORT_ON_FAILURE( NRI.GetCommandQueue(*m_Device, nri::CommandQueueType::GRAPHICS, m_CommandQueue));
     NRI_ABORT_ON_FAILURE( NRI.CreateFence(*m_Device, 0, m_FrameFence) );
@@ -284,8 +284,6 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
 
 void Sample::PrepareFrame(uint32_t)
 {
-    PrepareUserInterface();
-
     ImGui::SetNextWindowPos(ImVec2(30, 30), ImGuiCond_Always);
     ImGui::SetNextWindowSize(ImVec2(0, 0));
     ImGui::Begin("Settings", nullptr, ImGuiWindowFlags_NoResize);
@@ -392,7 +390,7 @@ void Sample::RenderFrame(uint32_t frameIndex)
     if (!m_IsMultithreadingEnabled)
     {
         NRI.CmdBeginRenderPass(commandBuffer, *m_BackBuffer->frameBufferUI, nri::RenderPassBeginFlag::SKIP_FRAME_BUFFER_CLEAR);
-        RenderUserInterface(commandBuffer);
+        RenderUserInterface(*m_Device, commandBuffer);
         NRI.CmdEndRenderPass(commandBuffer);
 
         backBufferTransition.texture = m_BackBuffer->texture;
@@ -500,7 +498,7 @@ void Sample::ThreadEntryPoint(uint32_t threadIndex)
         if (threadIndex == m_ThreadNum - 1)
         {
             NRI.CmdBeginRenderPass(commandBuffer, *m_BackBuffer->frameBufferUI, nri::RenderPassBeginFlag::SKIP_FRAME_BUFFER_CLEAR);
-            RenderUserInterface(commandBuffer);
+            RenderUserInterface(*m_Device, commandBuffer);
             NRI.CmdEndRenderPass(commandBuffer);
         }
 

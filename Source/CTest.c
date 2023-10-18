@@ -18,7 +18,7 @@ license agreement from NVIDIA CORPORATION is strictly prohibited.
 #include "Extensions/NRISwapChain.h"
 
 #define NRI_ABORT_ON_FAILURE(result) \
-    if (result != nri_Result_SUCCESS) \
+    if (result != NriResult_SUCCESS) \
         exit(1);
 
 #if _WIN32
@@ -30,44 +30,44 @@ license agreement from NVIDIA CORPORATION is strictly prohibited.
 int main()
 {
     // Creation
-    nri_Device* device = NULL;
-    NRI_ABORT_ON_FAILURE( nri_CreateDevice(&(nri_DeviceCreationDesc){
-        .graphicsAPI = nri_GraphicsAPI_D3D12
+    NriDevice* device = NULL;
+    NRI_ABORT_ON_FAILURE( nriCreateDevice(&(NriDeviceCreationDesc){
+        .graphicsAPI = NriGraphicsAPI_D3D12
     }, &device) );
 
     // Interfaces
-    nri_CoreInterface nriCore = {0};
-    NRI_ABORT_ON_FAILURE( nri_GetInterface(device, NRI_INTERFACE(nri_CoreInterface), &nriCore) );
+    NriCoreInterface nriCore = {0};
+    NRI_ABORT_ON_FAILURE( nriGetInterface(device, NRI_INTERFACE(NriCoreInterface), &nriCore) );
 
-    nri_HelperInterface nriHelper = {0};
-    NRI_ABORT_ON_FAILURE( nri_GetInterface(device, NRI_INTERFACE(nri_HelperInterface), &nriHelper) );
+    NriHelperInterface nriHelper = {0};
+    NRI_ABORT_ON_FAILURE( nriGetInterface(device, NRI_INTERFACE(NriHelperInterface), &nriHelper) );
 
-    nri_SwapChainInterface nriSwapChain = {0};
-    NRI_ABORT_ON_FAILURE( nri_GetInterface(device, NRI_INTERFACE(nri_SwapChainInterface), &nriSwapChain) );
+    NriSwapChainInterface nriSwapChain = {0};
+    NRI_ABORT_ON_FAILURE( nriGetInterface(device, NRI_INTERFACE(NriSwapChainInterface), &nriSwapChain) );
 
     // NRI usage
-    nri_Buffer* buffer = NULL;
-    NRI_ABORT_ON_FAILURE( nriCore.CreateBuffer(device, &(nri_BufferDesc){
+    NriBuffer* buffer = NULL;
+    NRI_ABORT_ON_FAILURE( nriCore.CreateBuffer(device, &(NriBufferDesc){
         .size = 1024,
         .structureStride = 0,
-        .usageMask = nri_BufferUsageBits_SHADER_RESOURCE,
+        .usageMask = NriBufferUsageBits_SHADER_RESOURCE,
         .physicalDeviceMask = 0
     }, &buffer) );
 
-    nri_Texture* texture = NULL;
-    nri_TextureDesc textureDesc = nri_Texture2D(nri_Format_RGBA8_UNORM, 32, 32, 1, 1, nri_TextureUsageBits_SHADER_RESOURCE, 1);
+    NriTexture* texture = NULL;
+    NriTextureDesc textureDesc = nriTexture2D(NriFormat_RGBA8_UNORM, 32, 32, 1, 1, NriTextureUsageBits_SHADER_RESOURCE, 1);
     NRI_ABORT_ON_FAILURE( nriCore.CreateTexture(device, &textureDesc, &texture) );
 
-    nri_ResourceGroupDesc resourceGroupDesc = {
+    NriResourceGroupDesc resourceGroupDesc = {
         .bufferNum = 1,
         .buffers = &buffer,
         .textureNum = 1,
         .textures = &texture,
-        .memoryLocation = nri_MemoryLocation_DEVICE,
+        .memoryLocation = NriMemoryLocation_DEVICE,
     };
     uint32_t allocationNum = nriHelper.CalculateAllocationNumber(device, &resourceGroupDesc);
 
-    nri_Memory** memories = (nri_Memory**)ALLOCA(allocationNum * sizeof(nri_Memory*));
+    NriMemory** memories = (NriMemory**)ALLOCA(allocationNum * sizeof(NriMemory*));
     NRI_ABORT_ON_FAILURE( nriHelper.AllocateAndBindMemory(device, &resourceGroupDesc, memories) );
 
     nriCore.DestroyTexture(texture);
@@ -77,7 +77,7 @@ int main()
         nriCore.FreeMemory(memories[i]);
 
     // Destroy
-    nri_DestroyDevice(device);
+    nriDestroyDevice(device);
 
     return 0;
 }

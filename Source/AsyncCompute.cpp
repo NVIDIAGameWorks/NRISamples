@@ -109,14 +109,14 @@ Sample::~Sample()
 
     DestroyUserInterface();
 
-    nri::DestroyDevice(*m_Device);
+    nri::nriDestroyDevice(*m_Device);
 }
 
 bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
 {
-    nri::PhysicalDeviceGroup mostPerformantPhysicalDeviceGroup = {};
-    uint32_t deviceGroupNum = 1;
-    NRI_ABORT_ON_FAILURE(nri::GetPhysicalDevices(&mostPerformantPhysicalDeviceGroup, deviceGroupNum));
+    nri::AdapterDesc bestAdapterDesc = {};
+    uint32_t adapterDescsNum = 1;
+    NRI_ABORT_ON_FAILURE(nri::nriEnumerateAdapters(&bestAdapterDesc, adapterDescsNum));
 
     // Device
     nri::DeviceCreationDesc deviceCreationDesc = {};
@@ -125,14 +125,14 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
     deviceCreationDesc.enableNRIValidation = m_DebugNRI;
     deviceCreationDesc.D3D11CommandBufferEmulation = D3D11_COMMANDBUFFER_EMULATION;
     deviceCreationDesc.spirvBindingOffsets = SPIRV_BINDING_OFFSETS;
-    deviceCreationDesc.physicalDeviceGroup = &mostPerformantPhysicalDeviceGroup;
+    deviceCreationDesc.adapterDesc = &bestAdapterDesc;
     deviceCreationDesc.memoryAllocatorInterface = m_MemoryAllocatorInterface;
-    NRI_ABORT_ON_FAILURE( nri::CreateDevice(deviceCreationDesc, m_Device) );
+    NRI_ABORT_ON_FAILURE( nri::nriCreateDevice(deviceCreationDesc, m_Device) );
 
     // NRI
-    NRI_ABORT_ON_FAILURE( nri::GetInterface(*m_Device, NRI_INTERFACE(nri::CoreInterface), (nri::CoreInterface*)&NRI) );
-    NRI_ABORT_ON_FAILURE( nri::GetInterface(*m_Device, NRI_INTERFACE(nri::SwapChainInterface), (nri::SwapChainInterface*)&NRI) );
-    NRI_ABORT_ON_FAILURE( nri::GetInterface(*m_Device, NRI_INTERFACE(nri::HelperInterface), (nri::HelperInterface*)&NRI) );
+    NRI_ABORT_ON_FAILURE( nri::nriGetInterface(*m_Device, NRI_INTERFACE(nri::CoreInterface), (nri::CoreInterface*)&NRI) );
+    NRI_ABORT_ON_FAILURE( nri::nriGetInterface(*m_Device, NRI_INTERFACE(nri::SwapChainInterface), (nri::SwapChainInterface*)&NRI) );
+    NRI_ABORT_ON_FAILURE( nri::nriGetInterface(*m_Device, NRI_INTERFACE(nri::HelperInterface), (nri::HelperInterface*)&NRI) );
 
     // Command queue
     NRI_ABORT_ON_FAILURE( NRI.GetCommandQueue(*m_Device, nri::CommandQueueType::GRAPHICS, m_CommandQueueGraphics) );
@@ -195,7 +195,7 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
 
     const nri::DeviceDesc& deviceDesc = NRI.GetDeviceDesc(*m_Device);
     utils::ShaderCodeStorage shaderCodeStorage;
-    
+
     { // Graphics pipeline
         nri::PipelineLayoutDesc pipelineLayoutDesc = {};
         pipelineLayoutDesc.stageMask = nri::PipelineLayoutShaderStageBits::VERTEX | nri::PipelineLayoutShaderStageBits::FRAGMENT;
@@ -251,7 +251,7 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
         graphicsPipelineDesc.shaderStageNum = helper::GetCountOf(shaderStages);
         NRI_ABORT_ON_FAILURE( NRI.CreateGraphicsPipeline(*m_Device, graphicsPipelineDesc, m_GraphicsPipeline) );
     }
-    
+
     { // Compute pipeline
         nri::DescriptorRangeDesc descriptorRangeStorage = {0, 1, nri::DescriptorType::STORAGE_TEXTURE, nri::ShaderStage::COMPUTE};
 
@@ -268,13 +268,13 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
         computePipelineDesc.computeShader = utils::LoadShader(deviceDesc.graphicsAPI, "Surface.cs", shaderCodeStorage);
         NRI_ABORT_ON_FAILURE( NRI.CreateComputePipeline(*m_Device, computePipelineDesc, m_ComputePipeline) );
     }
-    
+
     { // Storage texture
         nri::TextureDesc textureDesc = nri::Texture2D(swapChainFormat, (uint16_t)GetWindowResolution().x / 2, (uint16_t)GetWindowResolution().y, 1, 1,
             nri::TextureUsageBits::SHADER_RESOURCE_STORAGE);
         NRI_ABORT_ON_FAILURE( NRI.CreateTexture(*m_Device, textureDesc, m_Texture) );
     }
-    
+
     { // Geometry buffer
         nri::BufferDesc bufferDesc = {};
         bufferDesc.size = sizeof(Vertex) * VERTEX_NUM;
@@ -291,7 +291,7 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
 
     m_MemoryAllocations.resize(NRI.CalculateAllocationNumber(*m_Device, resourceGroupDesc), nullptr);
     NRI_ABORT_ON_FAILURE(NRI.AllocateAndBindMemory(*m_Device, resourceGroupDesc, m_MemoryAllocations.data()))
-    
+
     { // Descriptor pool
         nri::DescriptorPoolDesc descriptorPoolDesc = {};
         descriptorPoolDesc.descriptorSetMaxNum = 1;
@@ -354,8 +354,6 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
 
 void Sample::PrepareFrame(uint32_t)
 {
-    PrepareUserInterface();
-
     ImGui::SetNextWindowPos(ImVec2(30, 30), ImGuiCond_Always);
     ImGui::SetNextWindowSize(ImVec2(0, 0));
     ImGui::Begin("Settings", nullptr, ImGuiWindowFlags_NoResize);
@@ -446,7 +444,7 @@ void Sample::RenderFrame(uint32_t frameIndex)
         NRI.CmdSetVertexBuffers(commandBuffer1, 0, 1, &m_GeometryBuffer, &offset);
         NRI.CmdDraw(commandBuffer1, VERTEX_NUM, 1, 0, 0);
 
-        RenderUserInterface(commandBuffer1);
+        RenderUserInterface(*m_Device, commandBuffer1);
 
         NRI.CmdEndRenderPass(commandBuffer1);
 

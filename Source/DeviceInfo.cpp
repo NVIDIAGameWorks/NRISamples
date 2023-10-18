@@ -25,40 +25,39 @@ static const char* vendors[] =
 };
 
 #if _WIN32
-    #define ALLOCA _alloca
-#else
-    #define ALLOCA alloca
+    #define alloca _alloca
 #endif
 
-bool EnumeratePhysicalDeviceGroups()
+bool EnumerateAdapters()
 {
-    // Query device groups number
-    uint32_t deviceGroupNum = 0;
-    nri_Result result = nri_GetPhysicalDevices(NULL, &deviceGroupNum);
-    if (result != nri_Result_SUCCESS)
+    // Query device adapterDescs number
+    uint32_t adaptersNum = 0;
+    NriResult result = nriEnumerateAdapters(NULL, &adaptersNum);
+    if (result != NriResult_SUCCESS)
         return false;
 
-    printf("nri_GetPhysicalDevices: %u groups reported\n", deviceGroupNum);
-    if (!deviceGroupNum)
+    printf("NriGetPhysicalDevices: %u adapterDescs reported\n", adaptersNum);
+    if (!adaptersNum)
         return true;
 
-    // Query device groups
-    size_t bytes = deviceGroupNum * sizeof(nri_PhysicalDeviceGroup);
-    nri_PhysicalDeviceGroup* groups = (nri_PhysicalDeviceGroup*)ALLOCA(bytes);
-    result = nri_GetPhysicalDevices(groups, &deviceGroupNum);
-    if (result != nri_Result_SUCCESS)
+    // Query device adapterDescs
+    size_t bytes = adaptersNum * sizeof(NriAdapterDesc);
+    NriAdapterDesc* adapterDescs = (NriAdapterDesc*)alloca(bytes);
+    result = nriEnumerateAdapters(adapterDescs, &adaptersNum);
+    if (result != NriResult_SUCCESS)
         return false;
 
     // Print information
-    for (uint32_t i = 0; i < deviceGroupNum; i++)
+    for (uint32_t i = 0; i < adaptersNum; i++)
     {
-        const nri_PhysicalDeviceGroup* p = groups + i;
+        const NriAdapterDesc* p = adapterDescs + i;
 
         printf("\nGroup #%u\n", i + 1);
         printf("\tDescription: %s\n", p->description);
         printf("\tLUID: 0x%016llX\n", p->luid);
-        printf("\tVideo memory (Mb): %llu\n", p->dedicatedVideoMemory >> 20);
-        printf("\tID: 0x%08X\n", p->deviceID);
+        printf("\tVideo memory (Mb): %llu\n", p->videoMemorySize >> 20);
+        printf("\tSystem memory (Mb): %llu\n", p->systemMemorySize >> 20);
+        printf("\tID: 0x%08X\n", p->deviceId);
         printf("\tVendor: %s\n", vendors[p->vendor]);
     }
 
@@ -67,5 +66,5 @@ bool EnumeratePhysicalDeviceGroups()
 
 int main()
 {
-    return EnumeratePhysicalDeviceGroups() ? 0 : 1;
+    return EnumerateAdapters() ? 0 : 1;
 }

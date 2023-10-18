@@ -133,22 +133,17 @@ Sample::~Sample()
 
     DestroyUserInterface();
 
-    nri::DestroyDevice(*m_Device);
+    nri::nriDestroyDevice(*m_Device);
 }
 
 bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
 {
-    uint32_t physicalDeviceGroupNum = 0;
-    NRI_ABORT_ON_FAILURE(nri::GetPhysicalDevices(nullptr, physicalDeviceGroupNum));
-
-    std::vector<nri::PhysicalDeviceGroup> physicalDeviceGroups(physicalDeviceGroupNum);
-    NRI_ABORT_ON_FAILURE(nri::GetPhysicalDevices(physicalDeviceGroups.data(), physicalDeviceGroupNum));
-
-    if (physicalDeviceGroupNum == 0)
-        exit(1);
+    nri::AdapterDesc bestAdapterDesc = {};
+    uint32_t adapterDescsNum = 1;
+    NRI_ABORT_ON_FAILURE(nri::nriEnumerateAdapters(&bestAdapterDesc, adapterDescsNum));
 
     nri::DeviceCreationDesc deviceCreationDesc = { };
-    deviceCreationDesc.physicalDeviceGroup = &physicalDeviceGroups[0];
+    deviceCreationDesc.adapterDesc = &bestAdapterDesc;
     deviceCreationDesc.graphicsAPI = graphicsAPI;
     deviceCreationDesc.enableAPIValidation = m_DebugAPI;
     deviceCreationDesc.enableNRIValidation = m_DebugNRI;
@@ -156,11 +151,11 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
     deviceCreationDesc.D3D11CommandBufferEmulation = D3D11_COMMANDBUFFER_EMULATION;
     deviceCreationDesc.spirvBindingOffsets = SPIRV_BINDING_OFFSETS;
     deviceCreationDesc.memoryAllocatorInterface = m_MemoryAllocatorInterface;
-    NRI_ABORT_ON_FAILURE(nri::CreateDevice(deviceCreationDesc, m_Device));
+    NRI_ABORT_ON_FAILURE(nri::nriCreateDevice(deviceCreationDesc, m_Device));
 
-    NRI_ABORT_ON_FAILURE(nri::GetInterface(*m_Device, NRI_INTERFACE(nri::CoreInterface), (nri::CoreInterface*)&NRI));
-    NRI_ABORT_ON_FAILURE(nri::GetInterface(*m_Device, NRI_INTERFACE(nri::SwapChainInterface), (nri::SwapChainInterface*)&NRI));
-    NRI_ABORT_ON_FAILURE(nri::GetInterface(*m_Device, NRI_INTERFACE(nri::HelperInterface), (nri::HelperInterface*)&NRI));
+    NRI_ABORT_ON_FAILURE(nri::nriGetInterface(*m_Device, NRI_INTERFACE(nri::CoreInterface), (nri::CoreInterface*)&NRI));
+    NRI_ABORT_ON_FAILURE(nri::nriGetInterface(*m_Device, NRI_INTERFACE(nri::SwapChainInterface), (nri::SwapChainInterface*)&NRI));
+    NRI_ABORT_ON_FAILURE(nri::nriGetInterface(*m_Device, NRI_INTERFACE(nri::HelperInterface), (nri::HelperInterface*)&NRI));
 
     NRI_ABORT_ON_FAILURE(NRI.GetCommandQueue(*m_Device, nri::CommandQueueType::GRAPHICS, m_CommandQueue));
     NRI_ABORT_ON_FAILURE(NRI.CreateFence(*m_Device, 0, m_FrameFence));
@@ -187,8 +182,6 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
 
 void Sample::PrepareFrame(uint32_t)
 {
-    PrepareUserInterface();
-
     ImGui::Begin("Multi-GPU", nullptr, ImGuiWindowFlags_NoResize);
     {
         if (m_PhysicalDeviceGroupSize == 1)
@@ -254,7 +247,7 @@ void Sample::RecordGraphics(nri::CommandBuffer& commandBuffer, uint32_t physical
     NRI.CmdEndRenderPass(commandBuffer);
 
     NRI.CmdBeginRenderPass(commandBuffer, *m_FrameBufferUI, nri::RenderPassBeginFlag::SKIP_FRAME_BUFFER_CLEAR);
-    RenderUserInterface(commandBuffer);
+    RenderUserInterface(*m_Device, commandBuffer);
     NRI.CmdEndRenderPass(commandBuffer);
 
     textureTransition.texture = m_ColorTexture;

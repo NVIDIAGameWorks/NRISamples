@@ -185,28 +185,28 @@ Sample::~Sample()
 
     DestroyUserInterface();
 
-    nri::DestroyDevice(*m_Device);
+    nri::nriDestroyDevice(*m_Device);
 }
 
 bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
 {
-    nri::PhysicalDeviceGroup mostPerformantPhysicalDeviceGroup = {};
-    uint32_t deviceGroupNum = 1;
-    NRI_ABORT_ON_FAILURE(nri::GetPhysicalDevices(&mostPerformantPhysicalDeviceGroup, deviceGroupNum));
+    nri::AdapterDesc bestAdapterDesc = {};
+    uint32_t adapterDescsNum = 1;
+    NRI_ABORT_ON_FAILURE(nri::nriEnumerateAdapters(&bestAdapterDesc, adapterDescsNum));
 
     nri::DeviceCreationDesc deviceCreationDesc = {};
     deviceCreationDesc.graphicsAPI = graphicsAPI;
     deviceCreationDesc.enableAPIValidation = m_DebugAPI;
     deviceCreationDesc.enableNRIValidation = m_DebugNRI;
     deviceCreationDesc.spirvBindingOffsets = SPIRV_BINDING_OFFSETS;
-    deviceCreationDesc.physicalDeviceGroup = &mostPerformantPhysicalDeviceGroup;
+    deviceCreationDesc.adapterDesc = &bestAdapterDesc;
     deviceCreationDesc.memoryAllocatorInterface = m_MemoryAllocatorInterface;
-    NRI_ABORT_ON_FAILURE( nri::CreateDevice(deviceCreationDesc, m_Device) );
+    NRI_ABORT_ON_FAILURE( nri::nriCreateDevice(deviceCreationDesc, m_Device) );
 
-    NRI_ABORT_ON_FAILURE( nri::GetInterface(*m_Device, NRI_INTERFACE(nri::CoreInterface), (nri::CoreInterface*)&NRI) );
-    NRI_ABORT_ON_FAILURE( nri::GetInterface(*m_Device, NRI_INTERFACE(nri::SwapChainInterface), (nri::SwapChainInterface*)&NRI) );
-    NRI_ABORT_ON_FAILURE( nri::GetInterface(*m_Device, NRI_INTERFACE(nri::RayTracingInterface), (nri::RayTracingInterface*)&NRI) );
-    NRI_ABORT_ON_FAILURE( nri::GetInterface(*m_Device, NRI_INTERFACE(nri::HelperInterface), (nri::HelperInterface*)&NRI) );
+    NRI_ABORT_ON_FAILURE( nri::nriGetInterface(*m_Device, NRI_INTERFACE(nri::CoreInterface), (nri::CoreInterface*)&NRI) );
+    NRI_ABORT_ON_FAILURE( nri::nriGetInterface(*m_Device, NRI_INTERFACE(nri::SwapChainInterface), (nri::SwapChainInterface*)&NRI) );
+    NRI_ABORT_ON_FAILURE( nri::nriGetInterface(*m_Device, NRI_INTERFACE(nri::RayTracingInterface), (nri::RayTracingInterface*)&NRI) );
+    NRI_ABORT_ON_FAILURE( nri::nriGetInterface(*m_Device, NRI_INTERFACE(nri::HelperInterface), (nri::HelperInterface*)&NRI) );
 
     NRI_ABORT_ON_FAILURE( NRI.GetCommandQueue(*m_Device, nri::CommandQueueType::GRAPHICS, m_CommandQueue));
     NRI_ABORT_ON_FAILURE( NRI.CreateFence(*m_Device, 0, m_FrameFence));
@@ -224,18 +224,15 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
     CreateShaderTable();
     CreateShaderResources();
 
-    return CreateUserInterface(*m_Device, NRI, NRI, swapChainFormat);
+    return true;
 }
 
 void Sample::PrepareFrame(uint32_t)
 {
-    PrepareUserInterface();
 }
 
 void Sample::RenderFrame(uint32_t frameIndex)
 {
-    static nri::AccessBits rayTracingOutputAccessMask = nri::AccessBits::UNKNOWN;
-
     const uint32_t bufferedFrameIndex = frameIndex % BUFFERED_FRAME_MAX_NUM;
     const Frame& frame = m_Frames[bufferedFrameIndex];
 
@@ -248,85 +245,71 @@ void Sample::RenderFrame(uint32_t frameIndex)
     const uint32_t backBufferIndex = NRI.AcquireNextSwapChainTexture(*m_SwapChain);
     m_BackBuffer = &m_SwapChainBuffers[backBufferIndex];
 
+    nri::TextureTransitionBarrierDesc textureTransitions[2] = {};
+    nri::TransitionBarrierDesc transitionBarriers = {};
+
     nri::CommandBuffer& commandBuffer = *frame.commandBuffer;
     NRI.BeginCommandBuffer(commandBuffer, m_DescriptorPool, 0);
+    {
+        // Rendering
+        textureTransitions[0].texture = m_BackBuffer->texture;
+        textureTransitions[0].prevAccess = nri::AccessBits::UNKNOWN;
+        textureTransitions[0].prevLayout = nri::TextureLayout::PRESENT;
+        textureTransitions[0].nextAccess = nri::AccessBits::COPY_DESTINATION;
+        textureTransitions[0].nextLayout = nri::TextureLayout::GENERAL;
+        textureTransitions[0].arraySize = 1;
+        textureTransitions[0].mipNum = 1;
 
-    nri::TextureTransitionBarrierDesc textureTransitions[2] = {};
-    textureTransitions[0].texture = m_BackBuffer->texture;
-    textureTransitions[0].prevAccess = nri::AccessBits::UNKNOWN;
-    textureTransitions[0].nextAccess = nri::AccessBits::COPY_DESTINATION;
-    textureTransitions[0].prevLayout = nri::TextureLayout::UNKNOWN;
-    textureTransitions[0].nextLayout = nri::TextureLayout::GENERAL;
-    textureTransitions[0].arraySize = 1;
-    textureTransitions[0].mipNum = 1;
+        textureTransitions[1].texture = m_RayTracingOutput;
+        textureTransitions[1].prevAccess = frameIndex == 0 ? nri::AccessBits::UNKNOWN : nri::AccessBits::COPY_SOURCE;
+        textureTransitions[1].prevLayout = frameIndex == 0 ? nri::TextureLayout::UNKNOWN : nri::TextureLayout::GENERAL;
+        textureTransitions[1].nextAccess = nri::AccessBits::SHADER_RESOURCE_STORAGE;
+        textureTransitions[1].nextLayout = nri::TextureLayout::GENERAL;
+        textureTransitions[1].arraySize = 1;
+        textureTransitions[1].mipNum = 1;
 
-    textureTransitions[1].texture = m_RayTracingOutput;
-    textureTransitions[1].prevAccess = rayTracingOutputAccessMask;
-    textureTransitions[1].nextAccess = rayTracingOutputAccessMask = nri::AccessBits::SHADER_RESOURCE_STORAGE;
-    textureTransitions[1].prevLayout = nri::TextureLayout::UNKNOWN;
-    textureTransitions[1].nextLayout = nri::TextureLayout::GENERAL;
-    textureTransitions[1].arraySize = 1;
-    textureTransitions[1].mipNum = 1;
+        transitionBarriers.textures = textureTransitions;
+        transitionBarriers.textureNum = 2;
 
-    nri::TransitionBarrierDesc transitionBarriers = {};
-    transitionBarriers.textures = textureTransitions;
-    transitionBarriers.textureNum = helper::GetCountOf(textureTransitions);
+        NRI.CmdPipelineBarrier(commandBuffer, &transitionBarriers, nullptr, nri::BarrierDependency::GRAPHICS_STAGE);
+        NRI.CmdSetPipelineLayout(commandBuffer, *m_PipelineLayout);
+        NRI.CmdSetPipeline(commandBuffer, *m_Pipeline);
 
-    NRI.CmdPipelineBarrier(commandBuffer, &transitionBarriers, nullptr, nri::BarrierDependency::GRAPHICS_STAGE);
+        for (uint32_t i = 0; i < helper::GetCountOf(m_DescriptorSets); i++)
+            NRI.CmdSetDescriptorSet(commandBuffer, i, *m_DescriptorSets[i], nullptr);
 
-    NRI.CmdSetPipelineLayout(commandBuffer, *m_PipelineLayout);
-    NRI.CmdSetPipeline(commandBuffer, *m_Pipeline);
+        nri::DispatchRaysDesc dispatchRaysDesc = {};
+        dispatchRaysDesc.raygenShader = { m_ShaderTable, 0, m_ShaderGroupIdentifierSize, m_ShaderGroupIdentifierSize };
+        dispatchRaysDesc.missShaders = { m_ShaderTable, m_MissShaderOffset, m_ShaderGroupIdentifierSize, m_ShaderGroupIdentifierSize };
+        dispatchRaysDesc.hitShaderGroups = { m_ShaderTable, m_HitShaderGroupOffset, m_ShaderGroupIdentifierSize, m_ShaderGroupIdentifierSize };
+        dispatchRaysDesc.width = (uint16_t)GetWindowResolution().x;
+        dispatchRaysDesc.height = (uint16_t)GetWindowResolution().y;
+        dispatchRaysDesc.depth = 1;
+        NRI.CmdDispatchRays(commandBuffer, dispatchRaysDesc);
 
-    for (uint32_t i = 0; i < helper::GetCountOf(m_DescriptorSets); i++)
-        NRI.CmdSetDescriptorSet(commandBuffer, i, *m_DescriptorSets[i], nullptr);
+        // Copy
+        textureTransitions[1].prevAccess = textureTransitions[1].nextAccess;
+        textureTransitions[1].prevLayout = textureTransitions[1].nextLayout;
+        textureTransitions[1].nextAccess = nri::AccessBits::COPY_SOURCE;
+        textureTransitions[1].nextLayout = nri::TextureLayout::GENERAL;
 
-    nri::DispatchRaysDesc dispatchRaysDesc = {};
-    dispatchRaysDesc.raygenShader = { m_ShaderTable, 0, m_ShaderGroupIdentifierSize, m_ShaderGroupIdentifierSize };
-    dispatchRaysDesc.missShaders = { m_ShaderTable, m_MissShaderOffset, m_ShaderGroupIdentifierSize, m_ShaderGroupIdentifierSize };
-    dispatchRaysDesc.hitShaderGroups = { m_ShaderTable, m_HitShaderGroupOffset, m_ShaderGroupIdentifierSize, m_ShaderGroupIdentifierSize };
-    dispatchRaysDesc.width = (uint16_t)GetWindowResolution().x;
-    dispatchRaysDesc.height = (uint16_t)GetWindowResolution().y;
-    dispatchRaysDesc.depth = 1;
-    NRI.CmdDispatchRays(commandBuffer, dispatchRaysDesc);
+        transitionBarriers.textures = textureTransitions + 1;
+        transitionBarriers.textureNum = 1;
 
-    textureTransitions[0].texture = m_RayTracingOutput;
-    textureTransitions[0].prevAccess = rayTracingOutputAccessMask;
-    textureTransitions[0].nextAccess = rayTracingOutputAccessMask = nri::AccessBits::COPY_SOURCE;
-    textureTransitions[0].prevLayout = nri::TextureLayout::GENERAL;
-    textureTransitions[0].nextLayout = nri::TextureLayout::GENERAL;
-    textureTransitions[0].arraySize = 1;
-    textureTransitions[0].mipNum = 1;
-    transitionBarriers.textures = textureTransitions;
-    transitionBarriers.textureNum = 1;
+        NRI.CmdPipelineBarrier(commandBuffer, &transitionBarriers, nullptr, nri::BarrierDependency::RAYTRACING_STAGE);
+        NRI.CmdCopyTexture(commandBuffer, *m_BackBuffer->texture, 0, nullptr, *m_RayTracingOutput, 0, nullptr);
 
-    NRI.CmdPipelineBarrier(commandBuffer, &transitionBarriers, nullptr, nri::BarrierDependency::RAYTRACING_STAGE);
+        // Present
+        textureTransitions[0].prevAccess = textureTransitions[0].nextAccess;
+        textureTransitions[0].prevLayout = textureTransitions[0].nextLayout;
+        textureTransitions[0].nextAccess = nri::AccessBits::UNKNOWN;
+        textureTransitions[0].nextLayout = nri::TextureLayout::PRESENT;
 
-    NRI.CmdCopyTexture(commandBuffer, *m_BackBuffer->texture, 0, nullptr, *m_RayTracingOutput, 0, nullptr);
+        transitionBarriers.textures = textureTransitions;
+        transitionBarriers.textureNum = 1;
 
-    textureTransitions[0].texture = m_BackBuffer->texture;
-    textureTransitions[0].prevAccess = nri::AccessBits::COPY_DESTINATION;
-    textureTransitions[0].nextAccess = nri::AccessBits::COLOR_ATTACHMENT;
-    textureTransitions[0].prevLayout = nri::TextureLayout::GENERAL;
-    textureTransitions[0].nextLayout = nri::TextureLayout::COLOR_ATTACHMENT;
-    transitionBarriers.textures = textureTransitions;
-    transitionBarriers.textureNum = 1;
-
-    NRI.CmdPipelineBarrier(commandBuffer, &transitionBarriers, nullptr, nri::BarrierDependency::COPY_STAGE);
-
-    NRI.CmdBeginRenderPass(commandBuffer, *m_BackBuffer->frameBufferUI, nri::RenderPassBeginFlag::SKIP_FRAME_BUFFER_CLEAR);
-    RenderUserInterface(commandBuffer);
-    NRI.CmdEndRenderPass(commandBuffer);
-
-    textureTransitions[0].texture = m_BackBuffer->texture;
-    textureTransitions[0].prevAccess = nri::AccessBits::COLOR_ATTACHMENT;
-    textureTransitions[0].nextAccess = nri::AccessBits::UNKNOWN;
-    textureTransitions[0].prevLayout = nri::TextureLayout::COLOR_ATTACHMENT;
-    textureTransitions[0].nextLayout = nri::TextureLayout::PRESENT;
-    transitionBarriers.textures = textureTransitions;
-    transitionBarriers.textureNum = 1;
-
-    NRI.CmdPipelineBarrier(commandBuffer, &transitionBarriers, nullptr, nri::BarrierDependency::GRAPHICS_STAGE);
-
+        NRI.CmdPipelineBarrier(commandBuffer, &transitionBarriers, nullptr, nri::BarrierDependency::COPY_STAGE);
+    }
     NRI.EndCommandBuffer(commandBuffer);
 
     nri::QueueSubmitDesc queueSubmitDesc = {};

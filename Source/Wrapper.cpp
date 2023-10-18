@@ -153,7 +153,7 @@ Sample::~Sample()
 
     DestroyUserInterface();
 
-    nri::DestroyDevice(*m_Device);
+    nri::nriDestroyDevice(*m_Device);
 
     if (m_VulkanLoader)
     {
@@ -182,10 +182,9 @@ void Sample::CreateD3D11Device()
     nri::DeviceCreationD3D11Desc deviceDesc = {};
     deviceDesc.d3d11Device = m_D3D11Device;
     deviceDesc.memoryAllocatorInterface = m_MemoryAllocatorInterface;
-    deviceDesc.enableAPIValidation = m_DebugAPI;
     deviceDesc.enableNRIValidation = m_DebugNRI;
 
-    NRI_ABORT_ON_FAILURE(nri::CreateDeviceFromD3D11Device(deviceDesc, m_Device));
+    NRI_ABORT_ON_FAILURE(nri::nriCreateDeviceFromD3D11Device(deviceDesc, m_Device));
 }
 
 void Sample::CreateD3D12Device()
@@ -197,10 +196,9 @@ void Sample::CreateD3D12Device()
     nri::DeviceCreationD3D12Desc deviceDesc = {};
     deviceDesc.d3d12Device = m_D3D12Device;
     deviceDesc.memoryAllocatorInterface = m_MemoryAllocatorInterface;
-    deviceDesc.enableAPIValidation = m_DebugAPI;
     deviceDesc.enableNRIValidation = m_DebugNRI;
 
-    NRI_ABORT_ON_FAILURE(nri::CreateDeviceFromD3D12Device(deviceDesc, m_Device));
+    NRI_ABORT_ON_FAILURE(nri::nriCreateDeviceFromD3D12Device(deviceDesc, m_Device));
 }
 
 void Sample::CreateVulkanDevice()
@@ -287,11 +285,10 @@ void Sample::CreateVulkanDevice()
     deviceDesc.queueFamilyIndexNum = helper::GetCountOf(queueFamilyIndices);
     deviceDesc.vkDevice = (nri::NRIVkDevice)m_VKDevice;
     deviceDesc.memoryAllocatorInterface = m_MemoryAllocatorInterface;
-    deviceDesc.enableAPIValidation = m_DebugAPI;
     deviceDesc.enableNRIValidation = m_DebugNRI;
     deviceDesc.spirvBindingOffsets = SPIRV_BINDING_OFFSETS;
 
-    NRI_ABORT_ON_FAILURE(nri::CreateDeviceFromVkDevice(deviceDesc, m_Device));
+    NRI_ABORT_ON_FAILURE(nri::nriCreateDeviceFromVkDevice(deviceDesc, m_Device));
 }
 
 bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
@@ -310,9 +307,9 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
     }
 
     // NRI
-    NRI_ABORT_ON_FAILURE(nri::GetInterface(*m_Device, NRI_INTERFACE(nri::CoreInterface), (nri::CoreInterface*)&NRI));
-    NRI_ABORT_ON_FAILURE(nri::GetInterface(*m_Device, NRI_INTERFACE(nri::SwapChainInterface), (nri::SwapChainInterface*)&NRI));
-    NRI_ABORT_ON_FAILURE(nri::GetInterface(*m_Device, NRI_INTERFACE(nri::HelperInterface), (nri::HelperInterface*)&NRI));
+    NRI_ABORT_ON_FAILURE(nri::nriGetInterface(*m_Device, NRI_INTERFACE(nri::CoreInterface), (nri::CoreInterface*)&NRI));
+    NRI_ABORT_ON_FAILURE(nri::nriGetInterface(*m_Device, NRI_INTERFACE(nri::SwapChainInterface), (nri::SwapChainInterface*)&NRI));
+    NRI_ABORT_ON_FAILURE(nri::nriGetInterface(*m_Device, NRI_INTERFACE(nri::HelperInterface), (nri::HelperInterface*)&NRI));
 
     // Command queue
     NRI_ABORT_ON_FAILURE(NRI.GetCommandQueue(*m_Device, nri::CommandQueueType::GRAPHICS, m_CommandQueue));
@@ -607,8 +604,6 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
 
 void Sample::PrepareFrame(uint32_t)
 {
-    PrepareUserInterface();
-
     ImGui::SetNextWindowPos(ImVec2(30, 30), ImGuiCond_Once);
     ImGui::SetNextWindowSize(ImVec2(0, 0));
     ImGui::Begin("Settings", nullptr, ImGuiWindowFlags_NoResize);
@@ -705,7 +700,7 @@ void Sample::RenderFrame(uint32_t frameIndex)
                 NRI.CmdDraw(*commandBuffer, 3, 1, 0, 0);
             }
 
-            RenderUserInterface(*commandBuffer);
+            RenderUserInterface(*m_Device, *commandBuffer);
         }
         NRI.CmdEndRenderPass(*commandBuffer);
 
