@@ -1,7 +1,7 @@
 @echo off
 
+rd /q /s "_Bin"
 rd /q /s "_Build"
-rd /q /s "_Compiler"
 rd /q /s "_Data"
 rd /q /s "_Shaders"
 

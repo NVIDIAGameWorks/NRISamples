@@ -9,8 +9,8 @@ chmod +x "1-Deploy.sh"
 chmod +x "2-Build.sh"
 chmod +x "4-Clean.sh"
 
-mkdir -p "_Compiler"
+mkdir -p "_Build"
 
-cd "_Compiler"
+cd "_Build"
 cmake ..
 cd ..

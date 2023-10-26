@@ -3,10 +3,10 @@
 set FRAME_NUM=100
 set DIR_DATA=_Data
 
-set DIR_BIN=_Build\Release
+set DIR_BIN=_Bin\Release
 
 if not exist "%DIR_BIN%" (
-    set DIR_BIN=_Build\Debug
+    set DIR_BIN=_Bin\Debug
 )
 
 if not exist "%DIR_BIN%" (

@@ -32,7 +32,7 @@ Or by running scripts only:
 
 ## How to run
 The executables load resources from `_Data`, therefore please run the samples with working directory set to
-the project root folder. The executables can be found in `_Build`.
+the project root folder. The executables can be found in `_Bin`.
 
 ## How to add new sample
 Create a new cpp file in `Source/` and add `add_sample(YourFileName)` in `CMakeLists.txt`.
