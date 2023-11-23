@@ -57,8 +57,8 @@ private:
     void CreateMainFrameBuffer(nri::Format swapChainFormat);
     void CreateDescriptorSet();
     void SetupProjViewMatrix(float4x4& projViewMatrix);
-    void RecordGraphics(nri::CommandBuffer& commandBuffer, uint32_t physicalDeviceIndex);
-    void CopyToSwapChainTexture(nri::CommandBuffer& commandBuffer, uint32_t renderingDeviceIndex, uint32_t presentingDeviceIndex);
+    void RecordGraphics(nri::CommandBuffer& commandBuffer, uint32_t physicalNodeIndex);
+    void CopyToSwapChainTexture(nri::CommandBuffer& commandBuffer, uint32_t renderingNodeIndex, uint32_t presentingNodeIndex);
 
     NRIInterface NRI = {};
     nri::Device* m_Device = nullptr;
@@ -84,7 +84,7 @@ private:
     std::array<Frame, BUFFERED_FRAME_MAX_NUM> m_Frames = {};
     std::vector<nri::Fence*> m_QueueFences;
 
-    uint32_t m_PhysicalDeviceGroupSize = 0;
+    uint32_t m_NodeNum = 0;
     uint32_t m_BoxIndexNum = 0;
     bool m_IsMGPUEnabled = true;
 
@@ -161,9 +161,9 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
     NRI_ABORT_ON_FAILURE(NRI.CreateFence(*m_Device, 0, m_FrameFence));
 
     m_DepthFormat = nri::GetSupportedDepthFormat(NRI, *m_Device, 24, false);
-    m_PhysicalDeviceGroupSize = NRI.GetDeviceDesc(*m_Device).physicalDeviceNum;
+    m_NodeNum = NRI.GetDeviceDesc(*m_Device).nodeNum;
 
-    m_QueueFences.resize(m_PhysicalDeviceGroupSize);
+    m_QueueFences.resize(m_NodeNum);
     for (size_t i = 0; i < m_QueueFences.size(); i++)
         NRI_ABORT_ON_FAILURE(NRI.CreateFence(*m_Device, 0, m_QueueFences[i]));
 
@@ -184,26 +184,26 @@ void Sample::PrepareFrame(uint32_t)
 {
     ImGui::Begin("Multi-GPU", nullptr, ImGuiWindowFlags_NoResize);
     {
-        if (m_PhysicalDeviceGroupSize == 1)
+        if (m_NodeNum == 1)
             ImGui::PushStyleVar(ImGuiStyleVar_Alpha, ImGui::GetStyle().Alpha * 0.5f);
 
         ImGui::Checkbox("Use multiple GPUs", &m_IsMGPUEnabled);
 
-        if (m_PhysicalDeviceGroupSize == 1)
+        if (m_NodeNum == 1)
         {
             ImGui::PopStyleVar();
             m_IsMGPUEnabled = false;
         }
 
-        ImGui::Text("Physical device group size: %u", m_PhysicalDeviceGroupSize);
+        ImGui::Text("Physical device group size: %u", m_NodeNum);
         ImGui::Text("Frametime: %.2f ms", m_Timer.GetSmoothedFrameTime());
     }
     ImGui::End();
 }
 
-void Sample::RecordGraphics(nri::CommandBuffer& commandBuffer, uint32_t physicalDeviceIndex)
+void Sample::RecordGraphics(nri::CommandBuffer& commandBuffer, uint32_t physicalNodeIndex)
 {
-    NRI.BeginCommandBuffer(commandBuffer, m_DescriptorPool, physicalDeviceIndex);
+    NRI.BeginCommandBuffer(commandBuffer, m_DescriptorPool, physicalNodeIndex);
 
     nri::TextureTransitionBarrierDesc textureTransition = { };
     textureTransition.texture = m_ColorTexture;
@@ -263,7 +263,7 @@ void Sample::RecordGraphics(nri::CommandBuffer& commandBuffer, uint32_t physical
     NRI.EndCommandBuffer(commandBuffer);
 }
 
-void Sample::CopyToSwapChainTexture(nri::CommandBuffer& commandBuffer, uint32_t renderingDeviceIndex, uint32_t presentingDeviceIndex)
+void Sample::CopyToSwapChainTexture(nri::CommandBuffer& commandBuffer, uint32_t renderingNodeIndex, uint32_t presentingNodeIndex)
 {
     nri::TextureTransitionBarrierDesc initialTransition = { };
     initialTransition.texture = m_BackBuffer->texture;
@@ -291,9 +291,9 @@ void Sample::CopyToSwapChainTexture(nri::CommandBuffer& commandBuffer, uint32_t 
     finalTransitionBarriers.textures = &finalTransition;
     finalTransitionBarriers.textureNum = 1;
 
-    NRI.BeginCommandBuffer(commandBuffer, nullptr, presentingDeviceIndex);
+    NRI.BeginCommandBuffer(commandBuffer, nullptr, presentingNodeIndex);
     NRI.CmdPipelineBarrier(commandBuffer, &initialTransitionBarriers, nullptr, nri::BarrierDependency::GRAPHICS_STAGE);
-    NRI.CmdCopyTexture(commandBuffer, *m_BackBuffer->texture, presentingDeviceIndex, nullptr, *m_ColorTexture, renderingDeviceIndex, nullptr);
+    NRI.CmdCopyTexture(commandBuffer, *m_BackBuffer->texture, presentingNodeIndex, nullptr, *m_ColorTexture, renderingNodeIndex, nullptr);
     NRI.CmdPipelineBarrier(commandBuffer, &finalTransitionBarriers, nullptr, nri::BarrierDependency::GRAPHICS_STAGE);
     NRI.EndCommandBuffer(commandBuffer);
 }
@@ -308,31 +308,31 @@ void Sample::RenderFrame(uint32_t frameIndex)
         NRI.ResetCommandAllocator(*frame.commandAllocator);
     }
 
-    constexpr uint32_t presentingDeviceIndex = 0;
-    const uint32_t renderingDeviceIndex = m_IsMGPUEnabled ? (frameIndex % m_PhysicalDeviceGroupSize) : presentingDeviceIndex;
+    constexpr uint32_t presentingNodeIndex = 0;
+    const uint32_t renderingNodeIndex = m_IsMGPUEnabled ? (frameIndex % m_NodeNum) : presentingNodeIndex;
 
     nri::CommandBuffer* graphics = frame.commandBuffers[0];
-    RecordGraphics(*graphics, renderingDeviceIndex);
+    RecordGraphics(*graphics, renderingNodeIndex);
 
     nri::QueueSubmitDesc queueSubmitDesc = {};
     queueSubmitDesc.commandBuffers = &graphics;
     queueSubmitDesc.commandBufferNum = 1;
-    queueSubmitDesc.physicalDeviceIndex = renderingDeviceIndex;
+    queueSubmitDesc.nodeIndex = renderingNodeIndex;
     NRI.QueueSubmit(*m_CommandQueue, queueSubmitDesc);
 
-    NRI.QueueSignal(*m_CommandQueue, *m_QueueFences[renderingDeviceIndex], 1 + frameIndex);
+    NRI.QueueSignal(*m_CommandQueue, *m_QueueFences[renderingNodeIndex], 1 + frameIndex);
 
     const uint32_t backBufferIndex = NRI.AcquireNextSwapChainTexture(*m_SwapChain);
     m_BackBuffer = &m_SwapChainBuffers[backBufferIndex];
 
     nri::CommandBuffer* presenting = frame.commandBuffers[1];
-    CopyToSwapChainTexture(*presenting, renderingDeviceIndex, presentingDeviceIndex);
+    CopyToSwapChainTexture(*presenting, renderingNodeIndex, presentingNodeIndex);
 
-    NRI.QueueWait(*m_CommandQueue, *m_QueueFences[renderingDeviceIndex], 1 + frameIndex);
+    NRI.QueueWait(*m_CommandQueue, *m_QueueFences[renderingNodeIndex], 1 + frameIndex);
 
     queueSubmitDesc.commandBuffers = &presenting;
     queueSubmitDesc.commandBufferNum = 1;
-    queueSubmitDesc.physicalDeviceIndex = presentingDeviceIndex;
+    queueSubmitDesc.nodeIndex = presentingNodeIndex;
     NRI.QueueSubmit(*m_CommandQueue, queueSubmitDesc);
 
     NRI.SwapChainPresent(*m_SwapChain);
@@ -344,9 +344,9 @@ void Sample::CreateMainFrameBuffer(nri::Format swapChainFormat)
 {
     nri::TextureDesc textureDesc = { };
     textureDesc.type = nri::TextureType::TEXTURE_2D;
-    textureDesc.size[0] = (uint16_t)GetWindowResolution().x;
-    textureDesc.size[1] = (uint16_t)GetWindowResolution().y;
-    textureDesc.size[2] = 1;
+    textureDesc.width = (uint16_t)GetWindowResolution().x;
+    textureDesc.height = (uint16_t)GetWindowResolution().y;
+    textureDesc.depth = 1;
     textureDesc.mipNum = 1;
     textureDesc.arraySize = 1;
     textureDesc.sampleNum = 1;
@@ -437,7 +437,7 @@ void Sample::CreateCommandBuffers()
 {
     for (Frame& frame : m_Frames)
     {
-        NRI_ABORT_ON_FAILURE(NRI.CreateCommandAllocator(*m_CommandQueue, nri::WHOLE_DEVICE_GROUP, frame.commandAllocator));
+        NRI_ABORT_ON_FAILURE(NRI.CreateCommandAllocator(*m_CommandQueue, nri::ALL_NODES, frame.commandAllocator));
 
         for (uint32_t i = 0; i < frame.commandBuffers.size(); i++)
             NRI_ABORT_ON_FAILURE(NRI.CreateCommandBuffer(*frame.commandAllocator, frame.commandBuffers[i]));
@@ -530,12 +530,12 @@ void Sample::CreatePipeline(nri::Format swapChainFormat)
 void Sample::CreateDescriptorSet()
 {
     nri::DescriptorPoolDesc descriptorPoolDesc = {};
-    descriptorPoolDesc.dynamicConstantBufferMaxNum = m_PhysicalDeviceGroupSize;
-    descriptorPoolDesc.descriptorSetMaxNum = m_PhysicalDeviceGroupSize;
+    descriptorPoolDesc.dynamicConstantBufferMaxNum = m_NodeNum;
+    descriptorPoolDesc.descriptorSetMaxNum = m_NodeNum;
     NRI_ABORT_ON_FAILURE(NRI.CreateDescriptorPool(*m_Device, descriptorPoolDesc, m_DescriptorPool));
 
     NRI_ABORT_ON_FAILURE(NRI.AllocateDescriptorSets(*m_DescriptorPool, *m_PipelineLayout, 0, &m_DescriptorSet, 1,
-        nri::WHOLE_DEVICE_GROUP, 0));
+        nri::ALL_NODES, 0));
 }
 
 void Sample::CreateGeometry()
@@ -611,7 +611,7 @@ void Sample::CreateGeometry()
     bufferViewDesc.size = constantRangeSize;
 
     NRI_ABORT_ON_FAILURE(NRI.CreateBufferView(bufferViewDesc, m_TransformBufferView));
-    NRI.UpdateDynamicConstantBuffers(*m_DescriptorSet, nri::WHOLE_DEVICE_GROUP, 0, 1, &m_TransformBufferView);
+    NRI.UpdateDynamicConstantBuffers(*m_DescriptorSet, nri::ALL_NODES, 0, 1, &m_TransformBufferView);
 }
 
 void Sample::SetupProjViewMatrix(float4x4& projViewMatrix)

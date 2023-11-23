@@ -145,7 +145,7 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
     // Buffered resources
     for (Frame& frame : m_Frames)
     {
-        NRI_ABORT_ON_FAILURE( NRI.CreateCommandAllocator(*m_CommandQueue, nri::WHOLE_DEVICE_GROUP, frame.commandAllocator) );
+        NRI_ABORT_ON_FAILURE( NRI.CreateCommandAllocator(*m_CommandQueue, nri::ALL_NODES, frame.commandAllocator) );
         NRI_ABORT_ON_FAILURE( NRI.CreateCommandBuffer(*frame.commandAllocator, frame.commandBuffer) );
     }
 
@@ -237,11 +237,11 @@ void Sample::RenderFrame(uint32_t frameIndex)
         dstDataLayoutDesc.rowPitch = NRI.GetDeviceDesc(*m_Device).uploadBufferTextureRowAlignment;
 
         nri::TextureRegionDesc srcRegionDesc = {};
-        srcRegionDesc.offset[0] = (uint16_t)Clamp(ImGui::GetMousePos().x, 0.0f, float(windowWidth - 1));
-        srcRegionDesc.offset[1] = (uint16_t)Clamp(ImGui::GetMousePos().y, 0.0f, float(windowHeight - 1));
-        srcRegionDesc.size[0] = 1;
-        srcRegionDesc.size[1] = 1;
-        srcRegionDesc.size[2] = 1;
+        srcRegionDesc.x = (uint16_t)Clamp(ImGui::GetMousePos().x, 0.0f, float(windowWidth - 1));
+        srcRegionDesc.y = (uint16_t)Clamp(ImGui::GetMousePos().y, 0.0f, float(windowHeight - 1));
+        srcRegionDesc.width = 1;
+        srcRegionDesc.height = 1;
+        srcRegionDesc.depth = 1;
 
         // before clearing the texture read back contents under the mouse cursor
         NRI.CmdReadbackTextureToBuffer(commandBuffer, *m_ReadbackBuffer, dstDataLayoutDesc, *backBuffer.texture, srcRegionDesc);

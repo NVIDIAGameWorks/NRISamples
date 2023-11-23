@@ -185,8 +185,8 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
     // Buffered resources
     for (Frame& frame : m_Frames)
     {
-        NRI_ABORT_ON_FAILURE( NRI.CreateCommandAllocator(*m_CommandQueueGraphics, nri::WHOLE_DEVICE_GROUP, frame.commandAllocatorGraphics) );
-        NRI_ABORT_ON_FAILURE( NRI.CreateCommandAllocator(*m_CommandQueueCompute, nri::WHOLE_DEVICE_GROUP, frame.commandAllocatorCompute) );
+        NRI_ABORT_ON_FAILURE( NRI.CreateCommandAllocator(*m_CommandQueueGraphics, nri::ALL_NODES, frame.commandAllocatorGraphics) );
+        NRI_ABORT_ON_FAILURE( NRI.CreateCommandAllocator(*m_CommandQueueCompute, nri::ALL_NODES, frame.commandAllocatorCompute) );
         NRI_ABORT_ON_FAILURE( NRI.CreateCommandBuffer(*frame.commandAllocatorCompute, frame.commandBufferCompute) );
 
         for (size_t i = 0; i < frame.commandBufferGraphics.size(); i++)
@@ -308,10 +308,10 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
 
     { // Descriptor set
         NRI_ABORT_ON_FAILURE( NRI.AllocateDescriptorSets(*m_DescriptorPool, *m_ComputePipelineLayout, 0, &m_DescriptorSet, 1,
-            nri::WHOLE_DEVICE_GROUP, 0) );
+            nri::ALL_NODES, 0) );
 
         nri::DescriptorRangeUpdateDesc descriptorRangeUpdateDesc = {&m_Descriptor, 1, 0};
-        NRI.UpdateDescriptorRanges(*m_DescriptorSet, nri::WHOLE_DEVICE_GROUP, 0, 1, &descriptorRangeUpdateDesc);
+        NRI.UpdateDescriptorRanges(*m_DescriptorSet, nri::ALL_NODES, 0, 1, &descriptorRangeUpdateDesc);
     }
 
     { // Upload data
@@ -473,12 +473,12 @@ void Sample::RenderFrame(uint32_t frameIndex)
 
         // Copy texture produced by compute to back buffer
         nri::TextureRegionDesc dstRegion = {};
-        dstRegion.offset[0] = (uint16_t)windowWidth / 2;
+        dstRegion.x = (uint16_t)windowWidth / 2;
 
         nri::TextureRegionDesc srcRegion = {};
-        srcRegion.size[0] = (uint16_t)windowWidth / 2;
-        srcRegion.size[1] = (uint16_t)windowHeight;
-        srcRegion.size[2] = 1;
+        srcRegion.width = (uint16_t)windowWidth / 2;
+        srcRegion.height = (uint16_t)windowHeight;
+        srcRegion.depth = 1;
 
         NRI.CmdCopyTexture(commandBuffer2, *backBuffer.texture, 0, &dstRegion, *m_Texture, 0, &srcRegion);
 

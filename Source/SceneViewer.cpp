@@ -165,7 +165,7 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
     // Buffered resources
     for (Frame& frame : m_Frames)
     {
-        NRI_ABORT_ON_FAILURE( NRI.CreateCommandAllocator(*m_CommandQueue, nri::WHOLE_DEVICE_GROUP, frame.commandAllocator) );
+        NRI_ABORT_ON_FAILURE( NRI.CreateCommandAllocator(*m_CommandQueue, nri::ALL_NODES, frame.commandAllocator) );
         NRI_ABORT_ON_FAILURE( NRI.CreateCommandBuffer(*frame.commandAllocator, frame.commandBuffer) );
     }
 
@@ -453,7 +453,7 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
 
         // Global
         NRI_ABORT_ON_FAILURE( NRI.AllocateDescriptorSets(*m_DescriptorPool, *m_PipelineLayout, GLOBAL_DESCRIPTOR_SET,
-            &m_DescriptorSets[0], BUFFERED_FRAME_MAX_NUM, nri::WHOLE_DEVICE_GROUP, 0) );
+            &m_DescriptorSets[0], BUFFERED_FRAME_MAX_NUM, nri::ALL_NODES, 0) );
 
         for (uint32_t i = 0; i < BUFFERED_FRAME_MAX_NUM; i++)
         {
@@ -463,12 +463,12 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
             descriptorRangeUpdateDescs[1].descriptorNum = 1;
             descriptorRangeUpdateDescs[1].descriptors = &anisotropicSampler;
 
-            NRI.UpdateDescriptorRanges(*m_DescriptorSets[i], nri::WHOLE_DEVICE_GROUP, 0, helper::GetCountOf(descriptorRangeUpdateDescs), descriptorRangeUpdateDescs);
+            NRI.UpdateDescriptorRanges(*m_DescriptorSets[i], nri::ALL_NODES, 0, helper::GetCountOf(descriptorRangeUpdateDescs), descriptorRangeUpdateDescs);
         }
 
         // Material
         NRI_ABORT_ON_FAILURE( NRI.AllocateDescriptorSets(*m_DescriptorPool, *m_PipelineLayout, MATERIAL_DESCRIPTOR_SET,
-            &m_DescriptorSets[BUFFERED_FRAME_MAX_NUM], materialNum, nri::WHOLE_DEVICE_GROUP, 0) );
+            &m_DescriptorSets[BUFFERED_FRAME_MAX_NUM], materialNum, nri::ALL_NODES, 0) );
 
         for (uint32_t i = 0; i < materialNum; i++)
         {
@@ -485,7 +485,7 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
             nri::DescriptorRangeUpdateDesc descriptorRangeUpdateDescs = {};
             descriptorRangeUpdateDescs.descriptorNum = helper::GetCountOf(materialTextures);
             descriptorRangeUpdateDescs.descriptors = materialTextures;
-            NRI.UpdateDescriptorRanges(*m_DescriptorSets[BUFFERED_FRAME_MAX_NUM + i], nri::WHOLE_DEVICE_GROUP, 0, 1, &descriptorRangeUpdateDescs);
+            NRI.UpdateDescriptorRanges(*m_DescriptorSets[BUFFERED_FRAME_MAX_NUM + i], nri::ALL_NODES, 0, 1, &descriptorRangeUpdateDescs);
         }
     }
 

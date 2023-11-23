@@ -196,7 +196,7 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
     // Buffered resources
     for (Frame& frame : m_Frames)
     {
-        NRI_ABORT_ON_FAILURE( NRI.CreateCommandAllocator(*m_CommandQueue, nri::WHOLE_DEVICE_GROUP, frame.commandAllocator) );
+        NRI_ABORT_ON_FAILURE( NRI.CreateCommandAllocator(*m_CommandQueue, nri::ALL_NODES, frame.commandAllocator) );
         NRI_ABORT_ON_FAILURE( NRI.CreateCommandBuffer(*frame.commandAllocator, frame.commandBuffer) );
     }
 
@@ -380,7 +380,7 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
     { // Descriptor sets
         // Texture
         NRI_ABORT_ON_FAILURE( NRI.AllocateDescriptorSets(*m_DescriptorPool, *m_PipelineLayout, 1,
-            &m_TextureDescriptorSet, 1, nri::WHOLE_DEVICE_GROUP, 0) );
+            &m_TextureDescriptorSet, 1, nri::ALL_NODES, 0) );
 
         nri::DescriptorRangeUpdateDesc descriptorRangeUpdateDescs[2] = {};
         descriptorRangeUpdateDescs[0].descriptorNum = 1;
@@ -388,15 +388,15 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
 
         descriptorRangeUpdateDescs[1].descriptorNum = 1;
         descriptorRangeUpdateDescs[1].descriptors = &m_Sampler;
-        NRI.UpdateDescriptorRanges(*m_TextureDescriptorSet, nri::WHOLE_DEVICE_GROUP, 0, helper::GetCountOf(descriptorRangeUpdateDescs), descriptorRangeUpdateDescs);
+        NRI.UpdateDescriptorRanges(*m_TextureDescriptorSet, nri::ALL_NODES, 0, helper::GetCountOf(descriptorRangeUpdateDescs), descriptorRangeUpdateDescs);
 
         // Constant buffer
         for (Frame& frame : m_Frames)
         {
-            NRI_ABORT_ON_FAILURE( NRI.AllocateDescriptorSets(*m_DescriptorPool, *m_PipelineLayout, 0, &frame.constantBufferDescriptorSet, 1, nri::WHOLE_DEVICE_GROUP, 0) );
+            NRI_ABORT_ON_FAILURE( NRI.AllocateDescriptorSets(*m_DescriptorPool, *m_PipelineLayout, 0, &frame.constantBufferDescriptorSet, 1, nri::ALL_NODES, 0) );
 
             nri::DescriptorRangeUpdateDesc descriptorRangeUpdateDesc = { &frame.constantBufferView, 1 };
-            NRI.UpdateDescriptorRanges(*frame.constantBufferDescriptorSet, nri::WHOLE_DEVICE_GROUP, 0, 1, &descriptorRangeUpdateDesc);
+            NRI.UpdateDescriptorRanges(*frame.constantBufferDescriptorSet, nri::ALL_NODES, 0, 1, &descriptorRangeUpdateDesc);
         }
     }
 

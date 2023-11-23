@@ -578,7 +578,7 @@ void Sample::CreateCommandBuffers()
         for (uint32_t i = 0; i < m_ThreadNum; i++)
         {
             ThreadContext& context = m_ThreadContexts[i];
-            NRI_ABORT_ON_FAILURE(NRI.CreateCommandAllocator(*m_CommandQueue, nri::WHOLE_DEVICE_GROUP, context.commandAllocators[j]));
+            NRI_ABORT_ON_FAILURE(NRI.CreateCommandAllocator(*m_CommandQueue, nri::ALL_NODES, context.commandAllocators[j]));
             NRI_ABORT_ON_FAILURE(NRI.CreateCommandBuffer(*context.commandAllocators[j], context.commandBuffers[j]));
         }
     }
@@ -856,7 +856,7 @@ void Sample::CreateDescriptorSets()
 {
     // DescriptorSet 0 (per box)
     std::vector<nri::DescriptorSet*> descriptorSets(m_Boxes.size());
-    NRI.AllocateDescriptorSets(*m_DescriptorPool, *m_PipelineLayout, 0, descriptorSets.data(), (uint32_t)descriptorSets.size(), nri::WHOLE_DEVICE_GROUP, 0);
+    NRI.AllocateDescriptorSets(*m_DescriptorPool, *m_PipelineLayout, 0, descriptorSets.data(), (uint32_t)descriptorSets.size(), nri::ALL_NODES, 0);
 
     for (size_t i = 0; i < m_Boxes.size(); i++)
     {
@@ -882,8 +882,8 @@ void Sample::CreateDescriptorSets()
         box.pipeline = m_Pipelines[(i / DRAW_CALLS_PER_PIPELINE) % m_Pipelines.size()];
 
         box.descriptorSet = descriptorSets[i];
-        NRI.UpdateDescriptorRanges(*box.descriptorSet, nri::WHOLE_DEVICE_GROUP, 0, helper::GetCountOf(rangeUpdates), rangeUpdates);
-        NRI.UpdateDynamicConstantBuffers(*box.descriptorSet, nri::WHOLE_DEVICE_GROUP, 0, 1, &m_TransformConstantBufferView);
+        NRI.UpdateDescriptorRanges(*box.descriptorSet, nri::ALL_NODES, 0, helper::GetCountOf(rangeUpdates), rangeUpdates);
+        NRI.UpdateDynamicConstantBuffers(*box.descriptorSet, nri::ALL_NODES, 0, 1, &m_TransformConstantBufferView);
     }
 
     // DescriptorSet 1 (shared)
@@ -893,8 +893,8 @@ void Sample::CreateDescriptorSets()
             { &m_Sampler, 1 }
         };
 
-        NRI.AllocateDescriptorSets(*m_DescriptorPool, *m_PipelineLayout, 1, &m_DescriptorSetWithSharedSampler, 1, nri::WHOLE_DEVICE_GROUP, 0);
-        NRI.UpdateDescriptorRanges(*m_DescriptorSetWithSharedSampler, nri::WHOLE_DEVICE_GROUP, 0, helper::GetCountOf(rangeUpdates), rangeUpdates);
+        NRI.AllocateDescriptorSets(*m_DescriptorPool, *m_PipelineLayout, 1, &m_DescriptorSetWithSharedSampler, 1, nri::ALL_NODES, 0);
+        NRI.UpdateDescriptorRanges(*m_DescriptorSetWithSharedSampler, nri::ALL_NODES, 0, helper::GetCountOf(rangeUpdates), rangeUpdates);
     }
 }
 
