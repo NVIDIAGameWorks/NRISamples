@@ -541,7 +541,8 @@ void Sample::CreateSwapChain(nri::Format& swapChainFormat)
     NRI_ABORT_ON_FAILURE(NRI.CreateSwapChain(*m_Device, swapChainDesc, m_SwapChain));
 
     uint32_t swapChainTextureNum = 0;
-    nri::Texture* const* swapChainTextures = NRI.GetSwapChainTextures(*m_SwapChain, swapChainTextureNum, swapChainFormat);
+    nri::Texture* const* swapChainTextures = NRI.GetSwapChainTextures(*m_SwapChain, swapChainTextureNum);
+    swapChainFormat = NRI.GetTextureDesc(*swapChainTextures[0]).format;
 
     nri::ClearValueDesc clearDepth = {};
     clearDepth.depthStencil = {1.0f, 0};

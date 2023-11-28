@@ -159,8 +159,8 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
     }
 
     uint32_t swapChainTextureNum;
-    nri::Format swapChainFormat;
-    nri::Texture* const* swapChainTextures = NRI.GetSwapChainTextures(*m_SwapChain, swapChainTextureNum, swapChainFormat);
+    nri::Texture* const* swapChainTextures = NRI.GetSwapChainTextures(*m_SwapChain, swapChainTextureNum);
+    nri::Format swapChainFormat = NRI.GetTextureDesc(*swapChainTextures[0]).format;
 
     // Buffered resources
     for (Frame& frame : m_Frames)
