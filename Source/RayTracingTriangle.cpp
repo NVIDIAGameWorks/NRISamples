@@ -100,10 +100,7 @@ Sample::~Sample()
     }
 
     for (uint32_t i = 0; i < m_SwapChainBuffers.size(); i++)
-    {
         NRI.DestroyDescriptor(*m_SwapChainBuffers[i].colorAttachment);
-        NRI.DestroyFrameBuffer(*m_SwapChainBuffers[i].frameBufferUI);
-    }
 
     NRI.DestroyDescriptor(*m_RayTracingOutputView);
     NRI.DestroyTexture(*m_RayTracingOutput);
@@ -283,11 +280,6 @@ void Sample::CreateSwapChain(nri::Format& swapChainFormat)
     nri::Texture* const* swapChainTextures = NRI.GetSwapChainTextures(*m_SwapChain, swapChainTextureNum);
     swapChainFormat = NRI.GetTextureDesc(*swapChainTextures[0]).format;
 
-    nri::ClearValueDesc clearColor = {};
-    nri::FrameBufferDesc frameBufferDesc = {};
-    frameBufferDesc.colorAttachmentNum = 1;
-    frameBufferDesc.colorClearValues = &clearColor;
-
     for (uint32_t i = 0; i < swapChainTextureNum; i++)
     {
         m_SwapChainBuffers.emplace_back();
@@ -298,9 +290,6 @@ void Sample::CreateSwapChain(nri::Format& swapChainFormat)
 
         nri::Texture2DViewDesc textureViewDesc = {backBuffer.texture, nri::Texture2DViewType::COLOR_ATTACHMENT, swapChainFormat};
         NRI_ABORT_ON_FAILURE(NRI.CreateTexture2DView(textureViewDesc, backBuffer.colorAttachment));
-
-        frameBufferDesc.colorAttachments = &backBuffer.colorAttachment;
-        NRI_ABORT_ON_FAILURE(NRI.CreateFrameBuffer(*m_Device, frameBufferDesc, backBuffer.frameBufferUI));
     }
 }
 

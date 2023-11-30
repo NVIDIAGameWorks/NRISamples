@@ -102,10 +102,7 @@ Sample::~Sample()
     }
 
     for (BackBuffer& backBuffer : m_SwapChainBuffers)
-    {
-        NRI.DestroyFrameBuffer(*backBuffer.frameBuffer);
         NRI.DestroyDescriptor(*backBuffer.colorAttachment);
-    }
 
     NRI.DestroyPipeline(*m_Pipeline);
     NRI.DestroyPipelineLayout(*m_PipelineLayout);
@@ -179,17 +176,7 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
             nri::Descriptor* colorAttachment;
             NRI_ABORT_ON_FAILURE( NRI.CreateTexture2DView(textureViewDesc, colorAttachment) );
 
-            nri::ClearValueDesc clearColor = {};
-            clearColor.color32f = COLOR_0;
-
-            nri::FrameBufferDesc frameBufferDesc = {};
-            frameBufferDesc.colorAttachmentNum = 1;
-            frameBufferDesc.colorAttachments = &colorAttachment;
-            frameBufferDesc.colorClearValues = &clearColor;
-            nri::FrameBuffer* frameBuffer;
-            NRI_ABORT_ON_FAILURE( NRI.CreateFrameBuffer(*m_Device, frameBufferDesc, frameBuffer) );
-
-            const BackBuffer backBuffer = { frameBuffer, frameBuffer, colorAttachment, swapChainTextures[i] };
+            const BackBuffer backBuffer = { colorAttachment, swapChainTextures[i] };
             m_SwapChainBuffers.push_back(backBuffer);
         }
     }
@@ -447,8 +434,11 @@ void Sample::PrepareFrame(uint32_t)
 
 void Sample::RenderFrame(uint32_t frameIndex)
 {
-    const uint32_t windowWidth = GetWindowResolution().x;
-    const uint32_t windowHeight = GetWindowResolution().y;
+    nri::Dim_t windowWidth = (nri::Dim_t)GetWindowResolution().x;
+    nri::Dim_t windowHeight = (nri::Dim_t)GetWindowResolution().y;
+    nri::Dim_t halfWidth = windowWidth / 2;
+    nri::Dim_t halfHeight = windowHeight / 2;
+
     const uint32_t bufferedFrameIndex = frameIndex % BUFFERED_FRAME_MAX_NUM;
     const Frame& frame = m_Frames[bufferedFrameIndex];
 
@@ -489,21 +479,26 @@ void Sample::RenderFrame(uint32_t frameIndex)
         transitionBarriers.textures = &textureTransitionBarrierDesc;
         NRI.CmdPipelineBarrier(*commandBuffer, &transitionBarriers, nullptr, nri::BarrierDependency::ALL_STAGES);
 
-        NRI.CmdBeginRenderPass(*commandBuffer, *currentBackBuffer.frameBuffer, nri::RenderPassBeginFlag::NONE);
+        nri::AttachmentsDesc attachmentsDesc = {};
+        attachmentsDesc.colorNum = 1;
+        attachmentsDesc.colors = &currentBackBuffer.colorAttachment;
+
+        NRI.CmdBeginRendering(*commandBuffer, attachmentsDesc);
         {
             {
-                helper::Annotation annotation(NRI, *commandBuffer, "Clear");
-
-                uint32_t halfWidth = windowWidth / 2;
-                uint32_t halfHeight = windowHeight / 2;
+                helper::Annotation annotation(NRI, *commandBuffer, "Clears");
 
                 nri::ClearDesc clearDesc = {};
-                clearDesc.colorAttachmentIndex = 0;
+                clearDesc.attachmentContentType = nri::AttachmentContentType::COLOR;
+                clearDesc.value.color32f = COLOR_0;
+
+                NRI.CmdClearAttachments(*commandBuffer, &clearDesc, 1, nullptr, 0);
+
                 clearDesc.value.color32f = COLOR_1;
 
                 nri::Rect rects[2];
                 rects[0] = {0, 0, halfWidth, halfHeight};
-                rects[1] = {(int32_t)halfWidth, (int32_t)halfHeight, halfWidth, halfHeight};
+                rects[1] = {(int16_t)halfWidth, (int16_t)halfHeight, halfWidth, halfHeight};
 
                 NRI.CmdClearAttachments(*commandBuffer, &clearDesc, 1, rects, helper::GetCountOf(rects));
             }
@@ -522,18 +517,22 @@ void Sample::RenderFrame(uint32_t frameIndex)
                 NRI.CmdSetDescriptorSet(*commandBuffer, 0, *frame.constantBufferDescriptorSet, nullptr);
                 NRI.CmdSetDescriptorSet(*commandBuffer, 1, *m_TextureDescriptorSet, nullptr);
 
-                nri::Rect scissor = { 0, 0, windowWidth / 2, windowHeight };
+                nri::Rect scissor = { 0, 0, halfWidth, windowHeight };
                 NRI.CmdSetScissors(*commandBuffer, &scissor, 1);
                 NRI.CmdDrawIndexed(*commandBuffer, 3, 1, 0, 0, 0);
 
-                scissor = { (int32_t)windowWidth / 2, (int32_t)windowHeight / 2, windowWidth / 2, windowHeight / 2 };
+                scissor = { (int16_t)halfWidth, (int16_t)halfHeight, halfWidth, halfHeight };
                 NRI.CmdSetScissors(*commandBuffer, &scissor, 1);
                 NRI.CmdDraw(*commandBuffer, 3, 1, 0, 0);
             }
 
-            RenderUserInterface(*m_Device, *commandBuffer);
+            {
+                helper::Annotation annotation(NRI, *commandBuffer, "UI");
+
+                RenderUserInterface(*m_Device, *commandBuffer);
+            }
         }
-        NRI.CmdEndRenderPass(*commandBuffer);
+        NRI.CmdEndRendering(*commandBuffer);
 
         textureTransitionBarrierDesc.prevAccess = textureTransitionBarrierDesc.nextAccess;
         textureTransitionBarrierDesc.nextAccess = nri::AccessBits::UNKNOWN;

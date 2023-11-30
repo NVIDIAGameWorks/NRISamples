@@ -61,6 +61,7 @@ private:
     nri::Fence* m_FrameFence = nullptr;
     nri::DescriptorPool* m_DescriptorPool = nullptr;
     nri::PipelineLayout* m_PipelineLayout = nullptr;
+    nri::Descriptor* m_DepthAttachment = nullptr;
 
     std::array<Frame, BUFFERED_FRAME_MAX_NUM> m_Frames = {};
     std::vector<nri::Pipeline*> m_Pipelines;
@@ -87,10 +88,7 @@ Sample::~Sample()
     }
 
     for (uint32_t i = 0; i < m_SwapChainBuffers.size(); i++)
-    {
-        NRI.DestroyFrameBuffer(*m_SwapChainBuffers[i].frameBuffer);
         NRI.DestroyDescriptor(*m_SwapChainBuffers[i].colorAttachment);
-    }
 
     for (size_t i = 0; i < m_Descriptors.size(); i++)
         NRI.DestroyDescriptor(*m_Descriptors[i]);
@@ -406,9 +404,8 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
         // Depth buffer
         nri::Texture2DViewDesc texture2DViewDesc = {depthTexture, nri::Texture2DViewType::DEPTH_STENCIL_ATTACHMENT, m_DepthFormat};
 
-        nri::Descriptor* depthAttachment;
-        NRI_ABORT_ON_FAILURE( NRI.CreateTexture2DView(texture2DViewDesc, depthAttachment) );
-        m_Descriptors.push_back(depthAttachment);
+        NRI_ABORT_ON_FAILURE( NRI.CreateTexture2DView(texture2DViewDesc, m_DepthAttachment) );
+        m_Descriptors.push_back(m_DepthAttachment);
 
         // Swap chain
         for (uint32_t i = 0; i < swapChainTextureNum; i++)
@@ -418,22 +415,7 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
             nri::Descriptor* colorAttachment;
             NRI_ABORT_ON_FAILURE( NRI.CreateTexture2DView(textureViewDesc, colorAttachment) );
 
-            nri::ClearValueDesc clearColor = {};
-            clearColor.color32f = {0.0f, 0.63f, 1.0f};
-
-            nri::ClearValueDesc clearDepth = {};
-            clearDepth.depthStencil.depth = CLEAR_DEPTH;
-
-            nri::FrameBufferDesc frameBufferDesc = {};
-            frameBufferDesc.colorAttachmentNum = 1;
-            frameBufferDesc.colorAttachments = &colorAttachment;
-            frameBufferDesc.colorClearValues = &clearColor;
-            frameBufferDesc.depthStencilAttachment = depthAttachment;
-            frameBufferDesc.depthStencilClearValue = &clearDepth;
-            nri::FrameBuffer* frameBuffer;
-            NRI_ABORT_ON_FAILURE( NRI.CreateFrameBuffer(*m_Device, frameBufferDesc, frameBuffer) );
-
-            const BackBuffer backBuffer = { frameBuffer, frameBuffer, colorAttachment, swapChainTextures[i] };
+            const BackBuffer backBuffer = { colorAttachment, swapChainTextures[i] };
             m_SwapChainBuffers.push_back(backBuffer);
         }
     }
@@ -608,12 +590,27 @@ void Sample::RenderFrame(uint32_t frameIndex)
         transitionBarriers.textures = &textureTransitionBarrierDesc;
         NRI.CmdPipelineBarrier(commandBuffer, &transitionBarriers, nullptr, nri::BarrierDependency::ALL_STAGES);
 
-        NRI.CmdBeginRenderPass(commandBuffer, *currentBackBuffer.frameBuffer, nri::RenderPassBeginFlag::NONE);
+        nri::AttachmentsDesc attachmentsDesc = {};
+        attachmentsDesc.colorNum = 1;
+        attachmentsDesc.colors = &currentBackBuffer.colorAttachment;
+        attachmentsDesc.depthStencil = m_DepthAttachment;
+
+        NRI.CmdBeginRendering(commandBuffer, attachmentsDesc);
         {
+            nri::ClearDesc clearDescs[2] = {};
+            clearDescs[0].attachmentContentType = nri::AttachmentContentType::COLOR;
+            clearDescs[0].value.color32f = {0.0f, 0.63f, 1.0f};
+            clearDescs[1].attachmentContentType = nri::AttachmentContentType::DEPTH;
+            clearDescs[1].value.depthStencil.depth = CLEAR_DEPTH;
+
+            NRI.CmdClearAttachments(commandBuffer, clearDescs, helper::GetCountOf(clearDescs), nullptr, 0);
+
             const nri::Viewport viewport = { 0.0f, 0.0f, (float)windowWidth, (float)windowHeight, 0.0f, 1.0f };
-            const nri::Rect scissor = { 0, 0, windowWidth, windowHeight };
             NRI.CmdSetViewports(commandBuffer,  &viewport, 1);
+
+            const nri::Rect scissor = { 0, 0, (nri::Dim_t)windowWidth, (nri::Dim_t)windowHeight };
             NRI.CmdSetScissors(commandBuffer,  &scissor, 1);
+
             NRI.CmdSetIndexBuffer(commandBuffer, *m_Buffers[INDEX_BUFFER], 0, sizeof(utils::Index) == 2 ? nri::IndexType::UINT16 : nri::IndexType::UINT32);
 
             NRI.CmdSetPipelineLayout(commandBuffer, *m_PipelineLayout);
@@ -636,7 +633,7 @@ void Sample::RenderFrame(uint32_t frameIndex)
                 NRI.CmdDrawIndexed(commandBuffer, mesh.indexNum, 1, mesh.indexOffset, mesh.vertexOffset, 0);
             }
         }
-        NRI.CmdEndRenderPass(commandBuffer);
+        NRI.CmdEndRendering(commandBuffer);
 
         textureTransitionBarrierDesc.prevAccess = textureTransitionBarrierDesc.nextAccess;
         textureTransitionBarrierDesc.nextAccess = nri::AccessBits::UNKNOWN;

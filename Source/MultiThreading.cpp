@@ -163,11 +163,7 @@ Sample::~Sample()
     }
 
     for (uint32_t i = 0; i < m_SwapChainBuffers.size(); i++)
-    {
-        NRI.DestroyFrameBuffer(*m_SwapChainBuffers[i].frameBuffer);
-        NRI.DestroyFrameBuffer(*m_SwapChainBuffers[i].frameBufferUI);
         NRI.DestroyDescriptor(*m_SwapChainBuffers[i].colorAttachment);
-    }
 
     for (size_t i = 0; i < m_Textures.size(); i++)
         NRI.DestroyDescriptor(*m_TextureViews[i]);
@@ -371,27 +367,44 @@ void Sample::RenderFrame(uint32_t frameIndex)
     NRI.CmdPipelineBarrier(commandBuffer, &transitionBarriers, nullptr, nri::BarrierDependency::GRAPHICS_STAGE);
 
     NRI.CmdBeginAnnotation(commandBuffer, "Thread0");
-    NRI.CmdBeginRenderPass(commandBuffer, *m_BackBuffer->frameBuffer, nri::RenderPassBeginFlag::NONE);
-
-    if (m_IsMultithreadingEnabled)
     {
-        const uint32_t baseBoxIndex = threadIndex * m_BoxesPerThread;
-        const uint32_t boxNum = std::min(m_BoxesPerThread, (uint32_t)m_Boxes.size() - baseBoxIndex);
-        RenderBoxes(commandBuffer, baseBoxIndex, boxNum);
-    }
-    else
-    {
-        RenderBoxes(commandBuffer, 0, (uint32_t)m_Boxes.size());
-    }
+        nri::AttachmentsDesc attachmentsDesc = {};
+        attachmentsDesc.colorNum = 1;
+        attachmentsDesc.colors = &m_BackBuffer->colorAttachment;
+        attachmentsDesc.depthStencil = m_DepthTextureView;
 
-    NRI.CmdEndRenderPass(commandBuffer);
+        NRI.CmdBeginRendering(commandBuffer, attachmentsDesc);
+        {
+            nri::ClearDesc clearDescs[2] = {};
+            clearDescs[0].attachmentContentType = nri::AttachmentContentType::COLOR;
+            clearDescs[1].attachmentContentType = nri::AttachmentContentType::DEPTH;
+            clearDescs[1].value.depthStencil.depth = 1.0f;
+            NRI.CmdClearAttachments(commandBuffer, clearDescs, helper::GetCountOf(clearDescs), nullptr, 0);
+
+            if (m_IsMultithreadingEnabled)
+            {
+                const uint32_t baseBoxIndex = threadIndex * m_BoxesPerThread;
+                const uint32_t boxNum = std::min(m_BoxesPerThread, (uint32_t)m_Boxes.size() - baseBoxIndex);
+                RenderBoxes(commandBuffer, baseBoxIndex, boxNum);
+            }
+            else
+                RenderBoxes(commandBuffer, 0, (uint32_t)m_Boxes.size());
+        }
+        NRI.CmdEndRendering(commandBuffer);
+    }
     NRI.CmdEndAnnotation(commandBuffer);
 
     if (!m_IsMultithreadingEnabled)
     {
-        NRI.CmdBeginRenderPass(commandBuffer, *m_BackBuffer->frameBufferUI, nri::RenderPassBeginFlag::SKIP_FRAME_BUFFER_CLEAR);
-        RenderUserInterface(*m_Device, commandBuffer);
-        NRI.CmdEndRenderPass(commandBuffer);
+        nri::AttachmentsDesc attachmentsDesc = {};
+        attachmentsDesc.colorNum = 1;
+        attachmentsDesc.colors = &m_BackBuffer->colorAttachment;
+
+        NRI.CmdBeginRendering(commandBuffer, attachmentsDesc);
+        {
+            RenderUserInterface(*m_Device, commandBuffer);
+        }
+        NRI.CmdEndRendering(commandBuffer);
 
         backBufferTransition.texture = m_BackBuffer->texture;
         backBufferTransition.prevAccess = nri::AccessBits::COLOR_ATTACHMENT;
@@ -434,7 +447,7 @@ void Sample::RenderFrame(uint32_t frameIndex)
 
 void Sample::RenderBoxes(nri::CommandBuffer& commandBuffer, uint32_t offset, uint32_t number)
 {
-    const nri::Rect scissorRect = { 0, 0, GetWindowResolution().x, GetWindowResolution().y };
+    const nri::Rect scissorRect = { 0, 0, (nri::Dim_t)GetWindowResolution().x, (nri::Dim_t)GetWindowResolution().y };
     const nri::Viewport viewport = { 0.0f, 0.0f, (float)scissorRect.width, (float)scissorRect.height, 0.0f, 1.0f };
     NRI.CmdSetViewports(commandBuffer, &viewport, 1);
     NRI.CmdSetScissors(commandBuffer, &scissorRect, 1);
@@ -486,20 +499,34 @@ void Sample::ThreadEntryPoint(uint32_t threadIndex)
         snprintf(annotation, sizeof(annotation), "Thread%u", threadIndex);
 
         NRI.CmdBeginAnnotation(commandBuffer, annotation);
-        NRI.CmdBeginRenderPass(commandBuffer, *m_BackBuffer->frameBuffer, nri::RenderPassBeginFlag::SKIP_FRAME_BUFFER_CLEAR);
+        {
+            nri::AttachmentsDesc attachmentsDesc = {};
+            attachmentsDesc.colorNum = 1;
+            attachmentsDesc.colors = &m_BackBuffer->colorAttachment;
+            attachmentsDesc.depthStencil = m_DepthTextureView;
 
-        const uint32_t baseBoxIndex = threadIndex * m_BoxesPerThread;
-        const uint32_t boxNum = std::min(m_BoxesPerThread, (uint32_t)m_Boxes.size() - baseBoxIndex);
-        RenderBoxes(commandBuffer, baseBoxIndex, boxNum);
+            NRI.CmdBeginRendering(commandBuffer, attachmentsDesc);
+            {
+                const uint32_t baseBoxIndex = threadIndex * m_BoxesPerThread;
+                const uint32_t boxNum = std::min(m_BoxesPerThread, (uint32_t)m_Boxes.size() - baseBoxIndex);
+                RenderBoxes(commandBuffer, baseBoxIndex, boxNum);
+            }
 
-        NRI.CmdEndRenderPass(commandBuffer);
+            NRI.CmdEndRendering(commandBuffer);
+        }
         NRI.CmdEndAnnotation(commandBuffer);
 
         if (threadIndex == m_ThreadNum - 1)
         {
-            NRI.CmdBeginRenderPass(commandBuffer, *m_BackBuffer->frameBufferUI, nri::RenderPassBeginFlag::SKIP_FRAME_BUFFER_CLEAR);
-            RenderUserInterface(*m_Device, commandBuffer);
-            NRI.CmdEndRenderPass(commandBuffer);
+            nri::AttachmentsDesc attachmentsDesc = {};
+            attachmentsDesc.colorNum = 1;
+            attachmentsDesc.colors = &m_BackBuffer->colorAttachment;
+
+            NRI.CmdBeginRendering(commandBuffer, attachmentsDesc);
+            {
+                RenderUserInterface(*m_Device, commandBuffer);
+            }
+            NRI.CmdEndRendering(commandBuffer);
         }
 
         if (threadIndex == m_ThreadNum - 1)
@@ -544,15 +571,6 @@ void Sample::CreateSwapChain(nri::Format& swapChainFormat)
     nri::Texture* const* swapChainTextures = NRI.GetSwapChainTextures(*m_SwapChain, swapChainTextureNum);
     swapChainFormat = NRI.GetTextureDesc(*swapChainTextures[0]).format;
 
-    nri::ClearValueDesc clearDepth = {};
-    clearDepth.depthStencil = {1.0f, 0};
-
-    nri::ClearValueDesc clearColor = {};
-    nri::FrameBufferDesc frameBufferDesc = {};
-    frameBufferDesc.colorAttachmentNum = 1;
-    frameBufferDesc.colorClearValues = &clearColor;
-    frameBufferDesc.depthStencilClearValue = &clearDepth;
-
     for (uint32_t i = 0; i < swapChainTextureNum; i++)
     {
         m_SwapChainBuffers.emplace_back();
@@ -562,13 +580,6 @@ void Sample::CreateSwapChain(nri::Format& swapChainFormat)
 
         nri::Texture2DViewDesc textureViewDesc = {backBuffer.texture, nri::Texture2DViewType::COLOR_ATTACHMENT, swapChainFormat};
         NRI_ABORT_ON_FAILURE(NRI.CreateTexture2DView(textureViewDesc, backBuffer.colorAttachment));
-
-        frameBufferDesc.depthStencilAttachment = m_DepthTextureView;
-        frameBufferDesc.colorAttachments = &backBuffer.colorAttachment;
-        NRI_ABORT_ON_FAILURE(NRI.CreateFrameBuffer(*m_Device, frameBufferDesc, backBuffer.frameBuffer));
-
-        frameBufferDesc.depthStencilAttachment = nullptr;
-        NRI_ABORT_ON_FAILURE(NRI.CreateFrameBuffer(*m_Device, frameBufferDesc, backBuffer.frameBufferUI));
     }
 }
 

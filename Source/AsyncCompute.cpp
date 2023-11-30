@@ -87,10 +87,7 @@ Sample::~Sample()
     }
 
     for (uint32_t i = 0; i < m_SwapChainBuffers.size(); i++)
-    {
-        NRI.DestroyFrameBuffer(*m_SwapChainBuffers[i].frameBuffer);
         NRI.DestroyDescriptor(*m_SwapChainBuffers[i].colorAttachment);
-    }
 
     NRI.DestroyDescriptor(*m_Descriptor);
     NRI.DestroyTexture(*m_Texture);
@@ -170,15 +167,7 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
             nri::Descriptor* colorAttachment;
             NRI_ABORT_ON_FAILURE( NRI.CreateTexture2DView(textureViewDesc, colorAttachment) );
 
-            nri::ClearValueDesc clearColor = {};
-            nri::FrameBufferDesc frameBufferDesc = {};
-            frameBufferDesc.colorAttachmentNum = 1;
-            frameBufferDesc.colorAttachments = &colorAttachment;
-            frameBufferDesc.colorClearValues = &clearColor;
-            nri::FrameBuffer* frameBuffer;
-            NRI_ABORT_ON_FAILURE( NRI.CreateFrameBuffer(*m_Device, frameBufferDesc, frameBuffer) );
-
-            const BackBuffer backBuffer = { frameBuffer, frameBuffer, colorAttachment, swapChainTextures[i] };
+            const BackBuffer backBuffer = { colorAttachment, swapChainTextures[i] };
             m_SwapChainBuffers.push_back(backBuffer);
         }
     }
@@ -427,27 +416,31 @@ void Sample::RenderFrame(uint32_t frameIndex)
         transitionBarriers.textureNum = 1;
         NRI.CmdPipelineBarrier(commandBuffer1, &transitionBarriers, nullptr, nri::BarrierDependency::ALL_STAGES);
 
-        NRI.CmdBeginRenderPass(commandBuffer1, *backBuffer.frameBuffer, nri::RenderPassBeginFlag::NONE);
+        nri::AttachmentsDesc attachmentsDesc = {};
+        attachmentsDesc.colorNum = 1;
+        attachmentsDesc.colors = &backBuffer.colorAttachment;
 
-        const nri::Viewport viewport = { 0.0f, 0.0f, (float)windowWidth, (float)windowHeight, 0.0f, 1.0f };
-        const nri::Rect scissorRect = { 0, 0, windowWidth, windowHeight };
-        NRI.CmdSetViewports(commandBuffer1, &viewport, 1);
-        NRI.CmdSetScissors(commandBuffer1, &scissorRect, 1);
+        NRI.CmdBeginRendering(commandBuffer1, attachmentsDesc);
+        {
+            const nri::Viewport viewport = { 0.0f, 0.0f, (float)windowWidth, (float)windowHeight, 0.0f, 1.0f };
+            const nri::Rect scissorRect = { 0, 0, (nri::Dim_t)windowWidth, (nri::Dim_t)windowHeight };
+            NRI.CmdSetViewports(commandBuffer1, &viewport, 1);
+            NRI.CmdSetScissors(commandBuffer1, &scissorRect, 1);
 
-        nri::ClearDesc clearDesc = {};
-        clearDesc.colorAttachmentIndex = 0;
-        NRI.CmdClearAttachments(commandBuffer1, &clearDesc, 1, nullptr, 0);
+            nri::ClearDesc clearDesc = {};
+            clearDesc.colorAttachmentIndex = 0;
+            NRI.CmdClearAttachments(commandBuffer1, &clearDesc, 1, nullptr, 0);
 
-        const uint64_t offset = 0;
-        NRI.CmdSetPipelineLayout(commandBuffer1, *m_GraphicsPipelineLayout);
-        NRI.CmdSetPipeline(commandBuffer1, *m_GraphicsPipeline);
-        NRI.CmdSetIndexBuffer(commandBuffer1, *m_GeometryBuffer, 0, nri::IndexType::UINT16);
-        NRI.CmdSetVertexBuffers(commandBuffer1, 0, 1, &m_GeometryBuffer, &offset);
-        NRI.CmdDraw(commandBuffer1, VERTEX_NUM, 1, 0, 0);
+            const uint64_t offset = 0;
+            NRI.CmdSetPipelineLayout(commandBuffer1, *m_GraphicsPipelineLayout);
+            NRI.CmdSetPipeline(commandBuffer1, *m_GraphicsPipeline);
+            NRI.CmdSetIndexBuffer(commandBuffer1, *m_GeometryBuffer, 0, nri::IndexType::UINT16);
+            NRI.CmdSetVertexBuffers(commandBuffer1, 0, 1, &m_GeometryBuffer, &offset);
+            NRI.CmdDraw(commandBuffer1, VERTEX_NUM, 1, 0, 0);
 
-        RenderUserInterface(*m_Device, commandBuffer1);
-
-        NRI.CmdEndRenderPass(commandBuffer1);
+            RenderUserInterface(*m_Device, commandBuffer1);
+        }
+        NRI.CmdEndRendering(commandBuffer1);
 
     }
     NRI.EndCommandBuffer(commandBuffer1);

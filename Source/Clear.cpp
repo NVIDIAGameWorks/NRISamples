@@ -60,10 +60,7 @@ Sample::~Sample()
     }
 
     for (BackBuffer& backBuffer : m_SwapChainBuffers)
-    {
-        NRI.DestroyFrameBuffer(*backBuffer.frameBuffer);
         NRI.DestroyDescriptor(*backBuffer.colorAttachment);
-    }
 
     NRI.DestroyFence(*m_FrameFence);
     NRI.DestroySwapChain(*m_SwapChain);
@@ -124,13 +121,7 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
             nri::Descriptor* colorAttachment;
             NRI_ABORT_ON_FAILURE( NRI.CreateTexture2DView(textureViewDesc, colorAttachment) );
 
-            nri::FrameBufferDesc frameBufferDesc = {};
-            frameBufferDesc.colorAttachmentNum = 1;
-            frameBufferDesc.colorAttachments = &colorAttachment;
-            nri::FrameBuffer* frameBuffer;
-            NRI_ABORT_ON_FAILURE( NRI.CreateFrameBuffer(*m_Device, frameBufferDesc, frameBuffer) );
-
-            const BackBuffer backBuffer = { frameBuffer, frameBuffer, colorAttachment, swapChainTextures[i] };
+            const BackBuffer backBuffer = { colorAttachment, swapChainTextures[i] };
             m_SwapChainBuffers.push_back(backBuffer);
         }
     }
@@ -147,8 +138,6 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
 
 void Sample::RenderFrame(uint32_t frameIndex)
 {
-    const uint32_t windowWidth = GetWindowResolution().x;
-    const uint32_t windowHeight = GetWindowResolution().y;
     const uint32_t bufferedFrameIndex = frameIndex % BUFFERED_FRAME_MAX_NUM;
     const Frame& frame = m_Frames[bufferedFrameIndex];
 
@@ -178,26 +167,35 @@ void Sample::RenderFrame(uint32_t frameIndex)
         transitionBarriers.textures = &textureTransitionBarrierDesc;
         NRI.CmdPipelineBarrier(commandBuffer, &transitionBarriers, nullptr, nri::BarrierDependency::ALL_STAGES);
 
-        NRI.CmdBeginRenderPass(commandBuffer, *backBuffer.frameBuffer, nri::RenderPassBeginFlag::NONE);
+        nri::AttachmentsDesc attachmentsDesc = {};
+        attachmentsDesc.colorNum = 1;
+        attachmentsDesc.colors = &backBuffer.colorAttachment;
+
+        NRI.CmdBeginRendering(commandBuffer, attachmentsDesc);
         {
             helper::Annotation annotation(NRI, commandBuffer, "Clear");
 
             nri::ClearDesc clearDesc = {};
             clearDesc.colorAttachmentIndex = 0;
 
+            nri::Dim_t w = (nri::Dim_t)GetWindowResolution().x;
+            nri::Dim_t h = (nri::Dim_t)GetWindowResolution().y;
+            nri::Dim_t h3 = h / 3;
+            int16_t y = (int16_t)h3;
+
             clearDesc.value.color32f = {1.0f, 0.0f, 0.0f, 1.0f};
-            nri::Rect rect1 = { 0, 0, windowWidth, windowHeight / 3 };
+            nri::Rect rect1 = { 0, 0, w, h3 };
             NRI.CmdClearAttachments(commandBuffer, &clearDesc, 1, &rect1, 1);
 
             clearDesc.value.color32f = {0.0f, 1.0f, 0.0f, 1.0f};
-            nri::Rect rect2 = { 0, (int32_t)windowHeight / 3, windowWidth, windowHeight / 3 };
+            nri::Rect rect2 = { 0, y, w, h3 };
             NRI.CmdClearAttachments(commandBuffer, &clearDesc, 1, &rect2, 1);
 
             clearDesc.value.color32f = {0.0f, 0.0f, 1.0f, 1.0f};
-            nri::Rect rect3 = { 0, (int32_t)(windowHeight * 2) / 3, windowWidth, windowHeight / 3 };
+            nri::Rect rect3 = { 0, y * 2, w, h3 };
             NRI.CmdClearAttachments(commandBuffer, &clearDesc, 1, &rect3, 1);
         }
-        NRI.CmdEndRenderPass(commandBuffer);
+        NRI.CmdEndRendering(commandBuffer);
 
         textureTransitionBarrierDesc.prevAccess = textureTransitionBarrierDesc.nextAccess;
         textureTransitionBarrierDesc.nextAccess = nri::AccessBits::UNKNOWN;
