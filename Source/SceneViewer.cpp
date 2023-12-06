@@ -378,11 +378,9 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
 
         // Sampler
         nri::SamplerDesc samplerDesc = {};
-        samplerDesc.anisotropy = 8;
         samplerDesc.addressModes = {nri::AddressMode::REPEAT, nri::AddressMode::REPEAT};
-        samplerDesc.minification = nri::Filter::LINEAR;
-        samplerDesc.magnification = nri::Filter::LINEAR;
-        samplerDesc.mip = nri::Filter::LINEAR;
+        samplerDesc.filters = {nri::Filter::LINEAR, nri::Filter::LINEAR, nri::Filter::LINEAR};
+        samplerDesc.anisotropy = 8;
         samplerDesc.mipMax = 16.0f;
         NRI_ABORT_ON_FAILURE( NRI.CreateSampler(*m_Device, samplerDesc, anisotropicSampler) );
         m_Descriptors.push_back(anisotropicSampler);
