@@ -175,8 +175,8 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
     // Buffered resources
     for (Frame& frame : m_Frames)
     {
-        NRI_ABORT_ON_FAILURE( NRI.CreateCommandAllocator(*m_CommandQueueGraphics, nri::ALL_NODES, frame.commandAllocatorGraphics) );
-        NRI_ABORT_ON_FAILURE( NRI.CreateCommandAllocator(*m_CommandQueueCompute, nri::ALL_NODES, frame.commandAllocatorCompute) );
+        NRI_ABORT_ON_FAILURE( NRI.CreateCommandAllocator(*m_CommandQueueGraphics, frame.commandAllocatorGraphics) );
+        NRI_ABORT_ON_FAILURE( NRI.CreateCommandAllocator(*m_CommandQueueCompute, frame.commandAllocatorCompute) );
         NRI_ABORT_ON_FAILURE( NRI.CreateCommandBuffer(*frame.commandAllocatorCompute, frame.commandBufferCompute) );
 
         for (size_t i = 0; i < frame.commandBufferGraphics.size(); i++)

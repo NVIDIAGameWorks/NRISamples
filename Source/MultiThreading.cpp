@@ -590,7 +590,7 @@ void Sample::CreateCommandBuffers()
         for (uint32_t i = 0; i < m_ThreadNum; i++)
         {
             ThreadContext& context = m_ThreadContexts[i];
-            NRI_ABORT_ON_FAILURE(NRI.CreateCommandAllocator(*m_CommandQueue, nri::ALL_NODES, context.commandAllocators[j]));
+            NRI_ABORT_ON_FAILURE(NRI.CreateCommandAllocator(*m_CommandQueue, context.commandAllocators[j]));
             NRI_ABORT_ON_FAILURE(NRI.CreateCommandBuffer(*context.commandAllocators[j], context.commandBuffers[j]));
         }
     }

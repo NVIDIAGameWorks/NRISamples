@@ -354,7 +354,7 @@ void Sample::CreateCommandBuffers()
 {
     for (Frame& frame : m_Frames)
     {
-        NRI_ABORT_ON_FAILURE(NRI.CreateCommandAllocator(*m_CommandQueue, nri::ALL_NODES, frame.commandAllocator));
+        NRI_ABORT_ON_FAILURE(NRI.CreateCommandAllocator(*m_CommandQueue, frame.commandAllocator));
         NRI_ABORT_ON_FAILURE(NRI.CreateCommandBuffer(*frame.commandAllocator, frame.commandBuffer));
     }
 }
@@ -666,7 +666,7 @@ void Sample::BuildBottomLevelAccelerationStructure(nri::AccelerationStructure& a
 
     nri::CommandAllocator* commandAllocator = nullptr;
     nri::CommandBuffer* commandBuffer = nullptr;
-    NRI.CreateCommandAllocator(*m_CommandQueue, nri::ALL_NODES, commandAllocator);
+    NRI.CreateCommandAllocator(*m_CommandQueue, commandAllocator);
     NRI.CreateCommandBuffer(*commandAllocator, commandBuffer);
 
     nri::QueueSubmitDesc queueSubmitDesc = {};
@@ -694,7 +694,7 @@ void Sample::BuildTopLevelAccelerationStructure(nri::AccelerationStructure& acce
 
     nri::CommandAllocator* commandAllocator = nullptr;
     nri::CommandBuffer* commandBuffer = nullptr;
-    NRI.CreateCommandAllocator(*m_CommandQueue, nri::ALL_NODES, commandAllocator);
+    NRI.CreateCommandAllocator(*m_CommandQueue, commandAllocator);
     NRI.CreateCommandBuffer(*commandAllocator, commandBuffer);
 
     nri::QueueSubmitDesc queueSubmitDesc = {};

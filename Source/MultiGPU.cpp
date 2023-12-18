@@ -433,7 +433,7 @@ void Sample::CreateCommandBuffers()
 {
     for (Frame& frame : m_Frames)
     {
-        NRI_ABORT_ON_FAILURE(NRI.CreateCommandAllocator(*m_CommandQueue, nri::ALL_NODES, frame.commandAllocator));
+        NRI_ABORT_ON_FAILURE(NRI.CreateCommandAllocator(*m_CommandQueue, frame.commandAllocator));
 
         for (uint32_t i = 0; i < frame.commandBuffers.size(); i++)
             NRI_ABORT_ON_FAILURE(NRI.CreateCommandBuffer(*frame.commandAllocator, frame.commandBuffers[i]));
