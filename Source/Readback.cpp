@@ -216,7 +216,7 @@ void Sample::RenderFrame(uint32_t frameIndex)
         textureTransitionBarrierDesc.prevAccess = nri::AccessBits::UNKNOWN;
         textureTransitionBarrierDesc.nextAccess = nri::AccessBits::COPY_SOURCE;
         textureTransitionBarrierDesc.prevLayout = nri::TextureLayout::UNKNOWN;
-        textureTransitionBarrierDesc.nextLayout = nri::TextureLayout::GENERAL;
+        textureTransitionBarrierDesc.nextLayout = nri::TextureLayout::COPY_SOURCE;
         textureTransitionBarrierDesc.arraySize = 1;
         textureTransitionBarrierDesc.mipNum = 1;
 
@@ -238,7 +238,7 @@ void Sample::RenderFrame(uint32_t frameIndex)
         // before clearing the texture read back contents under the mouse cursor
         NRI.CmdReadbackTextureToBuffer(commandBuffer, *m_ReadbackBuffer, dstDataLayoutDesc, *backBuffer.texture, srcRegionDesc);
 
-        textureTransitionBarrierDesc.prevLayout = nri::TextureLayout::UNKNOWN;
+        textureTransitionBarrierDesc.prevLayout = textureTransitionBarrierDesc.nextLayout;
         textureTransitionBarrierDesc.nextLayout = nri::TextureLayout::COLOR_ATTACHMENT;
         textureTransitionBarrierDesc.prevAccess = textureTransitionBarrierDesc.nextAccess;
         textureTransitionBarrierDesc.nextAccess = nri::AccessBits::COLOR_ATTACHMENT;

@@ -455,12 +455,12 @@ void Sample::RenderFrame(uint32_t frameIndex)
         textureTransitionBarrierDescs[0].prevAccess = nri::AccessBits::COLOR_ATTACHMENT;
         textureTransitionBarrierDescs[0].nextAccess = nri::AccessBits::COPY_DESTINATION;
         textureTransitionBarrierDescs[0].prevLayout = nri::TextureLayout::COLOR_ATTACHMENT;
-        textureTransitionBarrierDescs[0].nextLayout = nri::TextureLayout::GENERAL;
+        textureTransitionBarrierDescs[0].nextLayout = nri::TextureLayout::COPY_DESTINATION;
 
         textureTransitionBarrierDescs[1].prevAccess = nri::AccessBits::SHADER_RESOURCE_STORAGE;
         textureTransitionBarrierDescs[1].nextAccess = nri::AccessBits::COPY_SOURCE;
         textureTransitionBarrierDescs[1].prevLayout = nri::TextureLayout::GENERAL;
-        textureTransitionBarrierDescs[1].nextLayout = nri::TextureLayout::GENERAL;
+        textureTransitionBarrierDescs[1].nextLayout = nri::TextureLayout::COPY_SOURCE;
 
         transitionBarriers.textureNum = 2;
         NRI.CmdPipelineBarrier(commandBuffer2, &transitionBarriers, nullptr, nri::BarrierDependency::ALL_STAGES);
@@ -479,12 +479,12 @@ void Sample::RenderFrame(uint32_t frameIndex)
         // Resource transitions
         textureTransitionBarrierDescs[0].prevAccess = nri::AccessBits::COPY_DESTINATION;
         textureTransitionBarrierDescs[0].nextAccess = nri::AccessBits::UNKNOWN;
-        textureTransitionBarrierDescs[0].prevLayout = nri::TextureLayout::GENERAL;
+        textureTransitionBarrierDescs[0].prevLayout = nri::TextureLayout::COPY_DESTINATION;
         textureTransitionBarrierDescs[0].nextLayout = nri::TextureLayout::PRESENT;
 
         textureTransitionBarrierDescs[1].prevAccess = nri::AccessBits::COPY_SOURCE;
         textureTransitionBarrierDescs[1].nextAccess = nri::AccessBits::SHADER_RESOURCE_STORAGE;
-        textureTransitionBarrierDescs[1].prevLayout = nri::TextureLayout::GENERAL;
+        textureTransitionBarrierDescs[1].prevLayout = nri::TextureLayout::COPY_SOURCE;
         textureTransitionBarrierDescs[1].nextLayout = nri::TextureLayout::GENERAL;
 
         transitionBarriers.textureNum = 2;
