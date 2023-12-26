@@ -400,8 +400,7 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
         textureData.mipNum = texture.GetMipNum();
         textureData.arraySize = 1;
         textureData.texture = m_Texture;
-        textureData.nextLayout = nri::TextureLayout::SHADER_RESOURCE;
-        textureData.nextAccess = nri::AccessBits::SHADER_RESOURCE;
+        textureData.nextState = {nri::AccessBits::SHADER_RESOURCE, nri::TextureLayout::SHADER_RESOURCE};
 
         nri::BufferUploadDesc bufferData = {};
         bufferData.buffer = m_GeometryBuffer;
@@ -462,10 +461,7 @@ void Sample::RenderFrame(uint32_t frameIndex)
 
     nri::TextureTransitionBarrierDesc textureTransitionBarrierDesc = {};
     textureTransitionBarrierDesc.texture = currentBackBuffer.texture;
-    textureTransitionBarrierDesc.prevAccess = nri::AccessBits::UNKNOWN;
-    textureTransitionBarrierDesc.nextAccess = nri::AccessBits::COLOR_ATTACHMENT;
-    textureTransitionBarrierDesc.prevLayout = nri::TextureLayout::UNKNOWN;
-    textureTransitionBarrierDesc.nextLayout = nri::TextureLayout::COLOR_ATTACHMENT;
+    textureTransitionBarrierDesc.nextState = {nri::AccessBits::COLOR_ATTACHMENT, nri::TextureLayout::COLOR_ATTACHMENT};
     textureTransitionBarrierDesc.arraySize = 1;
     textureTransitionBarrierDesc.mipNum = 1;
 
@@ -532,10 +528,8 @@ void Sample::RenderFrame(uint32_t frameIndex)
         }
         NRI.CmdEndRendering(*commandBuffer);
 
-        textureTransitionBarrierDesc.prevAccess = textureTransitionBarrierDesc.nextAccess;
-        textureTransitionBarrierDesc.nextAccess = nri::AccessBits::UNKNOWN;
-        textureTransitionBarrierDesc.prevLayout = textureTransitionBarrierDesc.nextLayout;
-        textureTransitionBarrierDesc.nextLayout = nri::TextureLayout::PRESENT;
+        textureTransitionBarrierDesc.prevState = textureTransitionBarrierDesc.nextState;
+        textureTransitionBarrierDesc.nextState = {nri::AccessBits::UNKNOWN, nri::TextureLayout::PRESENT};
 
         NRI.CmdPipelineBarrier(*commandBuffer, &transitionBarriers, nullptr, nri::BarrierDependency::ALL_STAGES);
     }

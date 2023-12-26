@@ -155,10 +155,7 @@ void Sample::RenderFrame(uint32_t frameIndex)
     {
         nri::TextureTransitionBarrierDesc textureTransitionBarrierDesc = {};
         textureTransitionBarrierDesc.texture = backBuffer.texture;
-        textureTransitionBarrierDesc.prevAccess = nri::AccessBits::UNKNOWN;
-        textureTransitionBarrierDesc.nextAccess = nri::AccessBits::COLOR_ATTACHMENT;
-        textureTransitionBarrierDesc.prevLayout = nri::TextureLayout::UNKNOWN;
-        textureTransitionBarrierDesc.nextLayout = nri::TextureLayout::COLOR_ATTACHMENT;
+        textureTransitionBarrierDesc.nextState = {nri::AccessBits::COLOR_ATTACHMENT, nri::TextureLayout::COLOR_ATTACHMENT};
         textureTransitionBarrierDesc.arraySize = 1;
         textureTransitionBarrierDesc.mipNum = 1;
 
@@ -197,10 +194,8 @@ void Sample::RenderFrame(uint32_t frameIndex)
         }
         NRI.CmdEndRendering(commandBuffer);
 
-        textureTransitionBarrierDesc.prevAccess = textureTransitionBarrierDesc.nextAccess;
-        textureTransitionBarrierDesc.nextAccess = nri::AccessBits::UNKNOWN;
-        textureTransitionBarrierDesc.prevLayout = textureTransitionBarrierDesc.nextLayout;
-        textureTransitionBarrierDesc.nextLayout = nri::TextureLayout::PRESENT;
+        textureTransitionBarrierDesc.prevState = textureTransitionBarrierDesc.nextState;
+        textureTransitionBarrierDesc.nextState = {nri::AccessBits::UNKNOWN, nri::TextureLayout::PRESENT};
 
         NRI.CmdPipelineBarrier(commandBuffer, &transitionBarriers, nullptr, nri::BarrierDependency::ALL_STAGES);
     }

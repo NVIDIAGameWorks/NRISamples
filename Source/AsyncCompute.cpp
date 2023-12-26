@@ -327,8 +327,7 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
         nri::TextureUploadDesc textureData = {};
         textureData.subresources = nullptr;
         textureData.texture = m_Texture;
-        textureData.nextLayout = nri::TextureLayout::GENERAL;
-        textureData.nextAccess = nri::AccessBits::SHADER_RESOURCE_STORAGE;
+        textureData.nextState = {nri::AccessBits::SHADER_RESOURCE_STORAGE, nri::TextureLayout::GENERAL};
 
         nri::BufferUploadDesc bufferData = {};
         bufferData.buffer = m_GeometryBuffer;
@@ -377,10 +376,7 @@ void Sample::RenderFrame(uint32_t frameIndex)
     nri::TextureTransitionBarrierDesc textureTransitionBarrierDescs[2] = {};
 
     textureTransitionBarrierDescs[0].texture = backBuffer.texture;
-    textureTransitionBarrierDescs[0].prevAccess = nri::AccessBits::UNKNOWN;
-    textureTransitionBarrierDescs[0].nextAccess = nri::AccessBits::COLOR_ATTACHMENT;
-    textureTransitionBarrierDescs[0].prevLayout = nri::TextureLayout::UNKNOWN;
-    textureTransitionBarrierDescs[0].nextLayout = nri::TextureLayout::COLOR_ATTACHMENT;
+    textureTransitionBarrierDescs[0].nextState = {nri::AccessBits::COLOR_ATTACHMENT, nri::TextureLayout::COLOR_ATTACHMENT};
     textureTransitionBarrierDescs[0].arraySize = 1;
     textureTransitionBarrierDescs[0].mipNum = 1;
 
@@ -452,15 +448,11 @@ void Sample::RenderFrame(uint32_t frameIndex)
         helper::Annotation annotation(NRI, commandBuffer2, "Composition");
 
         // Resource transitions
-        textureTransitionBarrierDescs[0].prevAccess = nri::AccessBits::COLOR_ATTACHMENT;
-        textureTransitionBarrierDescs[0].nextAccess = nri::AccessBits::COPY_DESTINATION;
-        textureTransitionBarrierDescs[0].prevLayout = nri::TextureLayout::COLOR_ATTACHMENT;
-        textureTransitionBarrierDescs[0].nextLayout = nri::TextureLayout::COPY_DESTINATION;
+        textureTransitionBarrierDescs[0].prevState = {nri::AccessBits::COLOR_ATTACHMENT, nri::TextureLayout::COLOR_ATTACHMENT};
+        textureTransitionBarrierDescs[0].nextState = {nri::AccessBits::COPY_DESTINATION, nri::TextureLayout::COPY_DESTINATION};
 
-        textureTransitionBarrierDescs[1].prevAccess = nri::AccessBits::SHADER_RESOURCE_STORAGE;
-        textureTransitionBarrierDescs[1].nextAccess = nri::AccessBits::COPY_SOURCE;
-        textureTransitionBarrierDescs[1].prevLayout = nri::TextureLayout::GENERAL;
-        textureTransitionBarrierDescs[1].nextLayout = nri::TextureLayout::COPY_SOURCE;
+        textureTransitionBarrierDescs[1].prevState = {nri::AccessBits::SHADER_RESOURCE_STORAGE, nri::TextureLayout::GENERAL};
+        textureTransitionBarrierDescs[1].nextState = {nri::AccessBits::COPY_SOURCE, nri::TextureLayout::COPY_SOURCE};
 
         transitionBarriers.textureNum = 2;
         NRI.CmdPipelineBarrier(commandBuffer2, &transitionBarriers, nullptr, nri::BarrierDependency::ALL_STAGES);
@@ -477,15 +469,11 @@ void Sample::RenderFrame(uint32_t frameIndex)
         NRI.CmdCopyTexture(commandBuffer2, *backBuffer.texture, 0, &dstRegion, *m_Texture, 0, &srcRegion);
 
         // Resource transitions
-        textureTransitionBarrierDescs[0].prevAccess = nri::AccessBits::COPY_DESTINATION;
-        textureTransitionBarrierDescs[0].nextAccess = nri::AccessBits::UNKNOWN;
-        textureTransitionBarrierDescs[0].prevLayout = nri::TextureLayout::COPY_DESTINATION;
-        textureTransitionBarrierDescs[0].nextLayout = nri::TextureLayout::PRESENT;
+        textureTransitionBarrierDescs[0].prevState = {nri::AccessBits::COPY_DESTINATION, nri::TextureLayout::COPY_DESTINATION};
+        textureTransitionBarrierDescs[0].nextState = {nri::AccessBits::UNKNOWN, nri::TextureLayout::PRESENT};
 
-        textureTransitionBarrierDescs[1].prevAccess = nri::AccessBits::COPY_SOURCE;
-        textureTransitionBarrierDescs[1].nextAccess = nri::AccessBits::SHADER_RESOURCE_STORAGE;
-        textureTransitionBarrierDescs[1].prevLayout = nri::TextureLayout::COPY_SOURCE;
-        textureTransitionBarrierDescs[1].nextLayout = nri::TextureLayout::GENERAL;
+        textureTransitionBarrierDescs[1].prevState = {nri::AccessBits::COPY_SOURCE, nri::TextureLayout::COPY_SOURCE};
+        textureTransitionBarrierDescs[1].nextState = {nri::AccessBits::SHADER_RESOURCE_STORAGE, nri::TextureLayout::GENERAL};
 
         transitionBarriers.textureNum = 2;
         NRI.CmdPipelineBarrier(commandBuffer2, &transitionBarriers, nullptr, nri::BarrierDependency::ALL_STAGES);

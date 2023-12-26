@@ -203,10 +203,8 @@ void Sample::RecordGraphics(nri::CommandBuffer& commandBuffer, uint32_t physical
 
     nri::TextureTransitionBarrierDesc textureTransition = { };
     textureTransition.texture = m_ColorTexture;
-    textureTransition.prevAccess = nri::AccessBits::COPY_SOURCE;
-    textureTransition.nextAccess = nri::AccessBits::COLOR_ATTACHMENT;
-    textureTransition.prevLayout = nri::TextureLayout::COPY_SOURCE;
-    textureTransition.nextLayout = nri::TextureLayout::COLOR_ATTACHMENT;
+    textureTransition.prevState = {nri::AccessBits::COPY_SOURCE, nri::TextureLayout::COPY_SOURCE};
+    textureTransition.nextState = {nri::AccessBits::COLOR_ATTACHMENT, nri::TextureLayout::COLOR_ATTACHMENT};
     textureTransition.arraySize = 1;
     textureTransition.mipNum = 1;
 
@@ -262,10 +260,8 @@ void Sample::RecordGraphics(nri::CommandBuffer& commandBuffer, uint32_t physical
     NRI.CmdEndRendering(commandBuffer);
 
     textureTransition.texture = m_ColorTexture;
-    textureTransition.prevAccess = nri::AccessBits::COLOR_ATTACHMENT;
-    textureTransition.nextAccess = nri::AccessBits::COPY_SOURCE;
-    textureTransition.prevLayout = nri::TextureLayout::COLOR_ATTACHMENT;
-    textureTransition.nextLayout = nri::TextureLayout::COPY_SOURCE;
+    textureTransition.prevState = {nri::AccessBits::COLOR_ATTACHMENT, nri::TextureLayout::COLOR_ATTACHMENT};
+    textureTransition.nextState = {nri::AccessBits::COPY_SOURCE, nri::TextureLayout::COPY_SOURCE};
     textureTransition.arraySize = 1;
     textureTransition.mipNum = 1;
 
@@ -278,19 +274,14 @@ void Sample::CopyToSwapChainTexture(nri::CommandBuffer& commandBuffer, uint32_t 
 {
     nri::TextureTransitionBarrierDesc initialTransition = { };
     initialTransition.texture = m_BackBuffer->texture;
-    initialTransition.prevAccess = nri::AccessBits::UNKNOWN;
-    initialTransition.nextAccess = nri::AccessBits::COPY_DESTINATION;
-    initialTransition.prevLayout = nri::TextureLayout::UNKNOWN;
-    initialTransition.nextLayout = nri::TextureLayout::COPY_DESTINATION;
+    initialTransition.nextState = {nri::AccessBits::COPY_DESTINATION, nri::TextureLayout::COPY_DESTINATION};
     initialTransition.arraySize = 1;
     initialTransition.mipNum = 1;
 
     nri::TextureTransitionBarrierDesc finalTransition = { };
     finalTransition.texture = m_BackBuffer->texture;
-    finalTransition.prevAccess = nri::AccessBits::COPY_DESTINATION;
-    finalTransition.nextAccess = nri::AccessBits::UNKNOWN;
-    finalTransition.prevLayout = nri::TextureLayout::COPY_DESTINATION;
-    finalTransition.nextLayout = nri::TextureLayout::PRESENT;
+    finalTransition.prevState = initialTransition.nextState;
+    finalTransition.nextState = {nri::AccessBits::UNKNOWN, nri::TextureLayout::PRESENT};
     finalTransition.arraySize = 1;
     finalTransition.mipNum = 1;
 
@@ -383,13 +374,9 @@ void Sample::CreateMainFrameBuffer(nri::Format swapChainFormat)
 
     nri::TextureTransitionBarrierDesc textureTransitionBarriers[2] = {};
     textureTransitionBarriers[0].texture = m_DepthTexture;
-    textureTransitionBarriers[0].prevLayout = nri::TextureLayout::UNKNOWN;
-    textureTransitionBarriers[0].nextAccess = nri::AccessBits::DEPTH_STENCIL_WRITE;
-    textureTransitionBarriers[0].nextLayout = nri::TextureLayout::DEPTH_STENCIL;
+    textureTransitionBarriers[0].nextState = {nri::AccessBits::DEPTH_STENCIL_WRITE, nri::TextureLayout::DEPTH_STENCIL};
     textureTransitionBarriers[1].texture = m_ColorTexture;
-    textureTransitionBarriers[1].prevLayout = nri::TextureLayout::UNKNOWN;
-    textureTransitionBarriers[1].nextAccess = nri::AccessBits::COPY_SOURCE;
-    textureTransitionBarriers[1].nextLayout = nri::TextureLayout::COPY_SOURCE;
+    textureTransitionBarriers[1].nextState = {nri::AccessBits::COPY_SOURCE, nri::TextureLayout::COPY_SOURCE};
 
     nri::TransitionBarrierDesc transitionBarrierDesc = {};
     transitionBarrierDesc.textureNum = helper::GetCountOf(textureTransitionBarriers);

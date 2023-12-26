@@ -250,18 +250,14 @@ void Sample::RenderFrame(uint32_t frameIndex)
     {
         // Rendering
         textureTransitions[0].texture = m_BackBuffer->texture;
-        textureTransitions[0].prevAccess = nri::AccessBits::UNKNOWN;
-        textureTransitions[0].prevLayout = nri::TextureLayout::PRESENT;
-        textureTransitions[0].nextAccess = nri::AccessBits::COPY_DESTINATION;
-        textureTransitions[0].nextLayout = nri::TextureLayout::COPY_DESTINATION;
+        textureTransitions[0].prevState = {nri::AccessBits::UNKNOWN, nri::TextureLayout::PRESENT};
+        textureTransitions[0].nextState = {nri::AccessBits::COPY_DESTINATION, nri::TextureLayout::COPY_DESTINATION};
         textureTransitions[0].arraySize = 1;
         textureTransitions[0].mipNum = 1;
 
         textureTransitions[1].texture = m_RayTracingOutput;
-        textureTransitions[1].prevAccess = frameIndex == 0 ? nri::AccessBits::UNKNOWN : nri::AccessBits::COPY_SOURCE;
-        textureTransitions[1].prevLayout = frameIndex == 0 ? nri::TextureLayout::UNKNOWN : nri::TextureLayout::COPY_SOURCE;
-        textureTransitions[1].nextAccess = nri::AccessBits::SHADER_RESOURCE_STORAGE;
-        textureTransitions[1].nextLayout = nri::TextureLayout::GENERAL;
+        textureTransitions[1].prevState = {frameIndex == 0 ? nri::AccessBits::UNKNOWN : nri::AccessBits::COPY_SOURCE, frameIndex == 0 ? nri::TextureLayout::UNKNOWN : nri::TextureLayout::COPY_SOURCE};
+        textureTransitions[1].nextState = {nri::AccessBits::SHADER_RESOURCE_STORAGE, nri::TextureLayout::GENERAL};
         textureTransitions[1].arraySize = 1;
         textureTransitions[1].mipNum = 1;
 
@@ -285,10 +281,8 @@ void Sample::RenderFrame(uint32_t frameIndex)
         NRI.CmdDispatchRays(commandBuffer, dispatchRaysDesc);
 
         // Copy
-        textureTransitions[1].prevAccess = textureTransitions[1].nextAccess;
-        textureTransitions[1].prevLayout = textureTransitions[1].nextLayout;
-        textureTransitions[1].nextAccess = nri::AccessBits::COPY_SOURCE;
-        textureTransitions[1].nextLayout = nri::TextureLayout::COPY_SOURCE;
+        textureTransitions[1].prevState = textureTransitions[1].nextState;
+        textureTransitions[1].nextState = {nri::AccessBits::COPY_SOURCE, nri::TextureLayout::COPY_SOURCE};
 
         transitionBarriers.textures = textureTransitions + 1;
         transitionBarriers.textureNum = 1;
@@ -297,10 +291,8 @@ void Sample::RenderFrame(uint32_t frameIndex)
         NRI.CmdCopyTexture(commandBuffer, *m_BackBuffer->texture, 0, nullptr, *m_RayTracingOutput, 0, nullptr);
 
         // Present
-        textureTransitions[0].prevAccess = textureTransitions[0].nextAccess;
-        textureTransitions[0].prevLayout = textureTransitions[0].nextLayout;
-        textureTransitions[0].nextAccess = nri::AccessBits::UNKNOWN;
-        textureTransitions[0].nextLayout = nri::TextureLayout::PRESENT;
+        textureTransitions[0].prevState = textureTransitions[0].nextState;
+        textureTransitions[0].nextState = {nri::AccessBits::UNKNOWN, nri::TextureLayout::PRESENT};
 
         transitionBarriers.textures = textureTransitions;
         transitionBarriers.textureNum = 1;

@@ -353,10 +353,7 @@ void Sample::RenderFrame(uint32_t frameIndex)
 
     nri::TextureTransitionBarrierDesc backBufferTransition = {};
     backBufferTransition.texture = m_BackBuffer->texture;
-    backBufferTransition.prevAccess = nri::AccessBits::UNKNOWN;
-    backBufferTransition.nextAccess = nri::AccessBits::COLOR_ATTACHMENT;
-    backBufferTransition.prevLayout = nri::TextureLayout::UNKNOWN;
-    backBufferTransition.nextLayout = nri::TextureLayout::COLOR_ATTACHMENT;
+    backBufferTransition.nextState = {nri::AccessBits::COLOR_ATTACHMENT, nri::TextureLayout::COLOR_ATTACHMENT};
     backBufferTransition.arraySize = nri::REMAINING_ARRAY_LAYERS;
     backBufferTransition.mipNum = nri::REMAINING_MIP_LEVELS;
 
@@ -407,10 +404,8 @@ void Sample::RenderFrame(uint32_t frameIndex)
         NRI.CmdEndRendering(commandBuffer);
 
         backBufferTransition.texture = m_BackBuffer->texture;
-        backBufferTransition.prevAccess = nri::AccessBits::COLOR_ATTACHMENT;
-        backBufferTransition.nextAccess = nri::AccessBits::UNKNOWN;
-        backBufferTransition.prevLayout = nri::TextureLayout::COLOR_ATTACHMENT;
-        backBufferTransition.nextLayout = nri::TextureLayout::PRESENT;
+        backBufferTransition.prevState = {nri::AccessBits::COLOR_ATTACHMENT, nri::TextureLayout::COLOR_ATTACHMENT};
+        backBufferTransition.nextState = {nri::AccessBits::UNKNOWN, nri::TextureLayout::PRESENT};
         backBufferTransition.arraySize = 1;
         backBufferTransition.mipNum = 1;
 
@@ -533,10 +528,8 @@ void Sample::ThreadEntryPoint(uint32_t threadIndex)
         {
             nri::TextureTransitionBarrierDesc backBufferTransition = {};
             backBufferTransition.texture = m_BackBuffer->texture;
-            backBufferTransition.prevAccess = nri::AccessBits::COLOR_ATTACHMENT;
-            backBufferTransition.nextAccess = nri::AccessBits::UNKNOWN;
-            backBufferTransition.prevLayout = nri::TextureLayout::COLOR_ATTACHMENT;
-            backBufferTransition.nextLayout = nri::TextureLayout::PRESENT;
+            backBufferTransition.prevState = {nri::AccessBits::COLOR_ATTACHMENT, nri::TextureLayout::COLOR_ATTACHMENT};
+            backBufferTransition.nextState = {nri::AccessBits::UNKNOWN, nri::TextureLayout::PRESENT};
             backBufferTransition.arraySize = 1;
             backBufferTransition.mipNum = 1;
 
@@ -731,8 +724,7 @@ void Sample::CreateDepthTexture()
 
     nri::TextureUploadDesc textureData = {};
     textureData.texture = m_DepthTexture;
-    textureData.nextLayout = nri::TextureLayout::DEPTH_STENCIL;
-    textureData.nextAccess = nri::AccessBits::DEPTH_STENCIL_WRITE;
+    textureData.nextState = {nri::AccessBits::DEPTH_STENCIL_WRITE, nri::TextureLayout::DEPTH_STENCIL};
     NRI_ABORT_ON_FAILURE(NRI.UploadData(*m_CommandQueue, &textureData, 1, nullptr, 0));
 }
 
@@ -973,8 +965,7 @@ void Sample::LoadTextures()
         textureUpdate.mipNum = texture.GetMipNum();
         textureUpdate.arraySize = texture.GetArraySize();
         textureUpdate.texture = m_Textures[i];
-        textureUpdate.nextLayout = nri::TextureLayout::SHADER_RESOURCE;
-        textureUpdate.nextAccess = nri::AccessBits::SHADER_RESOURCE;
+        textureUpdate.nextState = {nri::AccessBits::SHADER_RESOURCE, nri::TextureLayout::SHADER_RESOURCE};
     }
 
     NRI_ABORT_ON_FAILURE(NRI.UploadData(*m_CommandQueue, textureUpdates.data(), (uint32_t)textureUpdates.size(), nullptr, 0));
