@@ -145,7 +145,6 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
 
     { // Swap chain
         nri::SwapChainDesc swapChainDesc = {};
-        swapChainDesc.windowSystemType = GetWindowSystemType();
         swapChainDesc.window = GetWindow();
         swapChainDesc.commandQueue = m_CommandQueue;
         swapChainDesc.format = nri::SwapChainFormat::BT709_G22_10BIT;

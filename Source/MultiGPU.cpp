@@ -255,7 +255,7 @@ void Sample::RecordGraphics(nri::CommandBuffer& commandBuffer, uint32_t physical
 
     NRI.CmdBeginRendering(commandBuffer, attachmentsDesc);
     {
-        RenderUserInterface(*m_Device, commandBuffer);
+        RenderUserInterface(*m_Device, commandBuffer, 1.0f, true);
     }
     NRI.CmdEndRendering(commandBuffer);
 
@@ -394,7 +394,6 @@ void Sample::CreateMainFrameBuffer(nri::Format swapChainFormat)
 void Sample::CreateSwapChain(nri::Format& swapChainFormat)
 {
     nri::SwapChainDesc swapChainDesc = {};
-    swapChainDesc.windowSystemType = GetWindowSystemType();
     swapChainDesc.window = GetWindow();
     swapChainDesc.commandQueue = m_CommandQueue;
     swapChainDesc.format = nri::SwapChainFormat::BT709_G22_8BIT;

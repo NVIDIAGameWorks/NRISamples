@@ -108,7 +108,6 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
 
     { // Swap chain
         nri::SwapChainDesc swapChainDesc = {};
-        swapChainDesc.windowSystemType = GetWindowSystemType();
         swapChainDesc.window = GetWindow();
         swapChainDesc.commandQueue = m_CommandQueue;
         swapChainDesc.format = nri::SwapChainFormat::BT709_G22_8BIT;
@@ -267,7 +266,7 @@ void Sample::RenderFrame(uint32_t frameIndex)
             nri::Rect rect3 = { 0, y * 2, w, h3 };
             NRI.CmdClearAttachments(commandBuffer, &clearDesc, 1, &rect3, 1);
 
-            RenderUserInterface(*m_Device, commandBuffer);
+            RenderUserInterface(*m_Device, commandBuffer, 1.0f, true);
         }
         NRI.CmdEndRendering(commandBuffer);
 

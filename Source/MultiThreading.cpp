@@ -399,7 +399,7 @@ void Sample::RenderFrame(uint32_t frameIndex)
 
         NRI.CmdBeginRendering(commandBuffer, attachmentsDesc);
         {
-            RenderUserInterface(*m_Device, commandBuffer);
+            RenderUserInterface(*m_Device, commandBuffer, 1.0f, true);
         }
         NRI.CmdEndRendering(commandBuffer);
 
@@ -519,7 +519,7 @@ void Sample::ThreadEntryPoint(uint32_t threadIndex)
 
             NRI.CmdBeginRendering(commandBuffer, attachmentsDesc);
             {
-                RenderUserInterface(*m_Device, commandBuffer);
+                RenderUserInterface(*m_Device, commandBuffer, 1.0f, true);
             }
             NRI.CmdEndRendering(commandBuffer);
         }
@@ -549,7 +549,6 @@ void Sample::ThreadEntryPoint(uint32_t threadIndex)
 void Sample::CreateSwapChain(nri::Format& swapChainFormat)
 {
     nri::SwapChainDesc swapChainDesc = {};
-    swapChainDesc.windowSystemType = GetWindowSystemType();
     swapChainDesc.window = GetWindow();
     swapChainDesc.commandQueue = m_CommandQueue;
     swapChainDesc.format = nri::SwapChainFormat::BT709_G22_8BIT;

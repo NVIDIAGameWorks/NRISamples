@@ -100,7 +100,6 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
     nri::Format swapChainFormat;
     {
         nri::SwapChainDesc swapChainDesc = {};
-        swapChainDesc.windowSystemType = GetWindowSystemType();
         swapChainDesc.window = GetWindow();
         swapChainDesc.commandQueue = m_CommandQueue;
         swapChainDesc.format = nri::SwapChainFormat::BT709_G22_8BIT;

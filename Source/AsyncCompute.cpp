@@ -146,7 +146,6 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
     nri::Format swapChainFormat;
     {
         nri::SwapChainDesc swapChainDesc = {};
-        swapChainDesc.windowSystemType = GetWindowSystemType();
         swapChainDesc.window = GetWindow();
         swapChainDesc.commandQueue = m_CommandQueueGraphics;
         swapChainDesc.format = nri::SwapChainFormat::BT709_G22_8BIT;
@@ -434,7 +433,7 @@ void Sample::RenderFrame(uint32_t frameIndex)
             NRI.CmdSetVertexBuffers(commandBuffer1, 0, 1, &m_GeometryBuffer, &offset);
             NRI.CmdDraw(commandBuffer1, VERTEX_NUM, 1, 0, 0);
 
-            RenderUserInterface(*m_Device, commandBuffer1);
+            RenderUserInterface(*m_Device, commandBuffer1, 1.0f, true);
         }
         NRI.CmdEndRendering(commandBuffer1);
 

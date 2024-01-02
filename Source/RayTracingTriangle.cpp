@@ -257,7 +257,6 @@ void Sample::RenderFrame(uint32_t frameIndex)
 void Sample::CreateSwapChain(nri::Format& swapChainFormat)
 {
     nri::SwapChainDesc swapChainDesc = {};
-    swapChainDesc.windowSystemType = GetWindowSystemType();
     swapChainDesc.window = GetWindow();
     swapChainDesc.commandQueue = m_CommandQueue;
     swapChainDesc.format = nri::SwapChainFormat::BT709_G22_8BIT;
