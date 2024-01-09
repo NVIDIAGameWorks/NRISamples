@@ -1,12 +1,4 @@
-/*
-Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
-
-NVIDIA CORPORATION and its licensors retain all intellectual property
-and proprietary rights in and to this software, related documentation
-and any modifications thereto. Any use, reproduction, disclosure or
-distribution of this software and related documentation without an express
-license agreement from NVIDIA CORPORATION is strictly prohibited.
-*/
+// © 2021 NVIDIA Corporation
 
 #include <stdlib.h>
 
@@ -72,7 +64,7 @@ int main()
 
     nriCore.DestroyTexture(texture);
     nriCore.DestroyBuffer(buffer);
-    
+
     for (uint32_t i = 0; i < allocationNum; i++ )
         nriCore.FreeMemory(memories[i]);
 
