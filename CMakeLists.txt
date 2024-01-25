@@ -203,6 +203,7 @@ add_sample (Readback cpp)
 add_sample (SceneViewer cpp)
 add_sample (Triangle cpp)
 add_sample (Wrapper cpp)
+add_sample (Resize cpp)
 
 # Samples - special
 if (WIN32)

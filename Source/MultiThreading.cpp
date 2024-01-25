@@ -9,9 +9,6 @@
 #include <array>
 #include <atomic>
 #include <thread>
-#include <mutex>
-#include <condition_variable>
-#include <string>
 
 constexpr uint32_t BOX_NUM = 100000;
 constexpr uint32_t DRAW_CALLS_PER_PIPELINE = 4;
