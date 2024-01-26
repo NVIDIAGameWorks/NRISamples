@@ -5,6 +5,8 @@
     #include <d3d12.h>
     #define VK_USE_PLATFORM_WIN32_KHR 1
     const char* VULKAN_LOADER_NAME = "vulkan-1.dll";
+    #include "Extensions/NRIWrapperD3D11.h"
+    #include "Extensions/NRIWrapperD3D12.h"
 #else
     #define VK_USE_PLATFORM_XLIB_KHR 1
     const char* VULKAN_LOADER_NAME = "libvulkan.so";
@@ -14,8 +16,6 @@
 #include "vulkan/vulkan.h"
 
 #include "NRIFramework.h"
-#include "Extensions/NRIWrapperD3D11.h"
-#include "Extensions/NRIWrapperD3D12.h"
 #include "Extensions/NRIWrapperVK.h"
 
 struct Library;
@@ -101,8 +101,10 @@ private:
     std::vector<BackBuffer> m_SwapChainBuffers;
     std::vector<nri::Memory*> m_MemoryAllocations;
 
+#if defined(_WIN32)
     ID3D11Device* m_D3D11Device = nullptr;
     ID3D12Device* m_D3D12Device = nullptr;
+#endif
     VkInstance m_VKInstance = VK_NULL_HANDLE;
     VkDevice m_VKDevice = VK_NULL_HANDLE;
     Library* m_VulkanLoader = nullptr;
@@ -155,15 +157,18 @@ Sample::~Sample()
         UnloadSharedLibrary(*m_VulkanLoader);
     }
 
+#if defined(_WIN32)
     if (m_D3D11Device)
         m_D3D11Device->Release();
 
     if (m_D3D12Device)
         m_D3D12Device->Release();
+#endif
 }
 
 void Sample::CreateD3D11Device()
 {
+#if defined(_WIN32)
     const HRESULT result = D3D11CreateDevice(nullptr, D3D_DRIVER_TYPE_HARDWARE, nullptr, 0, nullptr, 0, D3D11_SDK_VERSION, &m_D3D11Device, nullptr, nullptr);
 
     NRI_ABORT_ON_FALSE(SUCCEEDED(result));
@@ -174,10 +179,12 @@ void Sample::CreateD3D11Device()
     deviceDesc.enableNRIValidation = m_DebugNRI;
 
     NRI_ABORT_ON_FAILURE(nri::nriCreateDeviceFromD3D11Device(deviceDesc, m_Device));
+#endif
 }
 
 void Sample::CreateD3D12Device()
 {
+#if defined(_WIN32)
     const HRESULT result = D3D12CreateDevice(nullptr, D3D_FEATURE_LEVEL_11_0, __uuidof(m_D3D12Device), (void**)&m_D3D12Device);
 
     NRI_ABORT_ON_FALSE(SUCCEEDED(result));
@@ -188,6 +195,7 @@ void Sample::CreateD3D12Device()
     deviceDesc.enableNRIValidation = m_DebugNRI;
 
     NRI_ABORT_ON_FAILURE(nri::nriCreateDeviceFromD3D12Device(deviceDesc, m_Device));
+#endif
 }
 
 void Sample::CreateVulkanDevice()
