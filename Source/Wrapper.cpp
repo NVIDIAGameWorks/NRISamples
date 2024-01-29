@@ -1,12 +1,18 @@
 // © 2021 NVIDIA Corporation
 
-#if defined(_WIN32)
+#include "NRIFramework.h"
+
+#ifdef _WIN32
+    #undef APIENTRY // defined in GLFW
+
     #include <d3d11.h>
+    #include "Extensions/NRIWrapperD3D11.h"
+
     #include <d3d12.h>
+    #include "Extensions/NRIWrapperD3D12.h"
+
     #define VK_USE_PLATFORM_WIN32_KHR 1
     const char* VULKAN_LOADER_NAME = "vulkan-1.dll";
-    #include "Extensions/NRIWrapperD3D11.h"
-    #include "Extensions/NRIWrapperD3D12.h"
 #else
     #define VK_USE_PLATFORM_XLIB_KHR 1
     const char* VULKAN_LOADER_NAME = "libvulkan.so";
@@ -15,7 +21,6 @@
 #define VK_NO_PROTOTYPES 1
 #include "vulkan/vulkan.h"
 
-#include "NRIFramework.h"
 #include "Extensions/NRIWrapperVK.h"
 
 struct Library;
@@ -68,8 +73,7 @@ class Sample : public SampleBase
 public:
 
     Sample()
-    {
-    }
+    {}
 
     ~Sample();
 
@@ -101,7 +105,7 @@ private:
     std::vector<BackBuffer> m_SwapChainBuffers;
     std::vector<nri::Memory*> m_MemoryAllocations;
 
-#if defined(_WIN32)
+#ifdef _WIN32
     ID3D11Device* m_D3D11Device = nullptr;
     ID3D12Device* m_D3D12Device = nullptr;
 #endif
@@ -157,7 +161,7 @@ Sample::~Sample()
         UnloadSharedLibrary(*m_VulkanLoader);
     }
 
-#if defined(_WIN32)
+#ifdef _WIN32
     if (m_D3D11Device)
         m_D3D11Device->Release();
 
@@ -168,7 +172,7 @@ Sample::~Sample()
 
 void Sample::CreateD3D11Device()
 {
-#if defined(_WIN32)
+#ifdef _WIN32
     const HRESULT result = D3D11CreateDevice(nullptr, D3D_DRIVER_TYPE_HARDWARE, nullptr, 0, nullptr, 0, D3D11_SDK_VERSION, &m_D3D11Device, nullptr, nullptr);
 
     NRI_ABORT_ON_FALSE(SUCCEEDED(result));
@@ -184,7 +188,7 @@ void Sample::CreateD3D11Device()
 
 void Sample::CreateD3D12Device()
 {
-#if defined(_WIN32)
+#ifdef _WIN32
     const HRESULT result = D3D12CreateDevice(nullptr, D3D_FEATURE_LEVEL_11_0, __uuidof(m_D3D12Device), (void**)&m_D3D12Device);
 
     NRI_ABORT_ON_FALSE(SUCCEEDED(result));
@@ -209,7 +213,7 @@ void Sample::CreateVulkanDevice()
     applicationInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
     applicationInfo.apiVersion = VK_API_VERSION_1_3;
 
-#if defined(_WIN32)
+#ifdef _WIN32
     const char* instanceExtensions[] = { VK_KHR_WIN32_SURFACE_EXTENSION_NAME, VK_KHR_SURFACE_EXTENSION_NAME };
 #else
     const char* instanceExtensions[] = { VK_KHR_XLIB_SURFACE_EXTENSION_NAME };
@@ -713,7 +717,7 @@ void Sample::RenderFrame(uint32_t frameIndex)
     NRI.QueueSignal(*m_CommandQueue, *m_FrameFence, 1 + frameIndex);
 }
 
-#if defined(_WIN32)
+#ifdef _WIN32
 
     #include <windows.h>
     #undef LoadLibrary

@@ -105,8 +105,6 @@ if (NOT DISABLE_SHADER_COMPILATION)
                 -I "External"
                 -I "External/NRIFramework/External"
                 -D COMPILER_DXC
-                -D NRD_NORMAL_ENCODING=${NRD_NORMAL_ENCODING}
-                -D NRD_ROUGHNESS_ENCODING=${NRD_ROUGHNESS_ENCODING}
             COMMAND ShaderMake --useAPI
                 --binary --flatten --stripReflection --compiler "${DXC_SPIRV_PATH}"
                 --sourceDir "Shaders"
@@ -118,8 +116,6 @@ if (NOT DISABLE_SHADER_COMPILATION)
                 -I "External/NRIFramework/External"
                 -D COMPILER_DXC
                 -D VULKAN
-                -D NRD_NORMAL_ENCODING=${NRD_NORMAL_ENCODING}
-                -D NRD_ROUGHNESS_ENCODING=${NRD_ROUGHNESS_ENCODING}
             COMMAND ShaderMake --useAPI
                 --binary --flatten --stripReflection --compiler "${FXC_PATH}"
                 --sourceDir "Shaders"
@@ -130,8 +126,6 @@ if (NOT DISABLE_SHADER_COMPILATION)
                 -I "External"
                 -I "External/NRIFramework/External"
                 -D COMPILER_FXC
-                -D NRD_NORMAL_ENCODING=${NRD_NORMAL_ENCODING}
-                -D NRD_ROUGHNESS_ENCODING=${NRD_ROUGHNESS_ENCODING}
             DEPENDS ShaderMake
             WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
             VERBATIM
@@ -150,8 +144,6 @@ if (NOT DISABLE_SHADER_COMPILATION)
                 -I "External/NRIFramework/External"
                 -D COMPILER_DXC
                 -D VULKAN
-                -D NRD_NORMAL_ENCODING=${NRD_NORMAL_ENCODING}
-                -D NRD_ROUGHNESS_ENCODING=${NRD_ROUGHNESS_ENCODING}
             DEPENDS ShaderMake
             WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
             VERBATIM
