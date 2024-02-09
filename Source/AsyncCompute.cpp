@@ -112,7 +112,7 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
     deviceCreationDesc.graphicsAPI = graphicsAPI;
     deviceCreationDesc.enableAPIValidation = m_DebugAPI;
     deviceCreationDesc.enableNRIValidation = m_DebugNRI;
-    deviceCreationDesc.D3D11CommandBufferEmulation = D3D11_COMMANDBUFFER_EMULATION;
+    deviceCreationDesc.enableD3D11CommandBufferEmulation = D3D11_COMMANDBUFFER_EMULATION;
     deviceCreationDesc.spirvBindingOffsets = SPIRV_BINDING_OFFSETS;
     deviceCreationDesc.adapterDesc = &bestAdapterDesc;
     deviceCreationDesc.memoryAllocatorInterface = m_MemoryAllocatorInterface;
@@ -123,12 +123,17 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
     NRI_ABORT_ON_FAILURE( nri::nriGetInterface(*m_Device, NRI_INTERFACE(nri::SwapChainInterface), (nri::SwapChainInterface*)&NRI) );
     NRI_ABORT_ON_FAILURE( nri::nriGetInterface(*m_Device, NRI_INTERFACE(nri::HelperInterface), (nri::HelperInterface*)&NRI) );
 
+    const nri::DeviceDesc& deviceDesc = NRI.GetDeviceDesc(*m_Device);
+
     // Command queue
     NRI_ABORT_ON_FAILURE( NRI.GetCommandQueue(*m_Device, nri::CommandQueueType::GRAPHICS, m_CommandQueueGraphics) );
     NRI.SetCommandQueueDebugName(*m_CommandQueueGraphics, "GraphicsQueue");
 
-    NRI_ABORT_ON_FAILURE( NRI.GetCommandQueue(*m_Device, nri::CommandQueueType::COMPUTE, m_CommandQueueCompute) );
-    NRI.SetCommandQueueDebugName(*m_CommandQueueCompute, "ComputeQueue");
+    if (deviceDesc.isComputeQueueSupported)
+    {
+        NRI_ABORT_ON_FAILURE( NRI.GetCommandQueue(*m_Device, nri::CommandQueueType::COMPUTE, m_CommandQueueCompute) );
+        NRI.SetCommandQueueDebugName(*m_CommandQueueCompute, "ComputeQueue");
+    }
 
     // Fences
     NRI_ABORT_ON_FAILURE( NRI.CreateFence(*m_Device, 0, m_ComputeFence) );
@@ -167,19 +172,20 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
     for (Frame& frame : m_Frames)
     {
         NRI_ABORT_ON_FAILURE( NRI.CreateCommandAllocator(*m_CommandQueueGraphics, frame.commandAllocatorGraphics) );
-        NRI_ABORT_ON_FAILURE( NRI.CreateCommandAllocator(*m_CommandQueueCompute, frame.commandAllocatorCompute) );
-        NRI_ABORT_ON_FAILURE( NRI.CreateCommandBuffer(*frame.commandAllocatorCompute, frame.commandBufferCompute) );
-
         for (size_t i = 0; i < frame.commandBufferGraphics.size(); i++)
             NRI_ABORT_ON_FAILURE( NRI.CreateCommandBuffer(*frame.commandAllocatorGraphics, frame.commandBufferGraphics[i]) );
+
+        if (deviceDesc.isComputeQueueSupported)
+        {
+            NRI_ABORT_ON_FAILURE( NRI.CreateCommandAllocator(*m_CommandQueueCompute, frame.commandAllocatorCompute) );
+            NRI_ABORT_ON_FAILURE( NRI.CreateCommandBuffer(*frame.commandAllocatorCompute, frame.commandBufferCompute) );
+        }
     }
 
-    const nri::DeviceDesc& deviceDesc = NRI.GetDeviceDesc(*m_Device);
     utils::ShaderCodeStorage shaderCodeStorage;
-
     { // Graphics pipeline
         nri::PipelineLayoutDesc pipelineLayoutDesc = {};
-        pipelineLayoutDesc.stageMask = nri::PipelineLayoutShaderStageBits::VERTEX | nri::PipelineLayoutShaderStageBits::FRAGMENT;
+        pipelineLayoutDesc.shaderStages = nri::StageBits::VERTEX_SHADER | nri::StageBits::FRAGMENT_SHADER;
         NRI_ABORT_ON_FAILURE( NRI.CreatePipelineLayout(*m_Device, pipelineLayoutDesc, m_GraphicsPipelineLayout) );
 
         nri::VertexStreamDesc vertexStreamDesc = {};
@@ -228,25 +234,25 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
         graphicsPipelineDesc.inputAssembly = &inputAssemblyDesc;
         graphicsPipelineDesc.rasterization = &rasterizationDesc;
         graphicsPipelineDesc.outputMerger = &outputMergerDesc;
-        graphicsPipelineDesc.shaderStages = shaderStages;
-        graphicsPipelineDesc.shaderStageNum = helper::GetCountOf(shaderStages);
+        graphicsPipelineDesc.shaders = shaderStages;
+        graphicsPipelineDesc.shaderNum = helper::GetCountOf(shaderStages);
         NRI_ABORT_ON_FAILURE( NRI.CreateGraphicsPipeline(*m_Device, graphicsPipelineDesc, m_GraphicsPipeline) );
     }
 
     { // Compute pipeline
-        nri::DescriptorRangeDesc descriptorRangeStorage = {0, 1, nri::DescriptorType::STORAGE_TEXTURE, nri::ShaderStage::COMPUTE};
+        nri::DescriptorRangeDesc descriptorRangeStorage = {0, 1, nri::DescriptorType::STORAGE_TEXTURE, nri::StageBits::COMPUTE_SHADER};
 
         nri::DescriptorSetDesc descriptorSetDesc = {0, &descriptorRangeStorage, 1};
 
         nri::PipelineLayoutDesc pipelineLayoutDesc = {};
         pipelineLayoutDesc.descriptorSetNum = 1;
         pipelineLayoutDesc.descriptorSets = &descriptorSetDesc;
-        pipelineLayoutDesc.stageMask = nri::PipelineLayoutShaderStageBits::COMPUTE;
+        pipelineLayoutDesc.shaderStages = nri::StageBits::COMPUTE_SHADER;
         NRI_ABORT_ON_FAILURE( NRI.CreatePipelineLayout(*m_Device, pipelineLayoutDesc, m_ComputePipelineLayout) );
 
         nri::ComputePipelineDesc computePipelineDesc = {};
         computePipelineDesc.pipelineLayout = m_ComputePipelineLayout;
-        computePipelineDesc.computeShader = utils::LoadShader(deviceDesc.graphicsAPI, "Surface.cs", shaderCodeStorage);
+        computePipelineDesc.shader = utils::LoadShader(deviceDesc.graphicsAPI, "Surface.cs", shaderCodeStorage);
         NRI_ABORT_ON_FAILURE( NRI.CreateComputePipeline(*m_Device, computePipelineDesc, m_ComputePipeline) );
     }
 
@@ -318,13 +324,13 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
         nri::TextureUploadDesc textureData = {};
         textureData.subresources = nullptr;
         textureData.texture = m_Texture;
-        textureData.nextState = {nri::AccessBits::SHADER_RESOURCE_STORAGE, nri::TextureLayout::GENERAL};
+        textureData.after = {nri::AccessBits::SHADER_RESOURCE_STORAGE, nri::Layout::SHADER_RESOURCE_STORAGE};
 
         nri::BufferUploadDesc bufferData = {};
         bufferData.buffer = m_GeometryBuffer;
         bufferData.data = &geometryBufferData[0];
         bufferData.dataSize = geometryBufferData.size();
-        bufferData.nextAccess = nri::AccessBits::VERTEX_BUFFER;
+        bufferData.after = nri::AccessBits::VERTEX_BUFFER;
 
         NRI_ABORT_ON_FAILURE( NRI.UploadData(*m_CommandQueueGraphics, &textureData, 1, &bufferData, 1) );
     }
@@ -342,6 +348,10 @@ void Sample::PrepareFrame(uint32_t)
         ImGui::Checkbox("Use ASYNC compute", &m_IsAsyncMode);
     }
     ImGui::End();
+
+    const nri::DeviceDesc& deviceDesc = NRI.GetDeviceDesc(*m_Device);
+    if (!deviceDesc.isComputeQueueSupported)
+        m_IsAsyncMode = false;
 }
 
 void Sample::RenderFrame(uint32_t frameIndex)
@@ -364,19 +374,19 @@ void Sample::RenderFrame(uint32_t frameIndex)
     const uint32_t backBufferIndex = NRI.AcquireNextSwapChainTexture(*m_SwapChain);
     const BackBuffer& backBuffer = m_SwapChainBuffers[backBufferIndex];
 
-    nri::TextureTransitionBarrierDesc textureTransitionBarrierDescs[2] = {};
+    nri::TextureBarrierDesc textureBarrierDescs[2] = {};
 
-    textureTransitionBarrierDescs[0].texture = backBuffer.texture;
-    textureTransitionBarrierDescs[0].nextState = {nri::AccessBits::COLOR_ATTACHMENT, nri::TextureLayout::COLOR_ATTACHMENT};
-    textureTransitionBarrierDescs[0].arraySize = 1;
-    textureTransitionBarrierDescs[0].mipNum = 1;
+    textureBarrierDescs[0].texture = backBuffer.texture;
+    textureBarrierDescs[0].after = {nri::AccessBits::COLOR_ATTACHMENT, nri::Layout::COLOR_ATTACHMENT};
+    textureBarrierDescs[0].arraySize = 1;
+    textureBarrierDescs[0].mipNum = 1;
 
-    textureTransitionBarrierDescs[1].texture = m_Texture;
-    textureTransitionBarrierDescs[1].arraySize = 1;
-    textureTransitionBarrierDescs[1].mipNum = 1;
+    textureBarrierDescs[1].texture = m_Texture;
+    textureBarrierDescs[1].arraySize = 1;
+    textureBarrierDescs[1].mipNum = 1;
 
-    nri::TransitionBarrierDesc transitionBarriers = {};
-    transitionBarriers.textures = textureTransitionBarrierDescs;
+    nri::BarrierGroupDesc barrierGroupDesc = {};
+    barrierGroupDesc.textures = textureBarrierDescs;
 
     // Fill command buffer #0 (graphics or compute)
     nri::CommandBuffer& commandBuffer0 = m_IsAsyncMode ? *frame.commandBufferCompute : *frame.commandBufferGraphics[0];
@@ -400,8 +410,8 @@ void Sample::RenderFrame(uint32_t frameIndex)
     {
         helper::Annotation annotation(NRI, commandBuffer1, "Graphics");
 
-        transitionBarriers.textureNum = 1;
-        NRI.CmdPipelineBarrier(commandBuffer1, &transitionBarriers, nullptr, nri::BarrierDependency::ALL_STAGES);
+        barrierGroupDesc.textureNum = 1;
+        NRI.CmdBarrier(commandBuffer1, barrierGroupDesc);
 
         nri::AttachmentsDesc attachmentsDesc = {};
         attachmentsDesc.colorNum = 1;
@@ -439,14 +449,14 @@ void Sample::RenderFrame(uint32_t frameIndex)
         helper::Annotation annotation(NRI, commandBuffer2, "Composition");
 
         // Resource transitions
-        textureTransitionBarrierDescs[0].prevState = {nri::AccessBits::COLOR_ATTACHMENT, nri::TextureLayout::COLOR_ATTACHMENT};
-        textureTransitionBarrierDescs[0].nextState = {nri::AccessBits::COPY_DESTINATION, nri::TextureLayout::COPY_DESTINATION};
+        textureBarrierDescs[0].before = {nri::AccessBits::COLOR_ATTACHMENT, nri::Layout::COLOR_ATTACHMENT, nri::StageBits::DRAW};
+        textureBarrierDescs[0].after = {nri::AccessBits::COPY_DESTINATION, nri::Layout::COPY_DESTINATION, nri::StageBits::COPY};
 
-        textureTransitionBarrierDescs[1].prevState = {nri::AccessBits::SHADER_RESOURCE_STORAGE, nri::TextureLayout::GENERAL};
-        textureTransitionBarrierDescs[1].nextState = {nri::AccessBits::COPY_SOURCE, nri::TextureLayout::COPY_SOURCE};
+        textureBarrierDescs[1].before = {nri::AccessBits::SHADER_RESOURCE_STORAGE, nri::Layout::SHADER_RESOURCE_STORAGE, nri::StageBits::COMPUTE_SHADER};
+        textureBarrierDescs[1].after = {nri::AccessBits::COPY_SOURCE, nri::Layout::COPY_SOURCE, nri::StageBits::COPY};
 
-        transitionBarriers.textureNum = 2;
-        NRI.CmdPipelineBarrier(commandBuffer2, &transitionBarriers, nullptr, nri::BarrierDependency::ALL_STAGES);
+        barrierGroupDesc.textureNum = 2;
+        NRI.CmdBarrier(commandBuffer2, barrierGroupDesc);
 
         // Copy texture produced by compute to back buffer
         nri::TextureRegionDesc dstRegion = {};
@@ -460,14 +470,14 @@ void Sample::RenderFrame(uint32_t frameIndex)
         NRI.CmdCopyTexture(commandBuffer2, *backBuffer.texture, 0, &dstRegion, *m_Texture, 0, &srcRegion);
 
         // Resource transitions
-        textureTransitionBarrierDescs[0].prevState = {nri::AccessBits::COPY_DESTINATION, nri::TextureLayout::COPY_DESTINATION};
-        textureTransitionBarrierDescs[0].nextState = {nri::AccessBits::UNKNOWN, nri::TextureLayout::PRESENT};
+        textureBarrierDescs[0].before = {nri::AccessBits::COPY_DESTINATION, nri::Layout::COPY_DESTINATION, nri::StageBits::COPY};
+        textureBarrierDescs[0].after = {nri::AccessBits::UNKNOWN, nri::Layout::PRESENT};
 
-        textureTransitionBarrierDescs[1].prevState = {nri::AccessBits::COPY_SOURCE, nri::TextureLayout::COPY_SOURCE};
-        textureTransitionBarrierDescs[1].nextState = {nri::AccessBits::SHADER_RESOURCE_STORAGE, nri::TextureLayout::GENERAL};
+        textureBarrierDescs[1].before = {nri::AccessBits::COPY_SOURCE, nri::Layout::COPY_SOURCE, nri::StageBits::COPY};
+        textureBarrierDescs[1].after = {nri::AccessBits::SHADER_RESOURCE_STORAGE, nri::Layout::SHADER_RESOURCE_STORAGE, nri::StageBits::COMPUTE_SHADER};
 
-        transitionBarriers.textureNum = 2;
-        NRI.CmdPipelineBarrier(commandBuffer2, &transitionBarriers, nullptr, nri::BarrierDependency::ALL_STAGES);
+        barrierGroupDesc.textureNum = 2;
+        NRI.CmdBarrier(commandBuffer2, barrierGroupDesc);
     }
     NRI.EndCommandBuffer(commandBuffer2);
 

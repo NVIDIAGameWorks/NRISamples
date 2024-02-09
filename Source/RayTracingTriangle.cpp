@@ -179,29 +179,28 @@ void Sample::RenderFrame(uint32_t frameIndex)
     const uint32_t backBufferIndex = NRI.AcquireNextSwapChainTexture(*m_SwapChain);
     m_BackBuffer = &m_SwapChainBuffers[backBufferIndex];
 
-    nri::TextureTransitionBarrierDesc textureTransitions[2] = {};
-    nri::TransitionBarrierDesc transitionBarriers = {};
+    nri::TextureBarrierDesc textureTransitions[2] = {};
+    nri::BarrierGroupDesc barrierGroupDesc = {};
 
     nri::CommandBuffer& commandBuffer = *frame.commandBuffer;
     NRI.BeginCommandBuffer(commandBuffer, m_DescriptorPool, 0);
     {
         // Rendering
         textureTransitions[0].texture = m_BackBuffer->texture;
-        textureTransitions[0].prevState = {nri::AccessBits::UNKNOWN, nri::TextureLayout::PRESENT};
-        textureTransitions[0].nextState = {nri::AccessBits::COPY_DESTINATION, nri::TextureLayout::COPY_DESTINATION};
+        textureTransitions[0].after = {nri::AccessBits::COPY_DESTINATION, nri::Layout::COPY_DESTINATION};
         textureTransitions[0].arraySize = 1;
         textureTransitions[0].mipNum = 1;
 
         textureTransitions[1].texture = m_RayTracingOutput;
-        textureTransitions[1].prevState = {frameIndex == 0 ? nri::AccessBits::UNKNOWN : nri::AccessBits::COPY_SOURCE, frameIndex == 0 ? nri::TextureLayout::UNKNOWN : nri::TextureLayout::COPY_SOURCE};
-        textureTransitions[1].nextState = {nri::AccessBits::SHADER_RESOURCE_STORAGE, nri::TextureLayout::GENERAL};
+        textureTransitions[1].before = {frameIndex == 0 ? nri::AccessBits::UNKNOWN : nri::AccessBits::COPY_SOURCE, frameIndex == 0 ? nri::Layout::UNKNOWN : nri::Layout::COPY_SOURCE};
+        textureTransitions[1].after = {nri::AccessBits::SHADER_RESOURCE_STORAGE, nri::Layout::SHADER_RESOURCE_STORAGE};
         textureTransitions[1].arraySize = 1;
         textureTransitions[1].mipNum = 1;
 
-        transitionBarriers.textures = textureTransitions;
-        transitionBarriers.textureNum = 2;
+        barrierGroupDesc.textures = textureTransitions;
+        barrierGroupDesc.textureNum = 2;
 
-        NRI.CmdPipelineBarrier(commandBuffer, &transitionBarriers, nullptr, nri::BarrierDependency::GRAPHICS_STAGE);
+        NRI.CmdBarrier(commandBuffer, barrierGroupDesc);
         NRI.CmdSetPipelineLayout(commandBuffer, *m_PipelineLayout);
         NRI.CmdSetPipeline(commandBuffer, *m_Pipeline);
         NRI.CmdSetDescriptorSet(commandBuffer, 0, *m_DescriptorSet, nullptr);
@@ -216,23 +215,23 @@ void Sample::RenderFrame(uint32_t frameIndex)
         NRI.CmdDispatchRays(commandBuffer, dispatchRaysDesc);
 
         // Copy
-        textureTransitions[1].prevState = textureTransitions[1].nextState;
-        textureTransitions[1].nextState = {nri::AccessBits::COPY_SOURCE, nri::TextureLayout::COPY_SOURCE};
+        textureTransitions[1].before = textureTransitions[1].after;
+        textureTransitions[1].after = {nri::AccessBits::COPY_SOURCE, nri::Layout::COPY_SOURCE};
 
-        transitionBarriers.textures = textureTransitions + 1;
-        transitionBarriers.textureNum = 1;
+        barrierGroupDesc.textures = textureTransitions + 1;
+        barrierGroupDesc.textureNum = 1;
 
-        NRI.CmdPipelineBarrier(commandBuffer, &transitionBarriers, nullptr, nri::BarrierDependency::RAYTRACING_STAGE);
+        NRI.CmdBarrier(commandBuffer, barrierGroupDesc);
         NRI.CmdCopyTexture(commandBuffer, *m_BackBuffer->texture, 0, nullptr, *m_RayTracingOutput, 0, nullptr);
 
         // Present
-        textureTransitions[0].prevState = textureTransitions[0].nextState;
-        textureTransitions[0].nextState = {nri::AccessBits::UNKNOWN, nri::TextureLayout::PRESENT};
+        textureTransitions[0].before = textureTransitions[0].after;
+        textureTransitions[0].after = {nri::AccessBits::UNKNOWN, nri::Layout::PRESENT};
 
-        transitionBarriers.textures = textureTransitions;
-        transitionBarriers.textureNum = 1;
+        barrierGroupDesc.textures = textureTransitions;
+        barrierGroupDesc.textureNum = 1;
 
-        NRI.CmdPipelineBarrier(commandBuffer, &transitionBarriers, nullptr, nri::BarrierDependency::COPY_STAGE);
+        NRI.CmdBarrier(commandBuffer, barrierGroupDesc);
     }
     NRI.EndCommandBuffer(commandBuffer);
 
@@ -291,25 +290,25 @@ void Sample::CreateRayTracingPipeline()
     descriptorRanges[0].descriptorNum = 1;
     descriptorRanges[0].descriptorType = nri::DescriptorType::STORAGE_TEXTURE;
     descriptorRanges[0].baseRegisterIndex = 0;
-    descriptorRanges[0].visibility = nri::ShaderStage::RAYGEN;
+    descriptorRanges[0].shaderStages = nri::StageBits::RAYGEN_SHADER;
 
     descriptorRanges[1].descriptorNum = 1;
     descriptorRanges[1].descriptorType = nri::DescriptorType::ACCELERATION_STRUCTURE;
     descriptorRanges[1].baseRegisterIndex = 1;
-    descriptorRanges[1].visibility = nri::ShaderStage::RAYGEN;
+    descriptorRanges[1].shaderStages = nri::StageBits::RAYGEN_SHADER;
 
     nri::DescriptorSetDesc descriptorSetDesc = {0, descriptorRanges, helper::GetCountOf(descriptorRanges)};
 
     nri::PipelineLayoutDesc pipelineLayoutDesc = {};
     pipelineLayoutDesc.descriptorSets = &descriptorSetDesc;
     pipelineLayoutDesc.descriptorSetNum = 1;
-    pipelineLayoutDesc.stageMask = nri::PipelineLayoutShaderStageBits::RAYGEN;
+    pipelineLayoutDesc.shaderStages = nri::StageBits::RAYGEN_SHADER;
 
     NRI_ABORT_ON_FAILURE(NRI.CreatePipelineLayout(*m_Device, pipelineLayoutDesc, m_PipelineLayout));
 
     const nri::DeviceDesc& deviceDesc = NRI.GetDeviceDesc(*m_Device);
     utils::ShaderCodeStorage shaderCodeStorage;
-    nri::ShaderDesc shaderDescs[] =
+    nri::ShaderDesc shaders[] =
     {
         utils::LoadShader(deviceDesc.graphicsAPI, "RayTracingTriangle.rgen", shaderCodeStorage, "raygen"),
         utils::LoadShader(deviceDesc.graphicsAPI, "RayTracingTriangle.rmiss", shaderCodeStorage, "miss"),
@@ -317,8 +316,8 @@ void Sample::CreateRayTracingPipeline()
     };
 
     nri::ShaderLibrary shaderLibrary = {};
-    shaderLibrary.shaderDescs = shaderDescs;
-    shaderLibrary.shaderNum = helper::GetCountOf(shaderDescs);
+    shaderLibrary.shaders = shaders;
+    shaderLibrary.shaderNum = helper::GetCountOf(shaders);
 
     const nri::ShaderGroupDesc shaderGroupDescs[] = { { 1 }, { 2 }, { 3 } };
 

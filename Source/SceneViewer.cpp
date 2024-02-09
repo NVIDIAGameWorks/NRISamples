@@ -116,7 +116,7 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
     deviceCreationDesc.graphicsAPI = graphicsAPI;
     deviceCreationDesc.enableAPIValidation = m_DebugAPI;
     deviceCreationDesc.enableNRIValidation = m_DebugNRI;
-    deviceCreationDesc.D3D11CommandBufferEmulation = D3D11_COMMANDBUFFER_EMULATION;
+    deviceCreationDesc.enableD3D11CommandBufferEmulation = D3D11_COMMANDBUFFER_EMULATION;
     deviceCreationDesc.spirvBindingOffsets = SPIRV_BINDING_OFFSETS;
     deviceCreationDesc.adapterDesc = &bestAdapterDesc;
     deviceCreationDesc.memoryAllocatorInterface = m_MemoryAllocatorInterface;
@@ -163,11 +163,11 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
     utils::ShaderCodeStorage shaderCodeStorage;
     {
         nri::DescriptorRangeDesc globalDescriptorRange[2];
-        globalDescriptorRange[0] = { 0, 1, nri::DescriptorType::CONSTANT_BUFFER, nri::ShaderStage::ALL };
-        globalDescriptorRange[1] = { 0, 1, nri::DescriptorType::SAMPLER, nri::ShaderStage::FRAGMENT };
+        globalDescriptorRange[0] = { 0, 1, nri::DescriptorType::CONSTANT_BUFFER, nri::StageBits::ALL };
+        globalDescriptorRange[1] = { 0, 1, nri::DescriptorType::SAMPLER, nri::StageBits::FRAGMENT_SHADER };
 
         nri::DescriptorRangeDesc materialDescriptorRange[1];
-        materialDescriptorRange[0] = { 0, TEXTURES_PER_MATERIAL, nri::DescriptorType::TEXTURE, nri::ShaderStage::FRAGMENT };
+        materialDescriptorRange[0] = { 0, TEXTURES_PER_MATERIAL, nri::DescriptorType::TEXTURE, nri::StageBits::FRAGMENT_SHADER };
 
         nri::DescriptorSetDesc descriptorSetDescs[] =
         {
@@ -178,7 +178,7 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
         nri::PipelineLayoutDesc pipelineLayoutDesc = {};
         pipelineLayoutDesc.descriptorSetNum = helper::GetCountOf(descriptorSetDescs);
         pipelineLayoutDesc.descriptorSets = descriptorSetDescs;
-        pipelineLayoutDesc.stageMask = nri::PipelineLayoutShaderStageBits::VERTEX | nri::PipelineLayoutShaderStageBits::FRAGMENT;
+        pipelineLayoutDesc.shaderStages = nri::StageBits::VERTEX_SHADER | nri::StageBits::FRAGMENT_SHADER;
 
         NRI_ABORT_ON_FAILURE( NRI.CreatePipelineLayout(*m_Device, pipelineLayoutDesc, m_PipelineLayout) );
 
@@ -246,8 +246,8 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
         graphicsPipelineDesc.inputAssembly = &inputAssemblyDesc;
         graphicsPipelineDesc.rasterization = &rasterizationDesc;
         graphicsPipelineDesc.outputMerger = &outputMergerDesc;
-        graphicsPipelineDesc.shaderStages = shaderStages;
-        graphicsPipelineDesc.shaderStageNum = helper::GetCountOf(shaderStages);
+        graphicsPipelineDesc.shaders = shaderStages;
+        graphicsPipelineDesc.shaderNum = helper::GetCountOf(shaderStages);
 
         nri::Pipeline* pipeline;
 
@@ -476,7 +476,7 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
         textureData[0] = {};
         textureData[0].subresources = nullptr;
         textureData[0].texture = depthTexture;
-        textureData[0].nextState = {nri::AccessBits::DEPTH_STENCIL_WRITE, nri::TextureLayout::DEPTH_STENCIL};
+        textureData[0].after = {nri::AccessBits::DEPTH_STENCIL_WRITE, nri::Layout::DEPTH_STENCIL};
 
         for (uint32_t i = 0; i < textureNum; i++)
         {
@@ -494,7 +494,7 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
             textureData[j].mipNum = texture.GetMipNum();
             textureData[j].arraySize = texture.GetArraySize();
             textureData[j].texture = m_Textures[i];
-            textureData[j].nextState = {nri::AccessBits::SHADER_RESOURCE, nri::TextureLayout::SHADER_RESOURCE};
+            textureData[j].after = {nri::AccessBits::SHADER_RESOURCE, nri::Layout::SHADER_RESOURCE};
 
             subresourceBegin += texture.GetArraySize() * texture.GetMipNum();
         }
@@ -563,16 +563,16 @@ void Sample::RenderFrame(uint32_t frameIndex)
     {
         helper::Annotation annotation(NRI, commandBuffer, "Scene");
 
-        nri::TextureTransitionBarrierDesc textureTransitionBarrierDesc = {};
-        textureTransitionBarrierDesc.texture = currentBackBuffer.texture;
-        textureTransitionBarrierDesc.nextState = {nri::AccessBits::COLOR_ATTACHMENT, nri::TextureLayout::COLOR_ATTACHMENT};
-        textureTransitionBarrierDesc.arraySize = 1;
-        textureTransitionBarrierDesc.mipNum = 1;
+        nri::TextureBarrierDesc textureBarrierDescs = {};
+        textureBarrierDescs.texture = currentBackBuffer.texture;
+        textureBarrierDescs.after = {nri::AccessBits::COLOR_ATTACHMENT, nri::Layout::COLOR_ATTACHMENT};
+        textureBarrierDescs.arraySize = 1;
+        textureBarrierDescs.mipNum = 1;
 
-        nri::TransitionBarrierDesc transitionBarriers = {};
-        transitionBarriers.textureNum = 1;
-        transitionBarriers.textures = &textureTransitionBarrierDesc;
-        NRI.CmdPipelineBarrier(commandBuffer, &transitionBarriers, nullptr, nri::BarrierDependency::ALL_STAGES);
+        nri::BarrierGroupDesc barrierGroupDesc = {};
+        barrierGroupDesc.textureNum = 1;
+        barrierGroupDesc.textures = &textureBarrierDescs;
+        NRI.CmdBarrier(commandBuffer, barrierGroupDesc);
 
         nri::AttachmentsDesc attachmentsDesc = {};
         attachmentsDesc.colorNum = 1;
@@ -619,10 +619,10 @@ void Sample::RenderFrame(uint32_t frameIndex)
         }
         NRI.CmdEndRendering(commandBuffer);
 
-        textureTransitionBarrierDesc.prevState = textureTransitionBarrierDesc.nextState;
-        textureTransitionBarrierDesc.nextState = {nri::AccessBits::UNKNOWN, nri::TextureLayout::PRESENT};
+        textureBarrierDescs.before = textureBarrierDescs.after;
+        textureBarrierDescs.after = {nri::AccessBits::UNKNOWN, nri::Layout::PRESENT};
 
-        NRI.CmdPipelineBarrier(commandBuffer, &transitionBarriers, nullptr, nri::BarrierDependency::ALL_STAGES);
+        NRI.CmdBarrier(commandBuffer, barrierGroupDesc);
     }
     NRI.EndCommandBuffer(commandBuffer);
 
