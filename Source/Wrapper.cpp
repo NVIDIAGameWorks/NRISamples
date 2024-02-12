@@ -579,8 +579,6 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
 
         nri::TextureUploadDesc textureData = {};
         textureData.subresources = subresources.data();
-        textureData.mipNum = texture.GetMipNum();
-        textureData.arraySize = 1;
         textureData.texture = m_Texture;
         textureData.after = {nri::AccessBits::SHADER_RESOURCE, nri::Layout::SHADER_RESOURCE};
 
@@ -588,7 +586,7 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
         bufferData.buffer = m_GeometryBuffer;
         bufferData.data = &geometryBufferData[0];
         bufferData.dataSize = geometryBufferData.size();
-        bufferData.after = nri::AccessBits::INDEX_BUFFER | nri::AccessBits::VERTEX_BUFFER;
+        bufferData.after = {nri::AccessBits::INDEX_BUFFER | nri::AccessBits::VERTEX_BUFFER};
 
         NRI_ABORT_ON_FAILURE(NRI.UploadData(*m_CommandQueue, &textureData, 1, &bufferData, 1));
     }

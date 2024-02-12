@@ -330,7 +330,7 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
         bufferData.buffer = m_GeometryBuffer;
         bufferData.data = &geometryBufferData[0];
         bufferData.dataSize = geometryBufferData.size();
-        bufferData.after = nri::AccessBits::VERTEX_BUFFER;
+        bufferData.after = {nri::AccessBits::VERTEX_BUFFER};
 
         NRI_ABORT_ON_FAILURE( NRI.UploadData(*m_CommandQueueGraphics, &textureData, 1, &bufferData, 1) );
     }
