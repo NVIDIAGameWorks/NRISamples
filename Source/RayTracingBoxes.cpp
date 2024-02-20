@@ -465,8 +465,8 @@ void Sample::CreateShaderResources()
     NRI_ABORT_ON_FAILURE(NRI.AllocateAndBindMemory(*m_Device, resourceGroupDesc, m_MemoryAllocations.data() + baseAllocation));
 
     nri::BufferUploadDesc dataDescArray[] = {
-        { texCoords, texCoordBufferDesc.size, m_TexCoordBuffer, 0, {nri::AccessBits::UNKNOWN}, {nri::AccessBits::SHADER_RESOURCE} },
-        { paddedIndices.data(), indexBufferDesc.size, m_IndexBuffer, 0, {nri::AccessBits::UNKNOWN}, {nri::AccessBits::SHADER_RESOURCE} }
+        { texCoords, texCoordBufferDesc.size, m_TexCoordBuffer, 0, {nri::AccessBits::SHADER_RESOURCE} },
+        { paddedIndices.data(), indexBufferDesc.size, m_IndexBuffer, 0, {nri::AccessBits::SHADER_RESOURCE} }
     };
     NRI_ABORT_ON_FAILURE(NRI.UploadData(*m_CommandQueue, nullptr, 0, dataDescArray, helper::GetCountOf(dataDescArray)));
 

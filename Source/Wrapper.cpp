@@ -289,15 +289,18 @@ void Sample::CreateVulkanDevice()
     NRI_ABORT_ON_FALSE(result == VK_SUCCESS);
 
     nri::DeviceCreationVKDesc deviceDesc = {};
+    deviceDesc.memoryAllocatorInterface = m_MemoryAllocatorInterface;
+    deviceDesc.spirvBindingOffsets = SPIRV_BINDING_OFFSETS;
+    deviceDesc.enabledExtensions.instanceExtensions = instanceExtensions;
+    deviceDesc.enabledExtensions.instanceExtensionNum = helper::GetCountOf(instanceExtensions);
+    deviceDesc.enabledExtensions.deviceExtensions = deviceExtensions;
+    deviceDesc.enabledExtensions.deviceExtensionNum = helper::GetCountOf(deviceExtensions);
     deviceDesc.vkInstance = (nri::NRIVkInstance)m_VKInstance;
+    deviceDesc.vkDevice = (nri::NRIVkDevice)m_VKDevice;
     deviceDesc.vkPhysicalDevices = (nri::NRIVkPhysicalDevice*)&physicalDevice;
     deviceDesc.deviceGroupSize = 1;
     deviceDesc.queueFamilyIndices = queueFamilyIndices;
     deviceDesc.queueFamilyIndexNum = helper::GetCountOf(queueFamilyIndices);
-    deviceDesc.vkDevice = (nri::NRIVkDevice)m_VKDevice;
-    deviceDesc.memoryAllocatorInterface = m_MemoryAllocatorInterface;
-    deviceDesc.enableNRIValidation = m_DebugNRI;
-    deviceDesc.spirvBindingOffsets = SPIRV_BINDING_OFFSETS;
 
     NRI_ABORT_ON_FAILURE(nri::nriCreateDeviceFromVkDevice(deviceDesc, m_Device));
 }

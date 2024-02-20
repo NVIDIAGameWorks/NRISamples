@@ -522,8 +522,8 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
 
         nri::BufferUploadDesc bufferData[] =
         {
-            {m_Scene.vertices.data(), helper::GetByteSizeOf(m_Scene.vertices), m_Buffers[VERTEX_BUFFER], 0, {nri::AccessBits::UNKNOWN}, {nri::AccessBits::VERTEX_BUFFER}},
-            {m_Scene.indices.data(), helper::GetByteSizeOf(m_Scene.indices), m_Buffers[INDEX_BUFFER], 0, {nri::AccessBits::UNKNOWN}, {nri::AccessBits::INDEX_BUFFER}},
+            {m_Scene.vertices.data(), helper::GetByteSizeOf(m_Scene.vertices), m_Buffers[VERTEX_BUFFER], 0, {nri::AccessBits::VERTEX_BUFFER}},
+            {m_Scene.indices.data(), helper::GetByteSizeOf(m_Scene.indices), m_Buffers[INDEX_BUFFER], 0, {nri::AccessBits::INDEX_BUFFER}},
         };
 
         NRI_ABORT_ON_FAILURE( NRI.UploadData(*m_CommandQueue, textureData.data(), (uint32_t)textureData.size(), bufferData, helper::GetCountOf(bufferData)) );
@@ -545,6 +545,7 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
 
 void Sample::PrepareFrame(uint32_t frameIndex)
 {
+    // TODO: delay is not implemented
     nri::PipelineStatisticsDesc* pipelineStats = (nri::PipelineStatisticsDesc*)NRI.MapBuffer(*m_Buffers[READBACK_BUFFER], 0, sizeof(nri::PipelineStatisticsDesc));
     {
         ImGui::SetNextWindowPos(ImVec2(30, 30), ImGuiCond_Once);
@@ -618,16 +619,9 @@ void Sample::RenderFrame(uint32_t frameIndex)
         textureBarrierDescs.arraySize = 1;
         textureBarrierDescs.mipNum = 1;
 
-        nri::BufferBarrierDesc bufferBarrierDescs = {};
-        bufferBarrierDescs.buffer = m_Buffers[READBACK_BUFFER];
-        bufferBarrierDescs.before = {nri::AccessBits::UNKNOWN, nri::StageBits::COPY};
-        bufferBarrierDescs.after = {nri::AccessBits::COPY_DESTINATION, nri::StageBits::COPY};
-
         nri::BarrierGroupDesc barrierGroupDesc = {};
         barrierGroupDesc.textureNum = 1;
         barrierGroupDesc.textures = &textureBarrierDescs;
-        barrierGroupDesc.bufferNum = 1;
-        barrierGroupDesc.buffers = &bufferBarrierDescs;
 
         NRI.CmdBarrier(commandBuffer, barrierGroupDesc);
 
@@ -687,9 +681,6 @@ void Sample::RenderFrame(uint32_t frameIndex)
 
         textureBarrierDescs.before = textureBarrierDescs.after;
         textureBarrierDescs.after = {nri::AccessBits::UNKNOWN, nri::Layout::PRESENT};
-
-        bufferBarrierDescs.before = bufferBarrierDescs.after;
-        bufferBarrierDescs.after = {nri::AccessBits::UNKNOWN, nri::StageBits::COPY};
 
         NRI.CmdBarrier(commandBuffer, barrierGroupDesc);
     }

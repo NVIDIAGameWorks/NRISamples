@@ -575,9 +575,9 @@ void Sample::CreateGeometry()
     }
 
     nri::BufferUploadDesc dataDescArray[] = {
-        { vertexData.data(), vertexBufferDesc.size, m_VertexBuffer, 0, {nri::AccessBits::UNKNOWN}, {nri::AccessBits::VERTEX_BUFFER} },
-        { box.indices.data(), indexBufferDesc.size, m_IndexBuffer, 0, {nri::AccessBits::UNKNOWN}, {nri::AccessBits::INDEX_BUFFER} },
-        { transforms.data(), transformBufferDesc.size, m_TransformBuffer, 0, {nri::AccessBits::UNKNOWN}, {nri::AccessBits::CONSTANT_BUFFER} }
+        { vertexData.data(), vertexBufferDesc.size, m_VertexBuffer, 0, {nri::AccessBits::VERTEX_BUFFER} },
+        { box.indices.data(), indexBufferDesc.size, m_IndexBuffer, 0, {nri::AccessBits::INDEX_BUFFER} },
+        { transforms.data(), transformBufferDesc.size, m_TransformBuffer, 0, {nri::AccessBits::CONSTANT_BUFFER} }
     };
     NRI_ABORT_ON_FAILURE(NRI.UploadData(*m_CommandQueue, nullptr, 0, dataDescArray, helper::GetCountOf(dataDescArray)));
 

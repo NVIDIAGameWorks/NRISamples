@@ -449,7 +449,7 @@ void Sample::RenderFrame(uint32_t frameIndex)
         helper::Annotation annotation(NRI, commandBuffer2, "Composition");
 
         // Resource transitions
-        textureBarrierDescs[0].before = {nri::AccessBits::COLOR_ATTACHMENT, nri::Layout::COLOR_ATTACHMENT, nri::StageBits::DRAW};
+        textureBarrierDescs[0].before = {nri::AccessBits::COLOR_ATTACHMENT, nri::Layout::COLOR_ATTACHMENT, nri::StageBits::COLOR_ATTACHMENT};
         textureBarrierDescs[0].after = {nri::AccessBits::COPY_DESTINATION, nri::Layout::COPY_DESTINATION, nri::StageBits::COPY};
 
         textureBarrierDescs[1].before = {nri::AccessBits::SHADER_RESOURCE_STORAGE, nri::Layout::SHADER_RESOURCE_STORAGE, nri::StageBits::COMPUTE_SHADER};
