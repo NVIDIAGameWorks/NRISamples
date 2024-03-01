@@ -215,20 +215,25 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
             vertexAttributeDesc[3].vk = {3};
         }
 
+        nri::VertexInputDesc vertexInputDesc = {};
+        vertexInputDesc.attributes = vertexAttributeDesc;
+        vertexInputDesc.attributeNum = (uint8_t)helper::GetCountOf(vertexAttributeDesc);
+        vertexInputDesc.streams = &vertexStreamDesc;
+        vertexInputDesc.streamNum = 1;
+
         nri::InputAssemblyDesc inputAssemblyDesc = {};
         inputAssemblyDesc.topology = nri::Topology::TRIANGLE_LIST;
-        inputAssemblyDesc.attributes = vertexAttributeDesc;
-        inputAssemblyDesc.attributeNum = (uint8_t)helper::GetCountOf(vertexAttributeDesc);
-        inputAssemblyDesc.streams = &vertexStreamDesc;
-        inputAssemblyDesc.streamNum = 1;
 
         nri::RasterizationDesc rasterizationDesc = {};
         rasterizationDesc.viewportNum = 1;
         rasterizationDesc.fillMode = nri::FillMode::SOLID;
         rasterizationDesc.cullMode = nri::CullMode::NONE;
-        rasterizationDesc.sampleNum = 1;
-        rasterizationDesc.sampleMask = 0xFFFF;
         rasterizationDesc.frontCounterClockwise = true;
+
+        nri::MultisampleDesc multisampleDesc = {};
+        multisampleDesc.sampleNum = 1;
+        multisampleDesc.sampleMask = nri::ALL_SAMPLES;
+        multisampleDesc.programmableSampleLocations = deviceDesc.isProgrammableSampleLocationsSupported;
 
         nri::ColorAttachmentDesc colorAttachmentDesc = {};
         colorAttachmentDesc.format = swapChainFormat;
@@ -249,9 +254,11 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
 
         nri::GraphicsPipelineDesc graphicsPipelineDesc = {};
         graphicsPipelineDesc.pipelineLayout = m_PipelineLayout;
-        graphicsPipelineDesc.inputAssembly = &inputAssemblyDesc;
-        graphicsPipelineDesc.rasterization = &rasterizationDesc;
-        graphicsPipelineDesc.outputMerger = &outputMergerDesc;
+        graphicsPipelineDesc.vertexInput = &vertexInputDesc;
+        graphicsPipelineDesc.inputAssembly = inputAssemblyDesc;
+        graphicsPipelineDesc.rasterization = rasterizationDesc;
+        graphicsPipelineDesc.multisample = &multisampleDesc;
+        graphicsPipelineDesc.outputMerger = outputMergerDesc;
         graphicsPipelineDesc.shaders = shaderStages;
         graphicsPipelineDesc.shaderNum = helper::GetCountOf(shaderStages);
 
@@ -447,7 +454,7 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
 
         // Global
         NRI_ABORT_ON_FAILURE( NRI.AllocateDescriptorSets(*m_DescriptorPool, *m_PipelineLayout, GLOBAL_DESCRIPTOR_SET,
-            &m_DescriptorSets[0], BUFFERED_FRAME_MAX_NUM, nri::ALL_NODES, 0) );
+            &m_DescriptorSets[0], BUFFERED_FRAME_MAX_NUM, 0) );
 
         for (uint32_t i = 0; i < BUFFERED_FRAME_MAX_NUM; i++)
         {
@@ -457,12 +464,12 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
             descriptorRangeUpdateDescs[1].descriptorNum = 1;
             descriptorRangeUpdateDescs[1].descriptors = &anisotropicSampler;
 
-            NRI.UpdateDescriptorRanges(*m_DescriptorSets[i], nri::ALL_NODES, 0, helper::GetCountOf(descriptorRangeUpdateDescs), descriptorRangeUpdateDescs);
+            NRI.UpdateDescriptorRanges(*m_DescriptorSets[i], 0, helper::GetCountOf(descriptorRangeUpdateDescs), descriptorRangeUpdateDescs);
         }
 
         // Material
         NRI_ABORT_ON_FAILURE( NRI.AllocateDescriptorSets(*m_DescriptorPool, *m_PipelineLayout, MATERIAL_DESCRIPTOR_SET,
-            &m_DescriptorSets[BUFFERED_FRAME_MAX_NUM], materialNum, nri::ALL_NODES, 0) );
+            &m_DescriptorSets[BUFFERED_FRAME_MAX_NUM], materialNum, 0) );
 
         for (uint32_t i = 0; i < materialNum; i++)
         {
@@ -479,7 +486,7 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
             nri::DescriptorRangeUpdateDesc descriptorRangeUpdateDescs = {};
             descriptorRangeUpdateDescs.descriptorNum = helper::GetCountOf(materialTextures);
             descriptorRangeUpdateDescs.descriptors = materialTextures;
-            NRI.UpdateDescriptorRanges(*m_DescriptorSets[BUFFERED_FRAME_MAX_NUM + i], nri::ALL_NODES, 0, 1, &descriptorRangeUpdateDescs);
+            NRI.UpdateDescriptorRanges(*m_DescriptorSets[BUFFERED_FRAME_MAX_NUM + i], 0, 1, &descriptorRangeUpdateDescs);
         }
     }
 
@@ -604,7 +611,7 @@ void Sample::RenderFrame(uint32_t frameIndex)
     NRI.ResetCommandAllocator(*frame.commandAllocator);
 
     nri::CommandBuffer& commandBuffer = *frame.commandBuffer;
-    NRI.BeginCommandBuffer(commandBuffer, m_DescriptorPool, 0);
+    NRI.BeginCommandBuffer(commandBuffer, m_DescriptorPool);
     {
         helper::Annotation annotation(NRI, commandBuffer, "Scene");
 
@@ -624,6 +631,18 @@ void Sample::RenderFrame(uint32_t frameIndex)
         barrierGroupDesc.textures = &textureBarrierDescs;
 
         NRI.CmdBarrier(commandBuffer, barrierGroupDesc);
+
+        if (NRI.GetDeviceDesc(*m_Device).isProgrammableSampleLocationsSupported)
+        {
+            static const nri::SamplePosition samplePos[4] = {
+                {-6, -2},
+                {-2,  6},
+                { 6,  2},
+                { 2, -6},
+            };
+
+            NRI.CmdSetSamplePositions(commandBuffer, samplePos + (frameIndex % 4), 1, 1);
+        }
 
         NRI.CmdResetQueries(commandBuffer, *m_QueryPool, 0, 1);
         NRI.CmdBeginQuery(commandBuffer, *m_QueryPool, 0);
@@ -663,7 +682,7 @@ void Sample::RenderFrame(uint32_t frameIndex)
                     NRI.CmdSetDescriptorSet(commandBuffer, MATERIAL_DESCRIPTOR_SET, *descriptorSet, nullptr);
 
                     const utils::Mesh& mesh = m_Scene.meshes[instance.meshInstanceIndex];
-                    NRI.CmdDrawIndexed(commandBuffer, mesh.indexNum, 1, mesh.indexOffset, mesh.vertexOffset, 0);
+                    NRI.CmdDrawIndexed(commandBuffer, {mesh.indexNum, 1, mesh.indexOffset, (int32_t)mesh.vertexOffset, 0});
                 }
             }
             NRI.CmdEndRendering(commandBuffer);

@@ -244,7 +244,7 @@ void Sample::RenderFrame(uint32_t frameIndex)
     BackBuffer& backBuffer = m_SwapChainBuffers[backBufferIndex];
 
     nri::CommandBuffer& commandBuffer = *frame.commandBuffer;
-    NRI.BeginCommandBuffer(commandBuffer, nullptr, 0);
+    NRI.BeginCommandBuffer(commandBuffer, nullptr);
     {
         nri::TextureBarrierDesc textureBarrierDescs = {};
         textureBarrierDescs.texture = backBuffer.texture;

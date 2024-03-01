@@ -338,7 +338,7 @@ void Sample::RenderFrame(uint32_t frameIndex)
     nri::CommandBuffer& commandBuffer = *context.commandBuffers[bufferedFrameIndex];
     m_FrameCommandBuffers[threadIndex] = &commandBuffer;
 
-    NRI.BeginCommandBuffer(commandBuffer, m_DescriptorPool, 0);
+    NRI.BeginCommandBuffer(commandBuffer, m_DescriptorPool);
 
     nri::TextureBarrierDesc backBufferTransition = {};
     backBufferTransition.texture = m_BackBuffer->texture;
@@ -448,7 +448,7 @@ void Sample::RenderBoxes(nri::CommandBuffer& commandBuffer, uint32_t offset, uin
         NRI.CmdSetDescriptorSet(commandBuffer, 1, *m_DescriptorSetWithSharedSampler, nullptr);
         NRI.CmdSetIndexBuffer(commandBuffer, *m_IndexBuffer, 0, nri::IndexType::UINT16);
         NRI.CmdSetVertexBuffers(commandBuffer, 0, 1, &m_VertexBuffer, &nullOffset);
-        NRI.CmdDrawIndexed(commandBuffer, m_IndexNum, 1, 0, 0, 0);
+        NRI.CmdDrawIndexed(commandBuffer, {m_IndexNum, 1, 0, 0, 0});
     }
 }
 
@@ -477,7 +477,7 @@ void Sample::ThreadEntryPoint(uint32_t threadIndex)
         nri::CommandBuffer& commandBuffer = *context.commandBuffers[bufferedFrameIndex];
         m_FrameCommandBuffers[threadIndex] = &commandBuffer;
 
-        NRI.BeginCommandBuffer(commandBuffer, m_DescriptorPool, 0);
+        NRI.BeginCommandBuffer(commandBuffer, m_DescriptorPool);
 
         char annotation[64];
         snprintf(annotation, sizeof(annotation), "Thread%u", threadIndex);
@@ -641,19 +641,19 @@ bool Sample::CreatePipeline(nri::Format swapChainFormat)
         }
     };
 
+    nri::VertexInputDesc vertexInputDesc = {};
+    vertexInputDesc.attributes = vertexAttributeDesc;
+    vertexInputDesc.attributeNum = (uint8_t)helper::GetCountOf(vertexAttributeDesc);
+    vertexInputDesc.streams = &vertexStreamDesc;
+    vertexInputDesc.streamNum = 1;
+
     nri::InputAssemblyDesc inputAssemblyDesc = {};
     inputAssemblyDesc.topology = nri::Topology::TRIANGLE_LIST;
-    inputAssemblyDesc.attributes = vertexAttributeDesc;
-    inputAssemblyDesc.attributeNum = (uint8_t)helper::GetCountOf(vertexAttributeDesc);
-    inputAssemblyDesc.streams = &vertexStreamDesc;
-    inputAssemblyDesc.streamNum = 1;
 
     nri::RasterizationDesc rasterizationDesc = {};
     rasterizationDesc.viewportNum = 1;
     rasterizationDesc.fillMode = nri::FillMode::SOLID;
     rasterizationDesc.cullMode = nri::CullMode::NONE;
-    rasterizationDesc.sampleNum = 1;
-    rasterizationDesc.sampleMask = 0xFFFF;
 
     nri::ColorAttachmentDesc colorAttachmentDesc = {};
     colorAttachmentDesc.format = swapChainFormat;
@@ -673,9 +673,10 @@ bool Sample::CreatePipeline(nri::Format swapChainFormat)
 
     nri::GraphicsPipelineDesc graphicsPipelineDesc = {};
     graphicsPipelineDesc.pipelineLayout = m_PipelineLayout;
-    graphicsPipelineDesc.inputAssembly = &inputAssemblyDesc;
-    graphicsPipelineDesc.rasterization = &rasterizationDesc;
-    graphicsPipelineDesc.outputMerger = &outputMergerDesc;
+    graphicsPipelineDesc.vertexInput = &vertexInputDesc;
+    graphicsPipelineDesc.inputAssembly = inputAssemblyDesc;
+    graphicsPipelineDesc.rasterization = rasterizationDesc;
+    graphicsPipelineDesc.outputMerger = outputMergerDesc;
 
     m_Pipelines.resize(pipelineNum);
 
@@ -846,7 +847,7 @@ void Sample::CreateDescriptorSets()
 {
     // DescriptorSet 0 (per box)
     std::vector<nri::DescriptorSet*> descriptorSets(m_Boxes.size());
-    NRI.AllocateDescriptorSets(*m_DescriptorPool, *m_PipelineLayout, 0, descriptorSets.data(), (uint32_t)descriptorSets.size(), nri::ALL_NODES, 0);
+    NRI.AllocateDescriptorSets(*m_DescriptorPool, *m_PipelineLayout, 0, descriptorSets.data(), (uint32_t)descriptorSets.size(), 0);
 
     for (size_t i = 0; i < m_Boxes.size(); i++)
     {
@@ -872,8 +873,8 @@ void Sample::CreateDescriptorSets()
         box.pipeline = m_Pipelines[(i / DRAW_CALLS_PER_PIPELINE) % m_Pipelines.size()];
 
         box.descriptorSet = descriptorSets[i];
-        NRI.UpdateDescriptorRanges(*box.descriptorSet, nri::ALL_NODES, 0, helper::GetCountOf(rangeUpdates), rangeUpdates);
-        NRI.UpdateDynamicConstantBuffers(*box.descriptorSet, nri::ALL_NODES, 0, 1, &m_TransformConstantBufferView);
+        NRI.UpdateDescriptorRanges(*box.descriptorSet, 0, helper::GetCountOf(rangeUpdates), rangeUpdates);
+        NRI.UpdateDynamicConstantBuffers(*box.descriptorSet, 0, 1, &m_TransformConstantBufferView);
     }
 
     // DescriptorSet 1 (shared)
@@ -883,8 +884,8 @@ void Sample::CreateDescriptorSets()
             { &m_Sampler, 1 }
         };
 
-        NRI.AllocateDescriptorSets(*m_DescriptorPool, *m_PipelineLayout, 1, &m_DescriptorSetWithSharedSampler, 1, nri::ALL_NODES, 0);
-        NRI.UpdateDescriptorRanges(*m_DescriptorSetWithSharedSampler, nri::ALL_NODES, 0, helper::GetCountOf(rangeUpdates), rangeUpdates);
+        NRI.AllocateDescriptorSets(*m_DescriptorPool, *m_PipelineLayout, 1, &m_DescriptorSetWithSharedSampler, 1, 0);
+        NRI.UpdateDescriptorRanges(*m_DescriptorSetWithSharedSampler, 0, helper::GetCountOf(rangeUpdates), rangeUpdates);
     }
 }
 

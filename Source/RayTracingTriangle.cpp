@@ -183,7 +183,7 @@ void Sample::RenderFrame(uint32_t frameIndex)
     nri::BarrierGroupDesc barrierGroupDesc = {};
 
     nri::CommandBuffer& commandBuffer = *frame.commandBuffer;
-    NRI.BeginCommandBuffer(commandBuffer, m_DescriptorPool, 0);
+    NRI.BeginCommandBuffer(commandBuffer, m_DescriptorPool);
     {
         // Rendering
         textureTransitions[0].texture = m_BackBuffer->texture;
@@ -209,9 +209,9 @@ void Sample::RenderFrame(uint32_t frameIndex)
         dispatchRaysDesc.raygenShader = { m_ShaderTable, 0, m_ShaderGroupIdentifierSize, m_ShaderGroupIdentifierSize };
         dispatchRaysDesc.missShaders = { m_ShaderTable, m_MissShaderOffset, m_ShaderGroupIdentifierSize, m_ShaderGroupIdentifierSize };
         dispatchRaysDesc.hitShaderGroups = { m_ShaderTable, m_HitShaderGroupOffset, m_ShaderGroupIdentifierSize, m_ShaderGroupIdentifierSize };
-        dispatchRaysDesc.width = (uint16_t)GetWindowResolution().x;
-        dispatchRaysDesc.height = (uint16_t)GetWindowResolution().y;
-        dispatchRaysDesc.depth = 1;
+        dispatchRaysDesc.x = (uint16_t)GetWindowResolution().x;
+        dispatchRaysDesc.y = (uint16_t)GetWindowResolution().y;
+        dispatchRaysDesc.z = 1;
         NRI.CmdDispatchRays(commandBuffer, dispatchRaysDesc);
 
         // Copy
@@ -222,7 +222,7 @@ void Sample::RenderFrame(uint32_t frameIndex)
         barrierGroupDesc.textureNum = 1;
 
         NRI.CmdBarrier(commandBuffer, barrierGroupDesc);
-        NRI.CmdCopyTexture(commandBuffer, *m_BackBuffer->texture, 0, nullptr, *m_RayTracingOutput, 0, nullptr);
+        NRI.CmdCopyTexture(commandBuffer, *m_BackBuffer->texture, nullptr, *m_RayTracingOutput, nullptr);
 
         // Present
         textureTransitions[0].before = textureTransitions[0].after;
@@ -352,7 +352,7 @@ void Sample::CreateRayTracingOutput(nri::Format swapChainFormat)
     NRI.GetTextureMemoryInfo(*m_RayTracingOutput, nri::MemoryLocation::DEVICE, memoryDesc);
 
     nri::Memory* memory = nullptr;
-    NRI_ABORT_ON_FAILURE(NRI.AllocateMemory(*m_Device, nri::ALL_NODES, memoryDesc.type, memoryDesc.size, memory));
+    NRI_ABORT_ON_FAILURE(NRI.AllocateMemory(*m_Device, memoryDesc.type, memoryDesc.size, memory));
     m_MemoryAllocations.push_back(memory);
 
     const nri::TextureMemoryBindingDesc memoryBindingDesc = { memory, m_RayTracingOutput };
@@ -362,7 +362,7 @@ void Sample::CreateRayTracingOutput(nri::Format swapChainFormat)
     NRI_ABORT_ON_FAILURE(NRI.CreateTexture2DView(textureViewDesc, m_RayTracingOutputView));
 
     const nri::DescriptorRangeUpdateDesc descriptorRangeUpdateDesc = { &m_RayTracingOutputView, 1, 0 };
-    NRI.UpdateDescriptorRanges(*m_DescriptorSet, nri::ALL_NODES, 0, 1, &descriptorRangeUpdateDesc);
+    NRI.UpdateDescriptorRanges(*m_DescriptorSet, 0, 1, &descriptorRangeUpdateDesc);
 }
 
 void Sample::CreateDescriptorSet()
@@ -373,7 +373,7 @@ void Sample::CreateDescriptorSet()
     descriptorPoolDesc.descriptorSetMaxNum = 1;
 
     NRI_ABORT_ON_FAILURE(NRI.CreateDescriptorPool(*m_Device, descriptorPoolDesc, m_DescriptorPool));
-    NRI_ABORT_ON_FAILURE(NRI.AllocateDescriptorSets(*m_DescriptorPool, *m_PipelineLayout, 0, &m_DescriptorSet, 1, nri::ALL_NODES, 0));
+    NRI_ABORT_ON_FAILURE(NRI.AllocateDescriptorSets(*m_DescriptorPool, *m_PipelineLayout, 0, &m_DescriptorSet, 1, 0));
 }
 
 void Sample::CreateBottomLevelAccelerationStructure()
@@ -416,7 +416,7 @@ void Sample::CreateBottomLevelAccelerationStructure()
     nri::MemoryDesc memoryDesc = {};
     NRI.GetAccelerationStructureMemoryInfo(*m_BLAS, memoryDesc);
 
-    NRI_ABORT_ON_FAILURE(NRI.AllocateMemory(*m_Device, nri::ALL_NODES, memoryDesc.type, memoryDesc.size, m_BLASMemory));
+    NRI_ABORT_ON_FAILURE(NRI.AllocateMemory(*m_Device, memoryDesc.type, memoryDesc.size, m_BLASMemory));
 
     const nri::AccelerationStructureMemoryBindingDesc memoryBindingDesc = { m_BLASMemory, m_BLAS };
     NRI_ABORT_ON_FAILURE(NRI.BindAccelerationStructureMemory(*m_Device, &memoryBindingDesc, 1));
@@ -439,7 +439,7 @@ void Sample::CreateTopLevelAccelerationStructure()
     nri::MemoryDesc memoryDesc = {};
     NRI.GetAccelerationStructureMemoryInfo(*m_TLAS, memoryDesc);
 
-    NRI_ABORT_ON_FAILURE(NRI.AllocateMemory(*m_Device, nri::ALL_NODES, memoryDesc.type, memoryDesc.size, m_TLASMemory));
+    NRI_ABORT_ON_FAILURE(NRI.AllocateMemory(*m_Device, memoryDesc.type, memoryDesc.size, m_TLASMemory));
 
     const nri::AccelerationStructureMemoryBindingDesc memoryBindingDesc = { m_TLASMemory, m_TLAS };
     NRI_ABORT_ON_FAILURE(NRI.BindAccelerationStructureMemory(*m_Device, &memoryBindingDesc, 1));
@@ -449,7 +449,7 @@ void Sample::CreateTopLevelAccelerationStructure()
     CreateUploadBuffer(sizeof(nri::GeometryObjectInstance), nri::BufferUsageBits::ACCELERATION_STRUCTURE_BUILD_READ, buffer, memory);
 
     nri::GeometryObjectInstance geometryObjectInstance = {};
-    geometryObjectInstance.accelerationStructureHandle = NRI.GetAccelerationStructureHandle(*m_BLAS, 0);
+    geometryObjectInstance.accelerationStructureHandle = NRI.GetAccelerationStructureHandle(*m_BLAS);
     geometryObjectInstance.transform[0][0] = 1.0f;
     geometryObjectInstance.transform[1][1] = 1.0f;
     geometryObjectInstance.transform[2][2] = 1.0f;
@@ -465,10 +465,10 @@ void Sample::CreateTopLevelAccelerationStructure()
     NRI.DestroyBuffer(*buffer);
     NRI.FreeMemory(*memory);
 
-    NRI.CreateAccelerationStructureDescriptor(*m_TLAS, 0, m_TLASDescriptor);
+    NRI.CreateAccelerationStructureDescriptor(*m_TLAS, m_TLASDescriptor);
 
     const nri::DescriptorRangeUpdateDesc descriptorRangeUpdateDesc = { &m_TLASDescriptor, 1, 0 };
-    NRI.UpdateDescriptorRanges(*m_DescriptorSet, nri::ALL_NODES, 1, 1, &descriptorRangeUpdateDesc);
+    NRI.UpdateDescriptorRanges(*m_DescriptorSet, 1, 1, &descriptorRangeUpdateDesc);
 }
 
 void Sample::CreateUploadBuffer(uint64_t size, nri::BufferUsageBits usage, nri::Buffer*& buffer, nri::Memory*& memory)
@@ -479,7 +479,7 @@ void Sample::CreateUploadBuffer(uint64_t size, nri::BufferUsageBits usage, nri::
     nri::MemoryDesc memoryDesc = {};
     NRI.GetBufferMemoryInfo(*buffer, nri::MemoryLocation::HOST_UPLOAD, memoryDesc);
 
-    NRI_ABORT_ON_FAILURE(NRI.AllocateMemory(*m_Device, nri::ALL_NODES, memoryDesc.type, memoryDesc.size, memory));
+    NRI_ABORT_ON_FAILURE(NRI.AllocateMemory(*m_Device, memoryDesc.type, memoryDesc.size, memory));
 
     const nri::BufferMemoryBindingDesc bufferMemoryBindingDesc = { memory, buffer };
     NRI_ABORT_ON_FAILURE(NRI.BindBufferMemory(*m_Device, &bufferMemoryBindingDesc, 1));
@@ -495,7 +495,7 @@ void Sample::CreateScratchBuffer(nri::AccelerationStructure& accelerationStructu
     nri::MemoryDesc bufferMemoryDesc = {};
     NRI.GetBufferMemoryInfo(*buffer, nri::MemoryLocation::DEVICE, bufferMemoryDesc);
 
-    NRI_ABORT_ON_FAILURE(NRI.AllocateMemory(*m_Device, nri::ALL_NODES, bufferMemoryDesc.type, bufferMemoryDesc.size, memory));
+    NRI_ABORT_ON_FAILURE(NRI.AllocateMemory(*m_Device, bufferMemoryDesc.type, bufferMemoryDesc.size, memory));
 
     const nri::BufferMemoryBindingDesc bufferMemoryBindingDesc = { memory, buffer };
     NRI_ABORT_ON_FAILURE(NRI.BindBufferMemory(*m_Device, &bufferMemoryBindingDesc, 1));
@@ -516,7 +516,7 @@ void Sample::BuildBottomLevelAccelerationStructure(nri::AccelerationStructure& a
     queueSubmitDesc.commandBuffers = &commandBuffer;
     queueSubmitDesc.commandBufferNum = 1;
 
-    NRI.BeginCommandBuffer(*commandBuffer, nullptr, 0);
+    NRI.BeginCommandBuffer(*commandBuffer, nullptr);
     NRI.CmdBuildBottomLevelAccelerationStructure(*commandBuffer, objectNum, objects, BUILD_FLAGS, accelerationStructure, *scratchBuffer, 0);
     NRI.EndCommandBuffer(*commandBuffer);
     NRI.QueueSubmit(*m_CommandQueue, queueSubmitDesc);
@@ -544,7 +544,7 @@ void Sample::BuildTopLevelAccelerationStructure(nri::AccelerationStructure& acce
     queueSubmitDesc.commandBuffers = &commandBuffer;
     queueSubmitDesc.commandBufferNum = 1;
 
-    NRI.BeginCommandBuffer(*commandBuffer, nullptr, 0);
+    NRI.BeginCommandBuffer(*commandBuffer, nullptr);
     NRI.CmdBuildTopLevelAccelerationStructure(*commandBuffer, instanceNum, instanceBuffer, 0, BUILD_FLAGS, accelerationStructure, *scratchBuffer, 0);
     NRI.EndCommandBuffer(*commandBuffer);
     NRI.QueueSubmit(*m_CommandQueue, queueSubmitDesc);
@@ -574,7 +574,7 @@ void Sample::CreateShaderTable()
     nri::MemoryDesc memoryDesc = {};
     NRI.GetBufferMemoryInfo(*m_ShaderTable, nri::MemoryLocation::DEVICE, memoryDesc);
 
-    NRI_ABORT_ON_FAILURE(NRI.AllocateMemory(*m_Device, nri::ALL_NODES, memoryDesc.type, memoryDesc.size, m_ShaderTableMemory));
+    NRI_ABORT_ON_FAILURE(NRI.AllocateMemory(*m_Device, memoryDesc.type, memoryDesc.size, m_ShaderTableMemory));
 
     const nri::BufferMemoryBindingDesc bufferMemoryBindingDesc = { m_ShaderTableMemory, m_ShaderTable };
     NRI_ABORT_ON_FAILURE(NRI.BindBufferMemory(*m_Device, &bufferMemoryBindingDesc, 1));
@@ -597,8 +597,8 @@ void Sample::CreateShaderTable()
     queueSubmitDesc.commandBuffers = &commandBuffer;
     queueSubmitDesc.commandBufferNum = 1;
 
-    NRI.BeginCommandBuffer(*commandBuffer, nullptr, 0);
-    NRI.CmdCopyBuffer(*commandBuffer, *m_ShaderTable, 0, 0, *buffer, 0, 0, shaderTableSize);
+    NRI.BeginCommandBuffer(*commandBuffer, nullptr);
+    NRI.CmdCopyBuffer(*commandBuffer, *m_ShaderTable, 0, *buffer, 0, shaderTableSize);
     NRI.EndCommandBuffer(*commandBuffer);
     NRI.QueueSubmit(*m_CommandQueue, queueSubmitDesc);
     NRI.WaitForIdle(*m_CommandQueue);

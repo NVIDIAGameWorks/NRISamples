@@ -43,7 +43,6 @@ int main()
         .size = 1024,
         .structureStride = 0,
         .usageMask = NriBufferUsageBits_SHADER_RESOURCE,
-        .nodeMask = 0
     }, &buffer) );
 
     NriTexture* texture = NULL;

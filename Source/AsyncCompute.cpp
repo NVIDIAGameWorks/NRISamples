@@ -201,19 +201,19 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
             vertexAttributeDesc[0].vk.location = {0};
         }
 
+        nri::VertexInputDesc vertexInputDesc = {};
+        vertexInputDesc.attributes = vertexAttributeDesc;
+        vertexInputDesc.attributeNum = (uint8_t)helper::GetCountOf(vertexAttributeDesc);
+        vertexInputDesc.streams = &vertexStreamDesc;
+        vertexInputDesc.streamNum = 1;
+
         nri::InputAssemblyDesc inputAssemblyDesc = {};
         inputAssemblyDesc.topology = nri::Topology::TRIANGLE_LIST;
-        inputAssemblyDesc.attributes = vertexAttributeDesc;
-        inputAssemblyDesc.attributeNum = (uint8_t)helper::GetCountOf(vertexAttributeDesc);
-        inputAssemblyDesc.streams = &vertexStreamDesc;
-        inputAssemblyDesc.streamNum = 1;
 
         nri::RasterizationDesc rasterizationDesc = {};
         rasterizationDesc.viewportNum = 1;
         rasterizationDesc.fillMode = nri::FillMode::SOLID;
         rasterizationDesc.cullMode = nri::CullMode::NONE;
-        rasterizationDesc.sampleNum = 1;
-        rasterizationDesc.sampleMask = 0xFFFF;
 
         nri::ColorAttachmentDesc colorAttachmentDesc = {};
         colorAttachmentDesc.format = swapChainFormat;
@@ -231,9 +231,10 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
 
         nri::GraphicsPipelineDesc graphicsPipelineDesc = {};
         graphicsPipelineDesc.pipelineLayout = m_GraphicsPipelineLayout;
-        graphicsPipelineDesc.inputAssembly = &inputAssemblyDesc;
-        graphicsPipelineDesc.rasterization = &rasterizationDesc;
-        graphicsPipelineDesc.outputMerger = &outputMergerDesc;
+        graphicsPipelineDesc.vertexInput = &vertexInputDesc;
+        graphicsPipelineDesc.inputAssembly = inputAssemblyDesc;
+        graphicsPipelineDesc.rasterization = rasterizationDesc;
+        graphicsPipelineDesc.outputMerger = outputMergerDesc;
         graphicsPipelineDesc.shaders = shaderStages;
         graphicsPipelineDesc.shaderNum = helper::GetCountOf(shaderStages);
         NRI_ABORT_ON_FAILURE( NRI.CreateGraphicsPipeline(*m_Device, graphicsPipelineDesc, m_GraphicsPipeline) );
@@ -295,10 +296,10 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
 
     { // Descriptor set
         NRI_ABORT_ON_FAILURE( NRI.AllocateDescriptorSets(*m_DescriptorPool, *m_ComputePipelineLayout, 0, &m_DescriptorSet, 1,
-            nri::ALL_NODES, 0) );
+            0) );
 
         nri::DescriptorRangeUpdateDesc descriptorRangeUpdateDesc = {&m_Descriptor, 1, 0};
-        NRI.UpdateDescriptorRanges(*m_DescriptorSet, nri::ALL_NODES, 0, 1, &descriptorRangeUpdateDesc);
+        NRI.UpdateDescriptorRanges(*m_DescriptorSet, 0, 1, &descriptorRangeUpdateDesc);
     }
 
     { // Upload data
@@ -390,7 +391,7 @@ void Sample::RenderFrame(uint32_t frameIndex)
 
     // Fill command buffer #0 (graphics or compute)
     nri::CommandBuffer& commandBuffer0 = m_IsAsyncMode ? *frame.commandBufferCompute : *frame.commandBufferGraphics[0];
-    NRI.BeginCommandBuffer(commandBuffer0, m_DescriptorPool, 0);
+    NRI.BeginCommandBuffer(commandBuffer0, m_DescriptorPool);
     {
         helper::Annotation annotation(NRI, commandBuffer0, "Compute");
 
@@ -400,13 +401,13 @@ void Sample::RenderFrame(uint32_t frameIndex)
         NRI.CmdSetPipelineLayout(commandBuffer0, *m_ComputePipelineLayout);
         NRI.CmdSetPipeline(commandBuffer0, *m_ComputePipeline);
         NRI.CmdSetDescriptorSet(commandBuffer0, 0, *m_DescriptorSet, nullptr);
-        NRI.CmdDispatch(commandBuffer0, nx, ny, 1);
+        NRI.CmdDispatch(commandBuffer0, {nx, ny, 1});
     }
     NRI.EndCommandBuffer(commandBuffer0);
 
     // Fill command buffer #1 (graphics)
     nri::CommandBuffer& commandBuffer1 = *frame.commandBufferGraphics[1];
-    NRI.BeginCommandBuffer(commandBuffer1, nullptr, 0);
+    NRI.BeginCommandBuffer(commandBuffer1, nullptr);
     {
         helper::Annotation annotation(NRI, commandBuffer1, "Graphics");
 
@@ -433,7 +434,7 @@ void Sample::RenderFrame(uint32_t frameIndex)
             NRI.CmdSetPipeline(commandBuffer1, *m_GraphicsPipeline);
             NRI.CmdSetIndexBuffer(commandBuffer1, *m_GeometryBuffer, 0, nri::IndexType::UINT16);
             NRI.CmdSetVertexBuffers(commandBuffer1, 0, 1, &m_GeometryBuffer, &offset);
-            NRI.CmdDraw(commandBuffer1, VERTEX_NUM, 1, 0, 0);
+            NRI.CmdDraw(commandBuffer1, {VERTEX_NUM, 1, 0, 0});
 
             RenderUserInterface(*m_Device, commandBuffer1, 1.0f, true);
         }
@@ -444,7 +445,7 @@ void Sample::RenderFrame(uint32_t frameIndex)
 
     // Fill command buffer #2 (graphics)
     nri::CommandBuffer& commandBuffer2 = *frame.commandBufferGraphics[2];
-    NRI.BeginCommandBuffer(commandBuffer2, nullptr, 0);
+    NRI.BeginCommandBuffer(commandBuffer2, nullptr);
     {
         helper::Annotation annotation(NRI, commandBuffer2, "Composition");
 
@@ -467,7 +468,7 @@ void Sample::RenderFrame(uint32_t frameIndex)
         srcRegion.height = (uint16_t)windowHeight;
         srcRegion.depth = 1;
 
-        NRI.CmdCopyTexture(commandBuffer2, *backBuffer.texture, 0, &dstRegion, *m_Texture, 0, &srcRegion);
+        NRI.CmdCopyTexture(commandBuffer2, *backBuffer.texture, &dstRegion, *m_Texture, &srcRegion);
 
         // Resource transitions
         textureBarrierDescs[0].before = {nri::AccessBits::COPY_DESTINATION, nri::Layout::COPY_DESTINATION, nri::StageBits::COPY};

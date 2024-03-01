@@ -154,7 +154,7 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
 void Sample::PrepareFrame(uint32_t)
 {
     uint32_t color = 0;
-    const uint32_t* data = (uint32_t*)NRI.MapBuffer(*m_ReadbackBuffer, 0, 128);
+    const uint32_t* data = (uint32_t*)NRI.MapBuffer(*m_ReadbackBuffer, 0, nri::WHOLE_SIZE);
     if (data)
     {
         color = *data | 0xFF000000;
@@ -200,7 +200,7 @@ void Sample::RenderFrame(uint32_t frameIndex)
     BackBuffer& backBuffer = m_SwapChainBuffers[backBufferIndex];
 
     nri::CommandBuffer& commandBuffer = *frame.commandBuffer;
-    NRI.BeginCommandBuffer(commandBuffer, nullptr, 0);
+    NRI.BeginCommandBuffer(commandBuffer, nullptr);
     {
         nri::TextureBarrierDesc textureBarrierDescs = {};
         textureBarrierDescs.texture = backBuffer.texture;
@@ -214,7 +214,7 @@ void Sample::RenderFrame(uint32_t frameIndex)
         NRI.CmdBarrier(commandBuffer, barrierGroupDesc);
 
         nri::TextureDataLayoutDesc dstDataLayoutDesc = {};
-        dstDataLayoutDesc.rowPitch = NRI.GetDeviceDesc(*m_Device).uploadBufferTextureRowAlignment;
+        dstDataLayoutDesc.rowPitch = helper::Align(4, NRI.GetDeviceDesc(*m_Device).uploadBufferTextureRowAlignment);
 
         nri::TextureRegionDesc srcRegionDesc = {};
         srcRegionDesc.x = (uint16_t)Clamp(ImGui::GetMousePos().x, 0.0f, float(windowWidth - 1));
