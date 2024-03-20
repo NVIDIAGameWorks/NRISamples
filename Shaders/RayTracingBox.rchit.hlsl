@@ -1,7 +1,9 @@
 // © 2021 NVIDIA Corporation
 
-Buffer<float2> vertexBuffers[] : register( t0, space1 );
-Buffer<uint4> indexBuffers[] : register( t0, space2 );
+#include "BindingBridge.hlsli"
+
+NRI_RESOURCE(Buffer<float2>, vertexBuffers[], t, 0, 1);
+NRI_RESOURCE(Buffer<uint4>, indexBuffers[], t, 0, 2);
 
 struct Payload
 {

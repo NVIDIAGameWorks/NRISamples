@@ -1,7 +1,9 @@
 // © 2021 NVIDIA Corporation
 
-RWTexture2D<float4> outputImage : register( u0, space0 );
-RaytracingAccelerationStructure topLevelAS : register( t1, space0 );
+#include "BindingBridge.hlsli"
+
+NRI_RESOURCE(RWTexture2D<float4>, outputImage, u, 0, 0);
+NRI_RESOURCE(RaytracingAccelerationStructure, topLevelAS, t, 1, 0);
 
 struct Payload
 {

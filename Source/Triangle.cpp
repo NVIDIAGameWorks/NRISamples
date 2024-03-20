@@ -30,8 +30,9 @@ static const uint16_t g_IndexData[] = {0, 1, 2};
 
 struct NRIInterface
     : public nri::CoreInterface
-    , public nri::SwapChainInterface
     , public nri::HelperInterface
+    , public nri::StreamerInterface
+    , public nri::SwapChainInterface
 {};
 
 struct Frame
@@ -60,6 +61,7 @@ private:
 
     NRIInterface NRI = {};
     nri::Device* m_Device = nullptr;
+    nri::Streamer* m_Streamer = nullptr;
     nri::SwapChain* m_SwapChain = nullptr;
     nri::CommandQueue* m_CommandQueue = nullptr;
     nri::Fence* m_FrameFence = nullptr;
@@ -106,11 +108,12 @@ Sample::~Sample()
     NRI.DestroyDescriptorPool(*m_DescriptorPool);
     NRI.DestroyFence(*m_FrameFence);
     NRI.DestroySwapChain(*m_SwapChain);
+    NRI.DestroyStreamer(*m_Streamer);
 
     for (nri::Memory* memory : m_MemoryAllocations)
         NRI.FreeMemory(*memory);
 
-    DestroyUserInterface();
+    DestroyUI(NRI);
 
     nri::nriDestroyDevice(*m_Device);
 }
@@ -119,7 +122,7 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
 {
     nri::AdapterDesc bestAdapterDesc = {};
     uint32_t adapterDescsNum = 1;
-    NRI_ABORT_ON_FAILURE(nri::nriEnumerateAdapters(&bestAdapterDesc, adapterDescsNum));
+    NRI_ABORT_ON_FAILURE( nri::nriEnumerateAdapters(&bestAdapterDesc, adapterDescsNum) );
 
     // Device
     nri::DeviceCreationDesc deviceCreationDesc = {};
@@ -134,8 +137,16 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
 
     // NRI
     NRI_ABORT_ON_FAILURE( nri::nriGetInterface(*m_Device, NRI_INTERFACE(nri::CoreInterface), (nri::CoreInterface*)&NRI) );
-    NRI_ABORT_ON_FAILURE( nri::nriGetInterface(*m_Device, NRI_INTERFACE(nri::SwapChainInterface), (nri::SwapChainInterface*)&NRI) );
     NRI_ABORT_ON_FAILURE( nri::nriGetInterface(*m_Device, NRI_INTERFACE(nri::HelperInterface), (nri::HelperInterface*)&NRI) );
+    NRI_ABORT_ON_FAILURE( nri::nriGetInterface(*m_Device, NRI_INTERFACE(nri::StreamerInterface), (nri::StreamerInterface*)&NRI) );
+    NRI_ABORT_ON_FAILURE( nri::nriGetInterface(*m_Device, NRI_INTERFACE(nri::SwapChainInterface), (nri::SwapChainInterface*)&NRI) );
+
+    // Create streamer
+    nri::StreamerDesc streamerDesc = {};
+    streamerDesc.dynamicBufferMemoryLocation = nri::MemoryLocation::HOST_UPLOAD;
+    streamerDesc.dynamicBufferUsageBits = nri::BufferUsageBits::VERTEX_BUFFER | nri::BufferUsageBits::INDEX_BUFFER;
+    streamerDesc.frameInFlightNum = BUFFERED_FRAME_MAX_NUM;
+    NRI_ABORT_ON_FAILURE( NRI.CreateStreamer(*m_Device, streamerDesc, m_Streamer) );
 
     // Command queue
     NRI_ABORT_ON_FAILURE( NRI.GetCommandQueue(*m_Device, nri::CommandQueueType::GRAPHICS, m_CommandQueue) );
@@ -402,13 +413,15 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
     }
 
     // User interface
-    bool initialized = CreateUserInterface(*m_Device, NRI, NRI, swapChainFormat);
+    bool initialized = InitUI(NRI, NRI, *m_Device, swapChainFormat);
 
     return initialized;
 }
 
 void Sample::PrepareFrame(uint32_t)
 {
+    BeginUI();
+
     ImGui::SetNextWindowPos(ImVec2(30, 30), ImGuiCond_Once);
     ImGui::SetNextWindowSize(ImVec2(0, 0));
     ImGui::Begin("Settings", nullptr, ImGuiWindowFlags_NoResize);
@@ -417,6 +430,9 @@ void Sample::PrepareFrame(uint32_t)
         ImGui::SliderFloat("Scale", &m_Scale, 0.75f, 1.25f);
     }
     ImGui::End();
+
+    EndUI(NRI, *m_Streamer);
+    NRI.CopyStreamerUpdateRequests(*m_Streamer);
 }
 
 void Sample::RenderFrame(uint32_t frameIndex)
@@ -455,6 +471,7 @@ void Sample::RenderFrame(uint32_t frameIndex)
     textureBarrierDescs.arraySize = 1;
     textureBarrierDescs.mipNum = 1;
 
+    // Record
     nri::CommandBuffer* commandBuffer = frame.commandBuffer;
     NRI.BeginCommandBuffer(*commandBuffer, m_DescriptorPool);
     {
@@ -513,7 +530,7 @@ void Sample::RenderFrame(uint32_t frameIndex)
             {
                 helper::Annotation annotation(NRI, *commandBuffer, "UI");
 
-                RenderUserInterface(*m_Device, *commandBuffer, 1.0f, true);
+                RenderUI(NRI, NRI, *m_Streamer, *commandBuffer, 1.0f, true);
             }
         }
         NRI.CmdEndRendering(*commandBuffer);
@@ -525,14 +542,28 @@ void Sample::RenderFrame(uint32_t frameIndex)
     }
     NRI.EndCommandBuffer(*commandBuffer);
 
-    nri::QueueSubmitDesc queueSubmitDesc = {};
-    queueSubmitDesc.commandBuffers = &frame.commandBuffer;
-    queueSubmitDesc.commandBufferNum = 1;
-    NRI.QueueSubmit(*m_CommandQueue, queueSubmitDesc);
+    { // Submit
+        nri::QueueSubmitDesc queueSubmitDesc = {};
+        queueSubmitDesc.commandBuffers = &frame.commandBuffer;
+        queueSubmitDesc.commandBufferNum = 1;
 
-    NRI.SwapChainPresent(*m_SwapChain);
+        NRI.QueueSubmit(*m_CommandQueue, queueSubmitDesc);
+    }
 
-    NRI.QueueSignal(*m_CommandQueue, *m_FrameFence, 1 + frameIndex);
+    // Present
+    NRI.QueuePresent(*m_SwapChain);
+
+    { // Signaling after "Present" improves D3D11 performance a bit
+        nri::FenceSubmitDesc signalFence = {};
+        signalFence.fence = m_FrameFence;
+        signalFence.value = 1 + frameIndex;
+
+        nri::QueueSubmitDesc queueSubmitDesc = {};
+        queueSubmitDesc.signalFences = &signalFence;
+        queueSubmitDesc.signalFenceNum = 1;
+
+        NRI.QueueSubmit(*m_CommandQueue, queueSubmitDesc);
+    }
 }
 
 SAMPLE_MAIN(Sample, 0);

@@ -8,8 +8,9 @@ constexpr uint32_t VERTEX_NUM = 1000000 * 3;
 
 struct NRIInterface
     : public nri::CoreInterface
-    , public nri::SwapChainInterface
     , public nri::HelperInterface
+    , public nri::StreamerInterface
+    , public nri::SwapChainInterface
 {};
 
 struct Frame
@@ -42,9 +43,10 @@ private:
 
     NRIInterface NRI = {};
     nri::Device* m_Device = nullptr;
+    nri::Streamer* m_Streamer = nullptr;
     nri::SwapChain* m_SwapChain = nullptr;
-    nri::CommandQueue* m_CommandQueueGraphics = nullptr;
-    nri::CommandQueue* m_CommandQueueCompute = nullptr;
+    nri::CommandQueue* m_GraphicsQueue = nullptr;
+    nri::CommandQueue* m_ComputeQueue = nullptr;
     nri::Fence* m_FrameFence = nullptr;
     nri::Fence* m_ComputeFence = nullptr;
     nri::DescriptorPool* m_DescriptorPool = nullptr;
@@ -66,7 +68,7 @@ private:
 
 Sample::~Sample()
 {
-    NRI.WaitForIdle(*m_CommandQueueGraphics);
+    NRI.WaitForIdle(*m_GraphicsQueue);
 
     for (Frame& frame : m_Frames)
     {
@@ -92,11 +94,12 @@ Sample::~Sample()
     NRI.DestroyFence(*m_ComputeFence);
     NRI.DestroyFence(*m_FrameFence);
     NRI.DestroySwapChain(*m_SwapChain);
+    NRI.DestroyStreamer(*m_Streamer);
 
     for (size_t i = 0; i < m_MemoryAllocations.size(); i++)
         NRI.FreeMemory(*m_MemoryAllocations[i]);
 
-    DestroyUserInterface();
+    DestroyUI(NRI);
 
     nri::nriDestroyDevice(*m_Device);
 }
@@ -105,7 +108,7 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
 {
     nri::AdapterDesc bestAdapterDesc = {};
     uint32_t adapterDescsNum = 1;
-    NRI_ABORT_ON_FAILURE(nri::nriEnumerateAdapters(&bestAdapterDesc, adapterDescsNum));
+    NRI_ABORT_ON_FAILURE( nri::nriEnumerateAdapters(&bestAdapterDesc, adapterDescsNum) );
 
     // Device
     nri::DeviceCreationDesc deviceCreationDesc = {};
@@ -120,19 +123,27 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
 
     // NRI
     NRI_ABORT_ON_FAILURE( nri::nriGetInterface(*m_Device, NRI_INTERFACE(nri::CoreInterface), (nri::CoreInterface*)&NRI) );
-    NRI_ABORT_ON_FAILURE( nri::nriGetInterface(*m_Device, NRI_INTERFACE(nri::SwapChainInterface), (nri::SwapChainInterface*)&NRI) );
     NRI_ABORT_ON_FAILURE( nri::nriGetInterface(*m_Device, NRI_INTERFACE(nri::HelperInterface), (nri::HelperInterface*)&NRI) );
+    NRI_ABORT_ON_FAILURE( nri::nriGetInterface(*m_Device, NRI_INTERFACE(nri::StreamerInterface), (nri::StreamerInterface*)&NRI) );
+    NRI_ABORT_ON_FAILURE( nri::nriGetInterface(*m_Device, NRI_INTERFACE(nri::SwapChainInterface), (nri::SwapChainInterface*)&NRI) );
 
     const nri::DeviceDesc& deviceDesc = NRI.GetDeviceDesc(*m_Device);
 
-    // Command queue
-    NRI_ABORT_ON_FAILURE( NRI.GetCommandQueue(*m_Device, nri::CommandQueueType::GRAPHICS, m_CommandQueueGraphics) );
-    NRI.SetCommandQueueDebugName(*m_CommandQueueGraphics, "GraphicsQueue");
+    // Create streamer
+    nri::StreamerDesc streamerDesc = {};
+    streamerDesc.dynamicBufferMemoryLocation = nri::MemoryLocation::HOST_UPLOAD;
+    streamerDesc.dynamicBufferUsageBits = nri::BufferUsageBits::VERTEX_BUFFER | nri::BufferUsageBits::INDEX_BUFFER;
+    streamerDesc.frameInFlightNum = BUFFERED_FRAME_MAX_NUM;
+    NRI_ABORT_ON_FAILURE( NRI.CreateStreamer(*m_Device, streamerDesc, m_Streamer) );
 
-    if (deviceDesc.isComputeQueueSupported)
+    // Command queue
+    NRI_ABORT_ON_FAILURE( NRI.GetCommandQueue(*m_Device, nri::CommandQueueType::GRAPHICS, m_GraphicsQueue) );
+    NRI.SetCommandQueueDebugName(*m_GraphicsQueue, "GraphicsQueue");
+
+    //if (deviceDesc.isComputeQueueSupported)
     {
-        NRI_ABORT_ON_FAILURE( NRI.GetCommandQueue(*m_Device, nri::CommandQueueType::COMPUTE, m_CommandQueueCompute) );
-        NRI.SetCommandQueueDebugName(*m_CommandQueueCompute, "ComputeQueue");
+        NRI_ABORT_ON_FAILURE( NRI.GetCommandQueue(*m_Device, nri::CommandQueueType::COMPUTE, m_ComputeQueue) );
+        NRI.SetCommandQueueDebugName(*m_ComputeQueue, "ComputeQueue");
     }
 
     // Fences
@@ -144,7 +155,7 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
     {
         nri::SwapChainDesc swapChainDesc = {};
         swapChainDesc.window = GetWindow();
-        swapChainDesc.commandQueue = m_CommandQueueGraphics;
+        swapChainDesc.commandQueue = m_GraphicsQueue;
         swapChainDesc.format = nri::SwapChainFormat::BT709_G22_8BIT;
         swapChainDesc.verticalSyncInterval = m_VsyncInterval;
         swapChainDesc.width = (uint16_t)GetWindowResolution().x;
@@ -171,13 +182,13 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
     // Buffered resources
     for (Frame& frame : m_Frames)
     {
-        NRI_ABORT_ON_FAILURE( NRI.CreateCommandAllocator(*m_CommandQueueGraphics, frame.commandAllocatorGraphics) );
+        NRI_ABORT_ON_FAILURE( NRI.CreateCommandAllocator(*m_GraphicsQueue, frame.commandAllocatorGraphics) );
         for (size_t i = 0; i < frame.commandBufferGraphics.size(); i++)
             NRI_ABORT_ON_FAILURE( NRI.CreateCommandBuffer(*frame.commandAllocatorGraphics, frame.commandBufferGraphics[i]) );
 
         if (deviceDesc.isComputeQueueSupported)
         {
-            NRI_ABORT_ON_FAILURE( NRI.CreateCommandAllocator(*m_CommandQueueCompute, frame.commandAllocatorCompute) );
+            NRI_ABORT_ON_FAILURE( NRI.CreateCommandAllocator(*m_ComputeQueue, frame.commandAllocatorCompute) );
             NRI_ABORT_ON_FAILURE( NRI.CreateCommandBuffer(*frame.commandAllocatorCompute, frame.commandBufferCompute) );
         }
     }
@@ -278,7 +289,7 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
     resourceGroupDesc.textures = &m_Texture;
 
     m_MemoryAllocations.resize(NRI.CalculateAllocationNumber(*m_Device, resourceGroupDesc), nullptr);
-    NRI_ABORT_ON_FAILURE(NRI.AllocateAndBindMemory(*m_Device, resourceGroupDesc, m_MemoryAllocations.data()))
+    NRI_ABORT_ON_FAILURE( NRI.AllocateAndBindMemory(*m_Device, resourceGroupDesc, m_MemoryAllocations.data()) )
 
     { // Descriptor pool
         nri::DescriptorPoolDesc descriptorPoolDesc = {};
@@ -333,14 +344,16 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
         bufferData.dataSize = geometryBufferData.size();
         bufferData.after = {nri::AccessBits::VERTEX_BUFFER};
 
-        NRI_ABORT_ON_FAILURE( NRI.UploadData(*m_CommandQueueGraphics, &textureData, 1, &bufferData, 1) );
+        NRI_ABORT_ON_FAILURE( NRI.UploadData(*m_GraphicsQueue, &textureData, 1, &bufferData, 1) );
     }
 
-    return CreateUserInterface(*m_Device, NRI, NRI, swapChainFormat);
+    return InitUI(NRI, NRI, *m_Device, swapChainFormat);
 }
 
 void Sample::PrepareFrame(uint32_t)
 {
+    BeginUI();
+
     ImGui::SetNextWindowPos(ImVec2(30, 30), ImGuiCond_Always);
     ImGui::SetNextWindowSize(ImVec2(0, 0));
     ImGui::Begin("Settings", nullptr, ImGuiWindowFlags_NoResize);
@@ -349,6 +362,9 @@ void Sample::PrepareFrame(uint32_t)
         ImGui::Checkbox("Use ASYNC compute", &m_IsAsyncMode);
     }
     ImGui::End();
+
+    EndUI(NRI, *m_Streamer);
+    NRI.CopyStreamerUpdateRequests(*m_Streamer);
 
     const nri::DeviceDesc& deviceDesc = NRI.GetDeviceDesc(*m_Device);
     if (!deviceDesc.isComputeQueueSupported)
@@ -361,6 +377,7 @@ void Sample::RenderFrame(uint32_t frameIndex)
     const uint32_t windowHeight = GetWindowResolution().y;
     const uint32_t bufferedFrameIndex = frameIndex % BUFFERED_FRAME_MAX_NUM;
     const Frame& frame = m_Frames[bufferedFrameIndex];
+    const nri::DeviceDesc& deviceDesc = NRI.GetDeviceDesc(*m_Device);
 
     nri::CommandAllocator& commandAllocatorGraphics = *frame.commandAllocatorGraphics;
     nri::CommandAllocator& commandAllocatorCompute = *frame.commandAllocatorCompute;
@@ -369,7 +386,9 @@ void Sample::RenderFrame(uint32_t frameIndex)
     {
         NRI.Wait(*m_FrameFence, 1 + frameIndex - BUFFERED_FRAME_MAX_NUM);
         NRI.ResetCommandAllocator(commandAllocatorGraphics);
-        NRI.ResetCommandAllocator(commandAllocatorCompute);
+
+        if (deviceDesc.isComputeQueueSupported)
+            NRI.ResetCommandAllocator(commandAllocatorCompute);
     }
 
     const uint32_t backBufferIndex = NRI.AcquireNextSwapChainTexture(*m_SwapChain);
@@ -436,7 +455,7 @@ void Sample::RenderFrame(uint32_t frameIndex)
             NRI.CmdSetVertexBuffers(commandBuffer1, 0, 1, &m_GeometryBuffer, &offset);
             NRI.CmdDraw(commandBuffer1, {VERTEX_NUM, 1, 0, 0});
 
-            RenderUserInterface(*m_Device, commandBuffer1, 1.0f, true);
+            RenderUI(NRI, NRI, *m_Streamer, commandBuffer1, 1.0f, true);
         }
         NRI.CmdEndRendering(commandBuffer1);
 
@@ -487,39 +506,68 @@ void Sample::RenderFrame(uint32_t frameIndex)
     // Submit work
     if (m_IsAsyncMode)
     {
-        // Wait for the Composition task (from the previous frame) completion before doing the Compute task
-        NRI.QueueWait(*m_CommandQueueCompute, *m_FrameFence, frameIndex);
+        nri::FenceSubmitDesc computeFinishedFence = {};
+        computeFinishedFence.fence = m_ComputeFence;
+        computeFinishedFence.value = 1 + frameIndex;
 
-        // Submit the Compute task into the COMPUTE queue
-        nri::QueueSubmitDesc computeTaskDesc = {&commandBufferArray[0], 1};
-        NRI.QueueSubmit(*m_CommandQueueCompute, computeTaskDesc);
+        { // Submit the Compute task into the COMPUTE queue
+            nri::FenceSubmitDesc waitFence = {};
+            waitFence.fence = m_FrameFence;
+            waitFence.value = frameIndex;
 
-        // Insert fence into the COMPUTE queue
-        NRI.QueueSignal(*m_CommandQueueCompute, *m_ComputeFence, 1 + frameIndex);
+            nri::QueueSubmitDesc computeTask = {};
+            computeTask.waitFences = &waitFence; // Wait for the previous frame completion before execution
+            computeTask.waitFenceNum = 1;
+            computeTask.commandBuffers = &commandBufferArray[0];
+            computeTask.commandBufferNum = 1;
+            computeTask.signalFences = &computeFinishedFence;
+            computeTask.signalFenceNum = 1;
 
-        // Submit the Graphics task into the GRAPHICS queue
-        nri::QueueSubmitDesc graphicsTaskDesc = {&commandBufferArray[1], 1};
-        NRI.QueueSubmit(*m_CommandQueueGraphics, graphicsTaskDesc);
+            NRI.QueueSubmit(*m_ComputeQueue, computeTask);
+        }
 
-        // Wait for the Compute task completion before doing the Composition task
-        NRI.QueueWait(*m_CommandQueueGraphics, *m_ComputeFence, 1 + frameIndex);
+        { // Submit the Graphics task into the GRAPHICS queue
+            nri::QueueSubmitDesc graphicsTask = {};
+            graphicsTask.commandBuffers = &commandBufferArray[1];
+            graphicsTask.commandBufferNum = 1;
 
-        // Submit the Composition task into the GRAPHICS queue
-        nri::QueueSubmitDesc compositionTaskDesc = {&commandBufferArray[2], 1};
-        NRI.QueueSubmit(*m_CommandQueueGraphics, compositionTaskDesc);
+            NRI.QueueSubmit(*m_GraphicsQueue, graphicsTask);
+        }
+
+        { // Submit the Composition task into the GRAPHICS queue
+            nri::QueueSubmitDesc compositionTask = {};
+            compositionTask.waitFences = &computeFinishedFence; // Wait for the Compute task completion before execution
+            compositionTask.waitFenceNum = 1;
+            compositionTask.commandBuffers =&commandBufferArray[2];
+            compositionTask.commandBufferNum = 1;
+
+            NRI.QueueSubmit(*m_GraphicsQueue, compositionTask);
+        }
     }
     else
     {
         // Submit all tasks to the GRAPHICS queue
-        nri::QueueSubmitDesc queueSubmitDesc = {commandBufferArray, helper::GetCountOf(commandBufferArray)};
-        NRI.QueueSubmit(*m_CommandQueueGraphics, queueSubmitDesc);
+        nri::QueueSubmitDesc allTasks = {};
+        allTasks.commandBuffers = commandBufferArray;
+        allTasks.commandBufferNum = helper::GetCountOf(commandBufferArray);
+
+        NRI.QueueSubmit(*m_GraphicsQueue, allTasks);
     }
 
     // Present
-    NRI.SwapChainPresent(*m_SwapChain);
+    NRI.QueuePresent(*m_SwapChain);
 
-    // Next frame
-    NRI.QueueSignal(*m_CommandQueueGraphics, *m_FrameFence, 1 + frameIndex);
+    { // Signaling after "Present" improves D3D11 performance a bit
+        nri::FenceSubmitDesc signalFence = {};
+        signalFence.fence = m_FrameFence;
+        signalFence.value = 1 + frameIndex;
+
+        nri::QueueSubmitDesc queueSubmitDesc = {};
+        queueSubmitDesc.signalFences = &signalFence;
+        queueSubmitDesc.signalFenceNum = 1;
+
+        NRI.QueueSubmit(*m_GraphicsQueue, queueSubmitDesc);
+    }
 }
 
 SAMPLE_MAIN(Sample, 0);

@@ -1,7 +1,5 @@
 // © 2021 NVIDIA Corporation
 
-#include "BindingBridge.hlsli"
-
 struct OutputVS
 {
     float4 position : SV_Position;

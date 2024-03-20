@@ -64,7 +64,7 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
 {
     nri::AdapterDesc bestAdapterDesc = {};
     uint32_t adapterDescsNum = 1;
-    NRI_ABORT_ON_FAILURE(nri::nriEnumerateAdapters(&bestAdapterDesc, adapterDescsNum));
+    NRI_ABORT_ON_FAILURE( nri::nriEnumerateAdapters(&bestAdapterDesc, adapterDescsNum) );
 
     // Device
     nri::DeviceCreationDesc deviceCreationDesc = {};
@@ -141,6 +141,7 @@ void Sample::RenderFrame(uint32_t frameIndex)
     const uint32_t backBufferIndex = NRI.AcquireNextSwapChainTexture(*m_SwapChain);
     const BackBuffer& backBuffer = m_SwapChainBuffers[backBufferIndex];
 
+    // Record
     nri::CommandBuffer& commandBuffer = *frame.commandBuffer;
     NRI.BeginCommandBuffer(commandBuffer, nullptr);
     {
@@ -192,14 +193,28 @@ void Sample::RenderFrame(uint32_t frameIndex)
     }
     NRI.EndCommandBuffer(commandBuffer);
 
-    nri::QueueSubmitDesc queueSubmitDesc = {};
-    queueSubmitDesc.commandBuffers = &frame.commandBuffer;
-    queueSubmitDesc.commandBufferNum = 1;
-    NRI.QueueSubmit(*m_CommandQueue, queueSubmitDesc);
+    { // Submit
+        nri::QueueSubmitDesc queueSubmitDesc = {};
+        queueSubmitDesc.commandBuffers = &frame.commandBuffer;
+        queueSubmitDesc.commandBufferNum = 1;
 
-    NRI.SwapChainPresent(*m_SwapChain);
+        NRI.QueueSubmit(*m_CommandQueue, queueSubmitDesc);
+    }
 
-    NRI.QueueSignal(*m_CommandQueue, *m_FrameFence, 1 + frameIndex);
+    // Present
+    NRI.QueuePresent(*m_SwapChain);
+
+    { // Signaling after "Present" improves D3D11 performance a bit
+        nri::FenceSubmitDesc signalFence = {};
+        signalFence.fence = m_FrameFence;
+        signalFence.value = 1 + frameIndex;
+
+        nri::QueueSubmitDesc queueSubmitDesc = {};
+        queueSubmitDesc.signalFences = &signalFence;
+        queueSubmitDesc.signalFenceNum = 1;
+
+        NRI.QueueSubmit(*m_CommandQueue, queueSubmitDesc);
+    }
 }
 
 SAMPLE_MAIN(Sample, 0);
