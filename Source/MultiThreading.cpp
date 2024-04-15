@@ -10,10 +10,9 @@
 #include <atomic>
 #include <thread>
 
-constexpr uint32_t BOX_NUM = 10000;
+constexpr uint32_t BOX_NUM = 30000;
 constexpr uint32_t DRAW_CALLS_PER_PIPELINE = 4;
 constexpr uint32_t THREAD_MAX_NUM = 256;
-constexpr uint32_t CACHELINE_SIZE = 64;
 
 constexpr uint32_t HALT = 0;
 constexpr uint32_t GO = 1;
@@ -44,15 +43,14 @@ struct ThreadContext
     std::array<nri::CommandAllocator*, BUFFERED_FRAME_MAX_NUM> commandAllocators;
     std::array<nri::CommandBuffer*, BUFFERED_FRAME_MAX_NUM> commandBuffers;
     std::thread thread;
-    alignas(CACHELINE_SIZE) std::atomic_uint32_t control;
-    alignas(CACHELINE_SIZE) uint32_t padding;
+    std::atomic_uint32_t control;
 };
 
 class Sample : public SampleBase
 {
 public:
 
-    Sample()
+    inline Sample()
     {}
 
     ~Sample();
@@ -78,61 +76,47 @@ private:
     void SetupProjViewMatrix(float4x4& projViewMatrix);
     uint32_t GetPhysicalCoreNum() const;
 
-    bool m_IsMultithreadingEnabled = true;
-
-    double m_RecordingTime = 0.0;
-    double m_SubmitTime = 0.0;
-
+private:
     NRIInterface NRI = {};
     nri::Device* m_Device = nullptr;
     nri::Streamer* m_Streamer = nullptr;
     nri::SwapChain* m_SwapChain = nullptr;
     nri::CommandQueue* m_CommandQueue = nullptr;
+    nri::PipelineLayout* m_PipelineLayout = nullptr;
+    nri::DescriptorPool* m_DescriptorPool = nullptr;
     nri::Fence* m_FrameFence = nullptr;
-
-    std::vector<nri::CommandBuffer*> m_FrameCommandBuffers;
-    uint32_t m_FrameIndex = 0;
-
-    std::array<ThreadContext, THREAD_MAX_NUM> m_ThreadContexts;
-    uint32_t m_ThreadNum = 0;
-
-    std::vector<nri::Pipeline*> m_Pipelines;
-
-    std::vector<nri::Texture*> m_Textures;
-    std::vector<nri::Descriptor*> m_TextureViews;
     nri::Texture* m_DepthTexture = nullptr;
     nri::Descriptor* m_DepthTextureView = nullptr;
-
-    nri::DescriptorSet* m_DescriptorSetWithSharedSampler = nullptr;
+    nri::Descriptor* m_TransformConstantBufferView = nullptr;
+    nri::Descriptor* m_ViewConstantBufferView = nullptr;
     nri::Descriptor* m_Sampler = nullptr;
-
+    nri::DescriptorSet* m_DescriptorSetWithSharedSampler = nullptr;
     nri::Buffer* m_VertexBuffer = nullptr;
     nri::Buffer* m_IndexBuffer = nullptr;
     nri::Buffer* m_TransformConstantBuffer = nullptr;
     nri::Buffer* m_ViewConstantBuffer = nullptr;
     nri::Buffer* m_FakeConstantBuffer = nullptr;
-
-    nri::Descriptor* m_TransformConstantBufferView = nullptr;
-    nri::Descriptor* m_ViewConstantBufferView = nullptr;
-    std::vector<nri::Descriptor*> m_FakeConstantBufferViews;
-
-    nri::PipelineLayout* m_PipelineLayout = nullptr;
-
-    nri::DescriptorPool* m_DescriptorPool = nullptr;
-
-    std::vector<Box> m_Boxes;
-    uint32_t m_BoxesPerThread = 0;
-
-    uint32_t m_IndexNum = 0;
-
-    const BackBuffer* m_BackBuffer = nullptr;
-
     nri::Format m_DepthFormat = nri::Format::UNKNOWN;
 
+    std::vector<nri::CommandBuffer*> m_FrameCommandBuffers;
+    std::array<ThreadContext, THREAD_MAX_NUM> m_ThreadContexts;
+    std::vector<nri::Pipeline*> m_Pipelines;
+    std::vector<nri::Texture*> m_Textures;
+    std::vector<nri::Descriptor*> m_TextureViews;
+    std::vector<nri::Descriptor*> m_FakeConstantBufferViews;
+    std::vector<Box> m_Boxes;
     std::vector<BackBuffer> m_SwapChainBuffers;
     std::vector<nri::Memory*> m_MemoryAllocations;
+    uint32_t m_FrameIndex = 0;
+    uint32_t m_ThreadNum = 0;
+    uint32_t m_BoxesPerThread = 0;
+    uint32_t m_IndexNum = 0;
+    const BackBuffer* m_BackBuffer = nullptr;
+    double m_RecordingTime = 0.0;
+    double m_SubmitTime = 0.0;
+    bool m_IsMultithreadingEnabled = true;
 
-    alignas(CACHELINE_SIZE) std::atomic_uint32_t m_ReadyCount;
+    std::atomic_uint32_t m_ReadyCount;
 };
 
 Sample::~Sample()
