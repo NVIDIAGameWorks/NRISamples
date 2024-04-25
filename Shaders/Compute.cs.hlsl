@@ -1,6 +1,6 @@
 // © 2021 NVIDIA Corporation
 
-#include "BindingBridge.hlsli"
+#include "NRICompatibility.hlsli"
 
 NRI_RESOURCE(RWBuffer<float>, buffer, u, 0, 0);
 

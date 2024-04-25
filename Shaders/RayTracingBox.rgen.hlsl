@@ -1,6 +1,6 @@
 // © 2021 NVIDIA Corporation
 
-#include "BindingBridge.hlsli"
+#include "NRICompatibility.hlsli"
 
 NRI_RESOURCE(RWTexture2D<float4>, outputImage, u, 0, 0);
 NRI_RESOURCE(RaytracingAccelerationStructure, topLevelAS, t, 1, 0);

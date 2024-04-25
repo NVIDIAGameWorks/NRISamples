@@ -8,13 +8,41 @@ struct Attributes
     float4 Normal : TEXCOORD0; //.w = TexCoord.x
     float4 View : TEXCOORD1; //.w = TexCoord.y
     float4 Tangent : TEXCOORD2;
+    uint4 BaseAttributes : ATTRIBUTES;  // .x = firstInstance, .y = firstVertex, .z = instanceId, .w - vertexId
 };
 
+struct MaterialData
+{
+    float4 baseColorAndMetallic;
+    float4 emissiveColorAndRoughness;
+    uint baseColorTexIndex;
+    uint roughnessMetalnessTexIndex;
+    uint normalTexIndex;
+    uint emissiveTexIndex;
+};
+
+struct MeshData
+{
+    uint vtxOffset;
+    uint vtxCount;
+    uint idxOffset;
+    uint idxCount;
+};
+
+struct InstanceData
+{
+    float4x4 mtx;
+    uint meshIndex;
+    uint materialIndex;
+};  
+
+#ifndef DONT_DECLARE_RESOURCES
 NRI_RESOURCE( Texture2D, DiffuseMap, t, 0, 1 );
 NRI_RESOURCE( Texture2D, SpecularMap, t, 1, 1 );
 NRI_RESOURCE( Texture2D, NormalMap, t, 2, 1 );
 NRI_RESOURCE( Texture2D, EmissiveMap, t, 3, 1 );
 NRI_RESOURCE( SamplerState, AnisotropicSampler, s, 0, 0 );
+#endif
 
 #define SUN_ANGULAR_SIZE radians( 0.533 )
 
