@@ -562,7 +562,7 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
         NRI_ABORT_ON_FAILURE(NRI.CreateBufferView(bufferViewDesc, resourceViews[2]));
         m_Descriptors.push_back(resourceViews[2]);      
         
-        // Instance buffer 
+        // Indirect buffer 
         bufferViewDesc.viewType = nri::BufferViewType::SHADER_RESOURCE_STORAGE;
         bufferViewDesc.buffer = m_Buffers[INDIRECT_BUFFER];
         bufferViewDesc.size = m_Scene.instances.size() * sizeof(nri::DrawIndexedDesc); // TODO: D3D12
@@ -864,8 +864,9 @@ void Sample::RenderFrame(uint32_t frameIndex)
             clearStorageBufferDesc.storageBuffer = m_IndirectBufferStorageAttachement;
             NRI.CmdClearStorageBuffer(commandBuffer, clearStorageBufferDesc);
 
+
             // Culling
-            size_t dispatchCount = m_Scene.instances.size() >= 256 ? m_Scene.instances.size() / 256 : 1;
+            size_t dispatchCount = helper::Align(m_Scene.instances.size(), 256) / 256;
             NRI.CmdSetPipelineLayout(commandBuffer, *m_ComputePipelineLayout);
             NRI.CmdSetDescriptorSet(commandBuffer, 0, *m_DescriptorSets[BUFFERED_FRAME_MAX_NUM + 1], nullptr);
 
