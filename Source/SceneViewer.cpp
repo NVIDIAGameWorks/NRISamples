@@ -123,8 +123,8 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
     // Device
     nri::DeviceCreationDesc deviceCreationDesc = {};
     deviceCreationDesc.graphicsAPI = graphicsAPI;
-    deviceCreationDesc.enableAPIValidation = m_DebugAPI;
-    deviceCreationDesc.enableNRIValidation = m_DebugNRI;
+    deviceCreationDesc.enableAPIValidation = true;
+    deviceCreationDesc.enableNRIValidation = false;
     deviceCreationDesc.enableD3D11CommandBufferEmulation = D3D11_COMMANDBUFFER_EMULATION;
     deviceCreationDesc.spirvBindingOffsets = SPIRV_BINDING_OFFSETS;
     deviceCreationDesc.adapterDesc = &bestAdapterDesc;

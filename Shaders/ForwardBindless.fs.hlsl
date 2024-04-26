@@ -10,6 +10,15 @@ NRI_RESOURCE(StructuredBuffer<MeshData>, Meshes, t, 1, 0);
 NRI_RESOURCE(StructuredBuffer<InstanceData>, Instances, t, 2, 0);
 NRI_RESOURCE_ARRAY(Texture2D, Textures, t, 0, 1);
 
+struct BindlessAttributes
+{
+    float4 Position : SV_Position;
+    float4 Normal : TEXCOORD0; //.w = TexCoord.x
+    float4 View : TEXCOORD1; //.w = TexCoord.y
+    float4 Tangent : TEXCOORD2;
+    uint4 BaseAttributes : ATTRIBUTES;  // .x = firstInstance, .y = firstVertex, .z = instanceId, .w - vertexId
+};
+
 uint XORShift(inout uint rng_state)
 {
     // Xorshift algorithm from George Marsaglia's paper.
@@ -61,7 +70,7 @@ float4 VisualizeId(uint Id)
 }
 
 [earlydepthstencil]
-float4 main( in Attributes input ) : SV_Target
+float4 main( in BindlessAttributes input ) : SV_Target
 {
 
 

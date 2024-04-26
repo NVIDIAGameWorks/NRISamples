@@ -31,6 +31,7 @@
     #define NRI_SHADER_MODEL (__SHADER_TARGET_MAJOR * 10 + __SHADER_TARGET_MINOR)
 #endif
 
+
 // SPIRV
 #ifdef NRI_SPIRV
     #define NRI_RESOURCE_ARRAY(resourceType, resourceName, regName, bindingIndex, setIndex) \
@@ -44,15 +45,15 @@
         [[vk::push_constant]] structName constantBufferName
 
     // Draw parameters (requires SPV_KHR_shader_draw_parameters)
-    #define NRI_ENABLE_DRAW_PARAMETERS(bindingIndex)
+    #define NRI_ENABLE_DRAW_PARAMETERS
 
+    #define NRI_DRAW_INDEXED_COMMAND_SIZE 5 * 4
     #define NRI_DECLARE_DRAW_PARAMETERS \
         int NRI_VERTEX_ID_OFFSET : SV_VertexID, \
         uint NRI_INSTANCE_ID_OFFSET : SV_InstanceID, \
         [[vk::builtin("BaseVertex")]] int NRI_BASE_VERTEX : _SV_Nothing, \
         [[vk::builtin("BaseInstance")]] uint NRI_BASE_INSTANCE : _SV_Nothing
 
-    #define NRI_DRAW_INDEXED_COMMAND_SIZE 5 * 4
     #define NRI_FILL_DRAW_INDEXED_COMMAND(buffer, cmdIndex, indexCount, instanceCount, startIndex, baseVertex, startInstance) \
         buffer.Store(cmdIndex * NRI_DRAW_INDEXED_COMMAND_SIZE + 0, indexCount); \
         buffer.Store(cmdIndex * NRI_DRAW_INDEXED_COMMAND_SIZE + 4, instanceCount); \
@@ -78,15 +79,15 @@
 
     // Draw parameters
     #if (NRI_SHADER_MODEL >= 68)
-        #define NRI_ENABLE_DRAW_PARAMETERS(bindingIndex)
+        #define NRI_ENABLE_DRAW_PARAMETERS
 
+        #define NRI_DRAW_INDEXED_COMMAND_SIZE 5 * 4
         #define NRI_DECLARE_DRAW_PARAMETERS \
             uint NRI_VERTEX_ID : SV_VertexID, \
             uint NRI_INSTANCE_ID : SV_InstanceID, \
             int NRI_BASE_VERTEX : SV_StartVertexLocation, \
             uint NRI_BASE_INSTANCE : SV_StartInstanceLocation
 
-        #define NRI_DRAW_INDEXED_COMMAND_SIZE 5 * 4
         #define NRI_FILL_DRAW_INDEXED_COMMAND(buffer, cmdIndex, indexCount, instanceCount, startIndex, baseVertex, startInstance) \
             buffer.Store(cmdIndex * NRI_DRAW_INDEXED_COMMAND_SIZE + 0, indexCount); \
             buffer.Store(cmdIndex * NRI_DRAW_INDEXED_COMMAND_SIZE + 4, instanceCount); \
@@ -94,24 +95,24 @@
             buffer.Store(cmdIndex * NRI_DRAW_INDEXED_COMMAND_SIZE + 12, baseVertex); \
             buffer.Store(cmdIndex * NRI_DRAW_INDEXED_COMMAND_SIZE + 16, startInstance)
     #else
-        #define NRI_ENABLE_DRAW_PARAMETERS(bindingIndex) \
+        #define NRI_ENABLE_DRAW_PARAMETERS \
             struct _BaseAttributeConstants { \
                 uint BaseVertex; \
                 uint BaseInstance; \
             }; \
-            ConstantBuffer<_BaseAttributeConstants> _BaseAttributes : register(NRI_MERGE_TOKENS(b, bindingIndex), space0)
+            ConstantBuffer<_BaseAttributeConstants> _BaseAttributes : register(b0, space0)
 
         #define NRI_BASE_VERTEX _BaseAttributes.BaseVertex
         #define NRI_BASE_INSTANCE _BaseAttributes.BaseInstance
 
+        #define NRI_DRAW_INDEXED_COMMAND_SIZE 7 * 4
         #define NRI_DECLARE_DRAW_PARAMETERS \
             uint NRI_VERTEX_ID : SV_VertexID, \
             uint NRI_INSTANCE_ID : SV_InstanceID
 
-        #define NRI_DRAW_INDEXED_COMMAND_SIZE 7 * 4
         #define NRI_FILL_DRAW_INDEXED_COMMAND(buffer, cmdIndex, indexCount, instanceCount, startIndex, baseVertex, startInstance) \
-            buffer.Store(cmdIndex * NRI_DRAW_INDEXED_COMMAND_SIZE + 0, baseVertex);     /* root constant */ \
-            buffer.Store(cmdIndex * NRI_DRAW_INDEXED_COMMAND_SIZE + 4, startInstance);  /* root constant */ \
+            buffer.Store(cmdIndex * NRI_DRAW_INDEXED_COMMAND_SIZE + 0, baseVertex); \
+            buffer.Store(cmdIndex * NRI_DRAW_INDEXED_COMMAND_SIZE + 4, startInstance); \
             buffer.Store(cmdIndex * NRI_DRAW_INDEXED_COMMAND_SIZE + 8, indexCount); \
             buffer.Store(cmdIndex * NRI_DRAW_INDEXED_COMMAND_SIZE + 12, instanceCount); \
             buffer.Store(cmdIndex * NRI_DRAW_INDEXED_COMMAND_SIZE + 16, startIndex); \
@@ -138,13 +139,13 @@
         }
 
     // Draw parameters (partially supported)
-    #define NRI_ENABLE_DRAW_PARAMETERS(bindingIndex)
+    #define NRI_ENABLE_DRAW_PARAMETERS
 
+    #define NRI_DRAW_INDEXED_COMMAND_SIZE 5 * 4
     #define NRI_DECLARE_DRAW_PARAMETERS \
         uint NRI_VERTEX_ID : SV_VertexID, \
         uint NRI_INSTANCE_ID : SV_InstanceID
 
-    #define NRI_DRAW_INDEXED_COMMAND_SIZE 5 * 4
     #define NRI_FILL_DRAW_INDEXED_COMMAND(buffer, cmdIndex, indexCount, instanceCount, startIndex, baseVertex, startInstance) \
         buffer.Store(cmdIndex * NRI_DRAW_INDEXED_COMMAND_SIZE + 0, indexCount); \
         buffer.Store(cmdIndex * NRI_DRAW_INDEXED_COMMAND_SIZE + 4, instanceCount); \

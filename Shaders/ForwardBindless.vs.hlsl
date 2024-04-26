@@ -2,7 +2,7 @@
 
 #include "NRICompatibility.hlsli"
 
-NRI_ENABLE_DRAW_PARAMETERS(1);
+NRI_ENABLE_DRAW_PARAMETERS;
 
 struct Input
 {
@@ -21,7 +21,11 @@ struct Attributes
     uint4 BaseAttributes : ATTRIBUTES;  // .x = firstInstance, .y = firstVertex, .z = instanceId, .w - vertexId
 };
 
+#ifdef NRI_SPIRV
 NRI_RESOURCE( cbuffer, Global, b, 0, 0 )
+#else
+NRI_RESOURCE( cbuffer, Global, b, 1, 0 )
+#endif
 {
     float4x4 gWorldToClip;
     float3 gCameraPos;

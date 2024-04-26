@@ -85,6 +85,11 @@ public:
 
     ~Sample();
 
+    inline uint32_t GetDrawIndexedCommandSize()
+    {
+        return NRI.GetDeviceDesc(*m_Device).graphicsAPI == nri::GraphicsAPI::D3D12 ? sizeof(nri::DrawBaseIndexedDesc) : sizeof(nri::DrawIndexedDesc);
+    }
+
     bool Initialize(nri::GraphicsAPI graphicsAPI) override;
     void PrepareFrame(uint32_t frameIndex) override;
     void RenderFrame(uint32_t frameIndex) override;
@@ -175,9 +180,10 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
     // Device
     nri::DeviceCreationDesc deviceCreationDesc = {};
     deviceCreationDesc.graphicsAPI = graphicsAPI;
-    deviceCreationDesc.enableAPIValidation = false;
-    deviceCreationDesc.enableNRIValidation = false;
+    deviceCreationDesc.enableAPIValidation = m_DebugAPI;
+    deviceCreationDesc.enableNRIValidation = m_DebugNRI;
     deviceCreationDesc.enableD3D11CommandBufferEmulation = D3D11_COMMANDBUFFER_EMULATION;
+    deviceCreationDesc.enableD3D12DrawParametersEmulation = true; 
     deviceCreationDesc.spirvBindingOffsets = SPIRV_BINDING_OFFSETS;
     deviceCreationDesc.adapterDesc = &bestAdapterDesc;
     deviceCreationDesc.memoryAllocatorInterface = m_MemoryAllocatorInterface;
@@ -234,7 +240,7 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
     {
         {
             nri::DescriptorRangeDesc globalDescriptorRange[3] = {};
-            globalDescriptorRange[0] = { 0, 1, nri::DescriptorType::CONSTANT_BUFFER, nri::StageBits::ALL };
+            globalDescriptorRange[0] = { (uint32_t)((deviceDesc.graphicsAPI == nri::GraphicsAPI::D3D12) ? 1 : 0), 1, nri::DescriptorType::CONSTANT_BUFFER, nri::StageBits::ALL };
             globalDescriptorRange[1] = { 0, 1, nri::DescriptorType::SAMPLER, nri::StageBits::FRAGMENT_SHADER };
             globalDescriptorRange[2] = { 0, BUFFER_COUNT, nri::DescriptorType::STRUCTURED_BUFFER, nri::StageBits::ALL };
 
@@ -252,6 +258,7 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
             pipelineLayoutDesc.descriptorSetNum = helper::GetCountOf(descriptorSetDescs);
             pipelineLayoutDesc.descriptorSets = descriptorSetDescs;
             pipelineLayoutDesc.shaderStages = nri::StageBits::VERTEX_SHADER | nri::StageBits::FRAGMENT_SHADER;
+            pipelineLayoutDesc.enableBaseAttributesEmulation = true;
 
             NRI_ABORT_ON_FAILURE(NRI.CreatePipelineLayout(*m_Device, pipelineLayoutDesc, m_PipelineLayout));
         }
@@ -447,8 +454,8 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
         m_Buffers.push_back(buffer);
 
         // INDIRECT_BUFFER
-        bufferDesc.size = m_Scene.instances.size() * sizeof(nri::DrawIndexedDesc); // TODO: D3D12
-        bufferDesc.structureStride = sizeof(nri::DrawIndexedDesc);
+        bufferDesc.size = m_Scene.instances.size() * GetDrawIndexedCommandSize();
+        bufferDesc.structureStride = GetDrawIndexedCommandSize();
         bufferDesc.usageMask = nri::BufferUsageBits::SHADER_RESOURCE_STORAGE | nri::BufferUsageBits::ARGUMENT_BUFFER;
         NRI_ABORT_ON_FAILURE(NRI.CreateBuffer(*m_Device, bufferDesc, buffer));
         m_Buffers.push_back(buffer);
@@ -565,7 +572,7 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
         // Indirect buffer 
         bufferViewDesc.viewType = nri::BufferViewType::SHADER_RESOURCE_STORAGE;
         bufferViewDesc.buffer = m_Buffers[INDIRECT_BUFFER];
-        bufferViewDesc.size = m_Scene.instances.size() * sizeof(nri::DrawIndexedDesc); // TODO: D3D12
+        bufferViewDesc.size = m_Scene.instances.size() * GetDrawIndexedCommandSize(); 
         NRI_ABORT_ON_FAILURE(NRI.CreateBufferView(bufferViewDesc, m_IndirectBufferStorageAttachement));
         m_Descriptors.push_back(m_IndirectBufferStorageAttachement);
 
@@ -602,7 +609,7 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
 
     { // Descriptor pool
         nri::DescriptorPoolDesc descriptorPoolDesc = {};
-        descriptorPoolDesc.descriptorSetMaxNum = materialNum + BUFFERED_FRAME_MAX_NUM;
+        descriptorPoolDesc.descriptorSetMaxNum = BUFFERED_FRAME_MAX_NUM + 2;
         descriptorPoolDesc.textureMaxNum = materialNum * TEXTURES_PER_MATERIAL;
         descriptorPoolDesc.samplerMaxNum = BUFFERED_FRAME_MAX_NUM;
         descriptorPoolDesc.storageStructuredBufferMaxNum = 1 * 2;
@@ -692,11 +699,6 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
             data.idxOffset = mesh.indexOffset;
             data.vtxCount = mesh.vertexNum;
             data.vtxOffset = mesh.vertexOffset;
-            // TODO: use quaternions or float3x4 matrix instead
-            //DecomposeProjection
-            //data.position = float3(instance.position.x, instance.position.y, instance.position.z);
-            //data.scale = instance.scale;
-            //data.rotation = instance.rotation;
         }
 
         uint32_t subresourceNum = 0;
@@ -927,7 +929,7 @@ void Sample::RenderFrame(uint32_t frameIndex)
                 if (m_UseGPUDrawGeneration) {
                     // TODO: D3D12
                     // TODO: variable draw count
-                    NRI.CmdDrawIndexedIndirect(commandBuffer, *m_Buffers[INDIRECT_BUFFER], 0, (uint32_t)m_Scene.instances.size(), (uint32_t)sizeof(nri::DrawIndexedDesc));
+                    NRI.CmdDrawIndexedIndirect(commandBuffer, *m_Buffers[INDIRECT_BUFFER], 0, (uint32_t)m_Scene.instances.size(), GetDrawIndexedCommandSize());
                 } else {
                     for (uint32_t i = 0; i < m_Scene.instances.size(); i++) {
                         const utils::Instance& instance = m_Scene.instances[i];

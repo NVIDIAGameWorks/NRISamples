@@ -8,7 +8,6 @@ struct Attributes
     float4 Normal : TEXCOORD0; //.w = TexCoord.x
     float4 View : TEXCOORD1; //.w = TexCoord.y
     float4 Tangent : TEXCOORD2;
-    uint4 BaseAttributes : ATTRIBUTES;  // .x = firstInstance, .y = firstVertex, .z = instanceId, .w - vertexId
 };
 
 struct MaterialData
