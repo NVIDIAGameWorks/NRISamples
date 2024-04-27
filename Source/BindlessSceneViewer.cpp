@@ -607,15 +607,17 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
         }
     }
 
+#define TEST 100
+
     { // Descriptor pool
         nri::DescriptorPoolDesc descriptorPoolDesc = {};
-        descriptorPoolDesc.descriptorSetMaxNum = BUFFERED_FRAME_MAX_NUM + 2;
+        descriptorPoolDesc.descriptorSetMaxNum = materialNum + BUFFERED_FRAME_MAX_NUM + 2;
         descriptorPoolDesc.textureMaxNum = materialNum * TEXTURES_PER_MATERIAL;
         descriptorPoolDesc.samplerMaxNum = BUFFERED_FRAME_MAX_NUM;
-        descriptorPoolDesc.storageStructuredBufferMaxNum = 1 * 2;
-        descriptorPoolDesc.storageBufferMaxNum = 1 * 2;
-        descriptorPoolDesc.bufferMaxNum = 3 * 2;
-        descriptorPoolDesc.structuredBufferMaxNum = 4 * 2;
+        descriptorPoolDesc.storageStructuredBufferMaxNum = 1 * 2 * TEST;
+        descriptorPoolDesc.storageBufferMaxNum = 1 * 2 * TEST;
+        descriptorPoolDesc.bufferMaxNum = 3 * 2 * TEST;
+        descriptorPoolDesc.structuredBufferMaxNum = 4 * 2 * TEST;
         descriptorPoolDesc.constantBufferMaxNum = BUFFERED_FRAME_MAX_NUM;
 
         NRI_ABORT_ON_FAILURE( NRI.CreateDescriptorPool(*m_Device, descriptorPoolDesc, m_DescriptorPool) );
@@ -861,17 +863,16 @@ void Sample::RenderFrame(uint32_t frameIndex)
         NRI.CmdBarrier(commandBuffer, barrierGroupDesc);
 
         if (m_UseGPUDrawGeneration) {
-            // Clear draw buffer
-            nri::ClearStorageBufferDesc clearStorageBufferDesc = {};
-            clearStorageBufferDesc.storageBuffer = m_IndirectBufferStorageAttachement;
-            NRI.CmdClearStorageBuffer(commandBuffer, clearStorageBufferDesc);
-
-
-            // Culling
             size_t dispatchCount = helper::Align(m_Scene.instances.size(), 256) / 256;
             NRI.CmdSetPipelineLayout(commandBuffer, *m_ComputePipelineLayout);
             NRI.CmdSetDescriptorSet(commandBuffer, 0, *m_DescriptorSets[BUFFERED_FRAME_MAX_NUM + 1], nullptr);
 
+            // Clear draw buffer
+            //nri::ClearStorageBufferDesc clearStorageBufferDesc = {};
+            //clearStorageBufferDesc.storageBuffer = m_IndirectBufferStorageAttachement;
+            //NRI.CmdClearStorageBuffer(commandBuffer, clearStorageBufferDesc);
+
+            // Culling
             CullingConstantsLayout cullingConstants = {};
             cullingConstants.DrawCount = (uint32_t)m_Scene.instances.size();
             NRI.CmdSetConstants(commandBuffer, 0, &cullingConstants, sizeof(cullingConstants));
