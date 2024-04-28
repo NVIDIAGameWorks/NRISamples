@@ -348,8 +348,8 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
 
         nri::ShaderDesc shaderStages[] =
         {
-            utils::LoadShader(deviceDesc.graphicsAPI, "ForwardIndirect.vs", shaderCodeStorage),
-            utils::LoadShader(deviceDesc.graphicsAPI, "ForwardIndirect.fs", shaderCodeStorage),
+            utils::LoadShader(deviceDesc.graphicsAPI, "ForwardBindless.vs", shaderCodeStorage),
+            utils::LoadShader(deviceDesc.graphicsAPI, "ForwardBindless.fs", shaderCodeStorage),
         };
 
         nri::GraphicsPipelineDesc graphicsPipelineDesc = {};
