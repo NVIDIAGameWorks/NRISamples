@@ -72,8 +72,6 @@ float4 VisualizeId(uint Id)
 [earlydepthstencil]
 float4 main( in BindlessAttributes input ) : SV_Target
 {
-
-
 #ifndef NRI_DXBC
     uint instanceIndex = input.BaseAttributes.x + input.BaseAttributes.z;
     uint vertexIndex = input.BaseAttributes.y + input.BaseAttributes.w;

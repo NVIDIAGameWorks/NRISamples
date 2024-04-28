@@ -32,7 +32,8 @@ struct MeshData
 
 struct InstanceData
 {
-    float4x4 mtx;
+	uint padding1;
+	uint padding2;
     uint meshIndex;
     uint materialIndex;
 };  

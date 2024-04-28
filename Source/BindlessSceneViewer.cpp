@@ -49,7 +49,8 @@ struct MeshData
 
 struct InstanceData
 {
-    float4x4 mtx;
+    uint32_t padding1;
+    uint32_t padding2;
     uint32_t meshIndex;
     uint32_t materialIndex;
 };  
@@ -246,12 +247,12 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
 
             // Bindless descriptors
             nri::DescriptorRangeDesc textureDescriptorRange[1] = {};
-            textureDescriptorRange[0] = { 0, 1024, nri::DescriptorType::TEXTURE, nri::StageBits::FRAGMENT_SHADER, true, true };
+            textureDescriptorRange[0] = { 0, 512, nri::DescriptorType::TEXTURE, nri::StageBits::FRAGMENT_SHADER, true, true };
 
             nri::DescriptorSetDesc descriptorSetDescs[] =
             {
                 {0, globalDescriptorRange, helper::GetCountOf(globalDescriptorRange)},
-                {1, textureDescriptorRange, helper::GetCountOf(textureDescriptorRange)},
+                {1, textureDescriptorRange, helper::GetCountOf(textureDescriptorRange), nullptr, 0, true },
             };
 
             nri::PipelineLayoutDesc pipelineLayoutDesc = {};
