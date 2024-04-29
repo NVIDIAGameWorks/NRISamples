@@ -540,6 +540,8 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
         NRI_ABORT_ON_FAILURE(NRI.CreateBufferView(bufferViewDesc, m_IndirectBufferStorageAttachement));
         m_Descriptors.push_back(m_IndirectBufferStorageAttachement);
 
+        bufferViewDesc.format = nri::Format::UNKNOWN;
+
         // Constant buffer
         for (uint32_t i = 0; i < BUFFERED_FRAME_MAX_NUM; i++)
         {
