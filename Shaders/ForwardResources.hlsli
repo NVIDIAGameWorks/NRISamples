@@ -10,32 +10,6 @@ struct Attributes
     float4 Tangent : TEXCOORD2;
 };
 
-struct MaterialData
-{
-    float4 baseColorAndMetallic;
-    float4 emissiveColorAndRoughness;
-    uint baseColorTexIndex;
-    uint roughnessMetalnessTexIndex;
-    uint normalTexIndex;
-    uint emissiveTexIndex;
-};
-
-struct MeshData
-{
-    uint vtxOffset;
-    uint vtxCount;
-    uint idxOffset;
-    uint idxCount;
-};
-
-struct InstanceData
-{
-    uint padding1;
-    uint padding2;
-    uint meshIndex;
-    uint materialIndex;
-};  
-
 #ifndef DONT_DECLARE_RESOURCES
 NRI_RESOURCE( Texture2D, DiffuseMap, t, 0, 1 );
 NRI_RESOURCE( Texture2D, SpecularMap, t, 1, 1 );

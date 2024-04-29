@@ -104,7 +104,7 @@ if (NOT DISABLE_SHADER_COMPILATION)
                 -I "Shaders"
                 -I "External"
                 -I "External/NRIFramework/External"
-                -D COMPILER_DXC
+                -I "External/NRIFramework/External/NRI/Include"
             COMMAND ShaderMake --useAPI
                 --binary --flatten --stripReflection --compiler "${DXC_SPIRV_PATH}"
                 --sourceDir "Shaders"
@@ -114,8 +114,7 @@ if (NOT DISABLE_SHADER_COMPILATION)
                 -I "Shaders"
                 -I "External"
                 -I "External/NRIFramework/External"
-                -D COMPILER_DXC
-                -D VULKAN
+                -I "External/NRIFramework/External/NRI/Include"
             COMMAND ShaderMake --useAPI
                 --binary --flatten --stripReflection --compiler "${FXC_PATH}"
                 --sourceDir "Shaders"
@@ -125,7 +124,7 @@ if (NOT DISABLE_SHADER_COMPILATION)
                 -I "Shaders"
                 -I "External"
                 -I "External/NRIFramework/External"
-                -D COMPILER_FXC
+                -I "External/NRIFramework/External/NRI/Include"
             DEPENDS ShaderMake
             WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
             VERBATIM
@@ -142,8 +141,7 @@ if (NOT DISABLE_SHADER_COMPILATION)
                 -I "Shaders"
                 -I "External"
                 -I "External/NRIFramework/External"
-                -D COMPILER_DXC
-                -D VULKAN
+                -I "External/NRIFramework/External/NRI/Include"
             DEPENDS ShaderMake
             WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
             VERBATIM

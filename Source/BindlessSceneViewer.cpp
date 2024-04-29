@@ -2,6 +2,9 @@
 
 #include "NRIFramework.h"
 
+#include "NRICompatibility.hlsli"
+#include "../Shaders/SceneViewerBindlessStructs.h"
+
 #include <array>
 
 constexpr uint32_t GLOBAL_DESCRIPTOR_SET = 0;
@@ -29,47 +32,6 @@ struct NRIInterface
     , public nri::SwapChainInterface
 {};
 
-struct MaterialData
-{
-    float4 baseColorAndMetallic;
-    float4 emissiveColorAndRoughness;
-    uint32_t baseColorTexIndex;
-    uint32_t roughnessMetalnessTexIndex;
-    uint32_t normalTexIndex;
-    uint32_t emissiveTexIndex;
-};
-
-struct MeshData
-{
-    uint32_t vtxOffset;
-    uint32_t vtxCount;
-    uint32_t idxOffset;
-    uint32_t idxCount;
-};
-
-struct InstanceData
-{
-    uint32_t padding1;
-    uint32_t padding2;
-    uint32_t meshIndex;
-    uint32_t materialIndex;
-};  
-
-struct CullingConstantsLayout
-{
-    uint32_t DrawCount;
-    uint32_t EnableCulling;
-    uint32_t ScreenWidth;
-    uint32_t ScreenHeight;
-    float4 Frustum;
-};
-
-struct GlobalConstantBufferLayout
-{
-    float4x4 viewProjection;
-    float3 cameraPosition;
-};
-
 struct Frame
 {
     nri::CommandAllocator* commandAllocator;
@@ -88,7 +50,7 @@ public:
 
     inline uint32_t GetDrawIndexedCommandSize()
     {
-        return NRI.GetDeviceDesc(*m_Device).graphicsAPI == nri::GraphicsAPI::D3D12 ? sizeof(nri::DrawBaseIndexedDesc) : sizeof(nri::DrawIndexedDesc);
+        return NRI.GetDeviceDesc(*m_Device).isDrawParametersEmulationEnabled ? sizeof(nri::DrawIndexedBaseDesc) : sizeof(nri::DrawIndexedDesc);
     }
 
     bool Initialize(nri::GraphicsAPI graphicsAPI) override;
@@ -241,7 +203,7 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
     {
         {
             nri::DescriptorRangeDesc globalDescriptorRange[3] = {};
-            globalDescriptorRange[0] = { (uint32_t)((deviceDesc.graphicsAPI == nri::GraphicsAPI::D3D12) ? 1 : 0), 1, nri::DescriptorType::CONSTANT_BUFFER, nri::StageBits::ALL };
+            globalDescriptorRange[0] = { (uint32_t)((deviceDesc.graphicsAPI == nri::GraphicsAPI::D3D12) ? 0 : 0), 1, nri::DescriptorType::CONSTANT_BUFFER, nri::StageBits::ALL };
             globalDescriptorRange[1] = { 0, 1, nri::DescriptorType::SAMPLER, nri::StageBits::FRAGMENT_SHADER };
             globalDescriptorRange[2] = { 0, BUFFER_COUNT, nri::DescriptorType::STRUCTURED_BUFFER, nri::StageBits::ALL };
 
@@ -259,14 +221,14 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
             pipelineLayoutDesc.descriptorSetNum = helper::GetCountOf(descriptorSetDescs);
             pipelineLayoutDesc.descriptorSets = descriptorSetDescs;
             pipelineLayoutDesc.shaderStages = nri::StageBits::VERTEX_SHADER | nri::StageBits::FRAGMENT_SHADER;
-            pipelineLayoutDesc.enableBaseAttributesEmulation = true;
+            pipelineLayoutDesc.enableDrawParametersEmulation = true;
 
             NRI_ABORT_ON_FAILURE(NRI.CreatePipelineLayout(*m_Device, pipelineLayoutDesc, m_PipelineLayout));
         }
 
         {
             nri::DescriptorRangeDesc descriptorRange[2] = {};
-            descriptorRange[0] = { 0, 1, nri::DescriptorType::STORAGE_STRUCTURED_BUFFER, nri::StageBits::COMPUTE_SHADER };
+            descriptorRange[0] = { 0, 1, nri::DescriptorType::STORAGE_BUFFER, nri::StageBits::COMPUTE_SHADER };
             descriptorRange[1] = { 0, BUFFER_COUNT, nri::DescriptorType::STRUCTURED_BUFFER, nri::StageBits::COMPUTE_SHADER };
 
             nri::DescriptorSetDesc descriptorSetDescs[] =
@@ -277,7 +239,7 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
             nri::PushConstantDesc pushConstantDesc = {};
             pushConstantDesc.registerIndex = 0;
             pushConstantDesc.shaderStages = nri::StageBits::COMPUTE_SHADER;
-            pushConstantDesc.size = sizeof(CullingConstantsLayout);
+            pushConstantDesc.size = sizeof(CullingConstants);
 
             nri::PipelineLayoutDesc pipelineLayoutDesc = {};
             pipelineLayoutDesc.pushConstantNum = 1;
@@ -404,7 +366,7 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
         m_Textures.push_back(depthTexture);
     }
 
-    const uint32_t constantBufferSize = helper::Align((uint32_t)sizeof(GlobalConstantBufferLayout), deviceDesc.constantBufferOffsetAlignment);
+    const uint32_t constantBufferSize = helper::Align((uint32_t)sizeof(GlobalConstants), deviceDesc.constantBufferOffsetAlignment);
 
     { // Buffers
         // CONSTANT_BUFFER
@@ -456,7 +418,7 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
 
         // INDIRECT_BUFFER
         bufferDesc.size = m_Scene.instances.size() * GetDrawIndexedCommandSize();
-        bufferDesc.structureStride = GetDrawIndexedCommandSize();
+        bufferDesc.structureStride = 0;
         bufferDesc.usageMask = nri::BufferUsageBits::SHADER_RESOURCE_STORAGE | nri::BufferUsageBits::ARGUMENT_BUFFER;
         NRI_ABORT_ON_FAILURE(NRI.CreateBuffer(*m_Device, bufferDesc, buffer));
         m_Buffers.push_back(buffer);
@@ -574,6 +536,7 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
         bufferViewDesc.viewType = nri::BufferViewType::SHADER_RESOURCE_STORAGE;
         bufferViewDesc.buffer = m_Buffers[INDIRECT_BUFFER];
         bufferViewDesc.size = m_Scene.instances.size() * GetDrawIndexedCommandSize(); 
+        bufferViewDesc.format = nri::Format::R32_UINT;
         NRI_ABORT_ON_FAILURE(NRI.CreateBufferView(bufferViewDesc, m_IndirectBufferStorageAttachement));
         m_Descriptors.push_back(m_IndirectBufferStorageAttachement);
 
@@ -774,7 +737,6 @@ void Sample::PrepareFrame(uint32_t frameIndex)
     {
         ImGui::SetNextWindowPos(ImVec2(30, 30), ImGuiCond_Once);
         ImGui::SetNextWindowSize(ImVec2(0, 0));
-        ImGui::Checkbox("GPU draw call generation", &m_UseGPUDrawGeneration);
         ImGui::Begin("Stats");
         {
             ImGui::Text("Input vertices               : %llu", pipelineStats->inputVertexNum);
@@ -783,6 +745,7 @@ void Sample::PrepareFrame(uint32_t frameIndex)
             ImGui::Text("Rasterizer input primitives  : %llu", pipelineStats->rasterizerInPrimitiveNum);
             ImGui::Text("Rasterizer output primitives : %llu", pipelineStats->rasterizerOutPrimitiveNum);
             ImGui::Text("Fragment shader invocations  : %llu", pipelineStats->fragmentShaderInvocationNum);
+            ImGui::Checkbox("GPU draw call generation", &m_UseGPUDrawGeneration);
         }
         ImGui::End();
     }
@@ -819,11 +782,11 @@ void Sample::RenderFrame(uint32_t frameIndex)
 
     // Update constants
     const uint64_t rangeOffset = m_Frames[bufferedFrameIndex].globalConstantBufferViewOffsets;
-    auto constants = (GlobalConstantBufferLayout*)NRI.MapBuffer(*m_Buffers[CONSTANT_BUFFER], rangeOffset, sizeof(GlobalConstantBufferLayout));
+    auto constants = (GlobalConstants*)NRI.MapBuffer(*m_Buffers[CONSTANT_BUFFER], rangeOffset, sizeof(GlobalConstants));
     if (constants)
     {
-        constants->viewProjection = m_Camera.state.mWorldToClip * m_Scene.mSceneToWorld;
-        constants->cameraPosition = m_Camera.state.position;
+        constants->gWorldToClip = m_Camera.state.mWorldToClip * m_Scene.mSceneToWorld;
+        constants->gCameraPos = m_Camera.state.position;
 
         NRI.UnmapBuffer(*m_Buffers[CONSTANT_BUFFER]);
     }
@@ -869,12 +832,12 @@ void Sample::RenderFrame(uint32_t frameIndex)
             NRI.CmdSetDescriptorSet(commandBuffer, 0, *m_DescriptorSets[BUFFERED_FRAME_MAX_NUM + 1], nullptr);
 
             // Clear draw buffer
-            //nri::ClearStorageBufferDesc clearStorageBufferDesc = {};
-            //clearStorageBufferDesc.storageBuffer = m_IndirectBufferStorageAttachement;
-            //NRI.CmdClearStorageBuffer(commandBuffer, clearStorageBufferDesc);
+            nri::ClearStorageBufferDesc clearStorageBufferDesc = {};
+            clearStorageBufferDesc.storageBuffer = m_IndirectBufferStorageAttachement;
+            NRI.CmdClearStorageBuffer(commandBuffer, clearStorageBufferDesc);
 
             // Culling
-            CullingConstantsLayout cullingConstants = {};
+            CullingConstants cullingConstants = {};
             cullingConstants.DrawCount = (uint32_t)m_Scene.instances.size();
             NRI.CmdSetConstants(commandBuffer, 0, &cullingConstants, sizeof(cullingConstants));
 
