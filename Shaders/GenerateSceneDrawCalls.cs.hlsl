@@ -9,15 +9,14 @@ NRI_PUSH_CONSTANTS(CullingConstants, Constants, 0);
 NRI_RESOURCE(StructuredBuffer<MaterialData>, Materials, t, 0, 0);
 NRI_RESOURCE(StructuredBuffer<MeshData>, Meshes, t, 1, 0);
 NRI_RESOURCE(StructuredBuffer<InstanceData>, Instances, t, 2, 0);
-NRI_RESOURCE(RWBuffer<uint>, Commands, u, 0, 0);
-
-groupshared uint DrawCount;
+NRI_RESOURCE(RWBuffer<uint>, DrawCount, u, 0, 0);
+NRI_RESOURCE(RWBuffer<uint>, Commands, u, 1, 0);
 
 [numthreads(THREAD_COUNT, 1, 1)]
 void main(uint ThreadID : SV_DispatchThreadId)
 {
 	if (ThreadID == 0)
-		DrawCount = 0;
+		DrawCount[0] = 0;
 
 	GroupMemoryBarrierWithGroupSync();
 
@@ -26,7 +25,7 @@ void main(uint ThreadID : SV_DispatchThreadId)
 		return;
 
 	uint DrawIndex = 0;
-	InterlockedAdd(DrawCount, 1, DrawIndex);
+	InterlockedAdd(DrawCount[0], 1, DrawIndex);
 
     uint MeshIndex = Instances[InstanceIndex].meshIndex;
 	NRI_FILL_DRAW_INDEXED_DESC(Commands, DrawIndex,

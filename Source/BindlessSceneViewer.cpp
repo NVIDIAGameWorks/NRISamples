@@ -22,7 +22,8 @@ enum SceneBuffers
     MATERIAL_BUFFER,
     MESH_BUFFER,
     INSTANCE_BUFFER,
-    INDIRECT_BUFFER
+    INDIRECT_BUFFER,
+    INDIRECT_COUNT_BUFFER
 };
 
 struct NRIInterface
@@ -69,6 +70,7 @@ private:
     nri::PipelineLayout* m_PipelineLayout = nullptr;
     nri::PipelineLayout* m_ComputePipelineLayout = nullptr;
     nri::Descriptor* m_DepthAttachment = nullptr;
+    nri::Descriptor* m_IndirectBufferCountStorageAttachement = nullptr;
     nri::Descriptor* m_IndirectBufferStorageAttachement = nullptr;
     nri::QueryPool* m_QueryPool = nullptr;
     nri::Pipeline* m_Pipeline = nullptr;
@@ -228,7 +230,7 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
 
         {
             nri::DescriptorRangeDesc descriptorRange[2] = {};
-            descriptorRange[0] = { 0, 1, nri::DescriptorType::STORAGE_BUFFER, nri::StageBits::COMPUTE_SHADER };
+            descriptorRange[0] = { 0, 2, nri::DescriptorType::STORAGE_BUFFER, nri::StageBits::COMPUTE_SHADER };
             descriptorRange[1] = { 0, BUFFER_COUNT, nri::DescriptorType::STRUCTURED_BUFFER, nri::StageBits::COMPUTE_SHADER };
 
             nri::DescriptorSetDesc descriptorSetDescs[] =
@@ -420,6 +422,12 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
         bufferDesc.structureStride = 0;
         bufferDesc.usageMask = nri::BufferUsageBits::SHADER_RESOURCE_STORAGE | nri::BufferUsageBits::ARGUMENT_BUFFER;
         NRI_ABORT_ON_FAILURE(NRI.CreateBuffer(*m_Device, bufferDesc, buffer));
+        m_Buffers.push_back(buffer);    
+        
+        // INDIRECT_COUNT_BUFFER
+        bufferDesc.size = sizeof(uint32_t);
+        bufferDesc.usageMask = nri::BufferUsageBits::SHADER_RESOURCE_STORAGE | nri::BufferUsageBits::ARGUMENT_BUFFER;
+        NRI_ABORT_ON_FAILURE(NRI.CreateBuffer(*m_Device, bufferDesc, buffer));
         m_Buffers.push_back(buffer);
     }
 
@@ -483,6 +491,14 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
 
         baseAllocation = m_MemoryAllocations.size();
         m_MemoryAllocations.resize(baseAllocation + 1, nullptr);
+        NRI_ABORT_ON_FAILURE(NRI.AllocateAndBindMemory(*m_Device, resourceGroupDesc, m_MemoryAllocations.data() + baseAllocation)); 
+        
+        resourceGroupDesc.memoryLocation = nri::MemoryLocation::DEVICE;
+        resourceGroupDesc.bufferNum = 1;
+        resourceGroupDesc.buffers = &m_Buffers[INDIRECT_COUNT_BUFFER];
+
+        baseAllocation = m_MemoryAllocations.size();
+        m_MemoryAllocations.resize(baseAllocation + 1, nullptr);
         NRI_ABORT_ON_FAILURE(NRI.AllocateAndBindMemory(*m_Device, resourceGroupDesc, m_MemoryAllocations.data() + baseAllocation));
     }
 
@@ -537,7 +553,15 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
         bufferViewDesc.size = m_Scene.instances.size() * GetDrawIndexedCommandSize(); 
         bufferViewDesc.format = nri::Format::R32_UINT;
         NRI_ABORT_ON_FAILURE(NRI.CreateBufferView(bufferViewDesc, m_IndirectBufferStorageAttachement));
-        m_Descriptors.push_back(m_IndirectBufferStorageAttachement);
+        m_Descriptors.push_back(m_IndirectBufferStorageAttachement);      
+        
+        // Indirect draw count buffer
+        bufferViewDesc.viewType = nri::BufferViewType::SHADER_RESOURCE_STORAGE;
+        bufferViewDesc.buffer = m_Buffers[INDIRECT_COUNT_BUFFER];
+        bufferViewDesc.size = sizeof(uint32_t); 
+        bufferViewDesc.format = nri::Format::R32_UINT;
+        NRI_ABORT_ON_FAILURE(NRI.CreateBufferView(bufferViewDesc, m_IndirectBufferCountStorageAttachement));
+        m_Descriptors.push_back(m_IndirectBufferCountStorageAttachement);
 
         bufferViewDesc.format = nri::Format::UNKNOWN;
 
@@ -617,11 +641,11 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
         NRI.UpdateDescriptorRanges(*m_DescriptorSets[BUFFERED_FRAME_MAX_NUM], 0, 1, &descriptorRangeUpdateDesc);
 
         // Culling
-        NRI_ABORT_ON_FAILURE(NRI.AllocateDescriptorSets(*m_DescriptorPool, *m_ComputePipelineLayout, 0,
-            &m_DescriptorSets[BUFFERED_FRAME_MAX_NUM + 1], 1, 0));
+        nri::Descriptor* storageDescriptors[2] = { m_IndirectBufferCountStorageAttachement, m_IndirectBufferStorageAttachement };
+        NRI_ABORT_ON_FAILURE(NRI.AllocateDescriptorSets(*m_DescriptorPool, *m_ComputePipelineLayout, 0, &m_DescriptorSets[BUFFERED_FRAME_MAX_NUM + 1], 1, 0));
         nri::DescriptorRangeUpdateDesc rangeUpdateDescs[2] = {};
-        rangeUpdateDescs[0].descriptorNum = 1;
-        rangeUpdateDescs[0].descriptors = &m_IndirectBufferStorageAttachement;
+        rangeUpdateDescs[0].descriptorNum = helper::GetCountOf(rangeUpdateDescs);
+        rangeUpdateDescs[0].descriptors = storageDescriptors;
         rangeUpdateDescs[1].descriptorNum = BUFFER_COUNT;
         rangeUpdateDescs[1].descriptors = resourceViews;
         NRI.UpdateDescriptorRanges(*m_DescriptorSets[BUFFERED_FRAME_MAX_NUM + 1], 0, 2, rangeUpdateDescs);
@@ -881,9 +905,7 @@ void Sample::RenderFrame(uint32_t frameIndex)
                 NRI.CmdSetVertexBuffers(commandBuffer, 0, 1, &m_Buffers[VERTEX_BUFFER], &offset);
 
                 if (m_UseGPUDrawGeneration) {
-                    // TODO: D3D12
-                    // TODO: variable draw count
-                    NRI.CmdDrawIndexedIndirect(commandBuffer, *m_Buffers[INDIRECT_BUFFER], 0, (uint32_t)m_Scene.instances.size(), GetDrawIndexedCommandSize());
+                    NRI.CmdDrawIndexedIndirectCount(commandBuffer, *m_Buffers[INDIRECT_BUFFER], 0, *m_Buffers[INDIRECT_COUNT_BUFFER], 0, (uint32_t)m_Scene.instances.size(), GetDrawIndexedCommandSize());
                 } else {
                     for (uint32_t i = 0; i < m_Scene.instances.size(); i++) {
                         const utils::Instance& instance = m_Scene.instances[i];
