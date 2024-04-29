@@ -296,7 +296,6 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
         nri::MultisampleDesc multisampleDesc = {};
         multisampleDesc.sampleNum = 1;
         multisampleDesc.sampleMask = nri::ALL_SAMPLES;
-        multisampleDesc.programmableSampleLocations = deviceDesc.isProgrammableSampleLocationsSupported;
 
         nri::ColorAttachmentDesc colorAttachmentDesc = {};
         colorAttachmentDesc.format = swapChainFormat;
@@ -850,18 +849,6 @@ void Sample::RenderFrame(uint32_t frameIndex)
             bufferBarrierDesc.after = { nri::AccessBits::ARGUMENT_BUFFER, nri::StageBits::INDIRECT };
             bufferBarrierDesc.before = { nri::AccessBits::SHADER_RESOURCE_STORAGE, nri::StageBits::COMPUTE_SHADER };
             NRI.CmdBarrier(commandBuffer, computeBarrierGroupDesc);
-        }
-
-        if (NRI.GetDeviceDesc(*m_Device).isProgrammableSampleLocationsSupported)
-        {
-            static const nri::SamplePosition samplePos[4] = {
-                {-6, -2},
-                {-2,  6},
-                { 6,  2},
-                { 2, -6},
-            };
-
-            NRI.CmdSetSamplePositions(commandBuffer, samplePos + (frameIndex % 4), 1, 1);
         }
 
         NRI.CmdResetQueries(commandBuffer, *m_QueryPool, 0, 1);
