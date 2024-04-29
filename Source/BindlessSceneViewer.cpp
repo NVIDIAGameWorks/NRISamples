@@ -856,11 +856,6 @@ void Sample::RenderFrame(uint32_t frameIndex)
             NRI.CmdSetPipelineLayout(commandBuffer, *m_ComputePipelineLayout);
             NRI.CmdSetDescriptorSet(commandBuffer, 0, *m_DescriptorSets[BUFFERED_FRAME_MAX_NUM + 1], nullptr);
 
-            // Clear draw buffer
-            nri::ClearStorageBufferDesc clearStorageBufferDesc = {};
-            clearStorageBufferDesc.storageBuffer = m_IndirectBufferStorageAttachement;
-            NRI.CmdClearStorageBuffer(commandBuffer, clearStorageBufferDesc);
-
             // Culling
             CullingConstants cullingConstants = {};
             cullingConstants.DrawCount = (uint32_t)m_Scene.instances.size();
