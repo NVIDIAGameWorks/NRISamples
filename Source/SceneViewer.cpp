@@ -123,8 +123,8 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
     // Device
     nri::DeviceCreationDesc deviceCreationDesc = {};
     deviceCreationDesc.graphicsAPI = graphicsAPI;
-    deviceCreationDesc.enableAPIValidation = true;
-    deviceCreationDesc.enableNRIValidation = false;
+    deviceCreationDesc.enableAPIValidation = m_DebugAPI;
+    deviceCreationDesc.enableNRIValidation = m_DebugNRI;
     deviceCreationDesc.enableD3D11CommandBufferEmulation = D3D11_COMMANDBUFFER_EMULATION;
     deviceCreationDesc.spirvBindingOffsets = SPIRV_BINDING_OFFSETS;
     deviceCreationDesc.adapterDesc = &bestAdapterDesc;
@@ -141,6 +141,7 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
     nri::StreamerDesc streamerDesc = {};
     streamerDesc.dynamicBufferMemoryLocation = nri::MemoryLocation::HOST_UPLOAD;
     streamerDesc.dynamicBufferUsageBits = nri::BufferUsageBits::VERTEX_BUFFER | nri::BufferUsageBits::INDEX_BUFFER;
+    streamerDesc.constantBufferMemoryLocation = nri::MemoryLocation::HOST_UPLOAD;
     streamerDesc.frameInFlightNum = BUFFERED_FRAME_MAX_NUM;
     NRI_ABORT_ON_FAILURE( NRI.CreateStreamer(*m_Device, streamerDesc, m_Streamer) );
 
@@ -244,7 +245,7 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
         nri::MultisampleDesc multisampleDesc = {};
         multisampleDesc.sampleNum = 1;
         multisampleDesc.sampleMask = nri::ALL_SAMPLES;
-        multisampleDesc.programmableSampleLocations = deviceDesc.isProgrammableSampleLocationsSupported;
+        multisampleDesc.programmableSampleLocations = deviceDesc.programmableSampleLocationsTier == 2;
 
         nri::ColorAttachmentDesc colorAttachmentDesc = {};
         colorAttachmentDesc.format = swapChainFormat;
@@ -646,7 +647,7 @@ void Sample::RenderFrame(uint32_t frameIndex)
 
         NRI.CmdBarrier(commandBuffer, barrierGroupDesc);
 
-        if (NRI.GetDeviceDesc(*m_Device).isProgrammableSampleLocationsSupported)
+        if (NRI.GetDeviceDesc(*m_Device).programmableSampleLocationsTier == 2)
         {
             static const nri::SamplePosition samplePos[4] = {
                 {-6, -2},

@@ -205,13 +205,13 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
     {
         {
             nri::DescriptorRangeDesc globalDescriptorRange[3] = {};
-            globalDescriptorRange[0] = { (uint32_t)((deviceDesc.graphicsAPI == nri::GraphicsAPI::D3D12) ? 0 : 0), 1, nri::DescriptorType::CONSTANT_BUFFER, nri::StageBits::ALL };
-            globalDescriptorRange[1] = { 0, 1, nri::DescriptorType::SAMPLER, nri::StageBits::FRAGMENT_SHADER };
-            globalDescriptorRange[2] = { 0, BUFFER_COUNT, nri::DescriptorType::STRUCTURED_BUFFER, nri::StageBits::ALL };
+            globalDescriptorRange[0] = {(uint32_t)((deviceDesc.graphicsAPI == nri::GraphicsAPI::D3D12) ? 0 : 0), 1, nri::DescriptorType::CONSTANT_BUFFER, nri::StageBits::ALL};
+            globalDescriptorRange[1] = {0, 1, nri::DescriptorType::SAMPLER, nri::StageBits::FRAGMENT_SHADER};
+            globalDescriptorRange[2] = {0, BUFFER_COUNT, nri::DescriptorType::STRUCTURED_BUFFER, nri::StageBits::ALL};
 
             // Bindless descriptors
             nri::DescriptorRangeDesc textureDescriptorRange[1] = {};
-            textureDescriptorRange[0] = { 0, 512, nri::DescriptorType::TEXTURE, nri::StageBits::FRAGMENT_SHADER, true, true };
+            textureDescriptorRange[0] = {0, 512, nri::DescriptorType::TEXTURE, nri::StageBits::FRAGMENT_SHADER, true, true};
 
             nri::DescriptorSetDesc descriptorSetDescs[] =
             {
@@ -223,15 +223,15 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
             pipelineLayoutDesc.descriptorSetNum = helper::GetCountOf(descriptorSetDescs);
             pipelineLayoutDesc.descriptorSets = descriptorSetDescs;
             pipelineLayoutDesc.shaderStages = nri::StageBits::VERTEX_SHADER | nri::StageBits::FRAGMENT_SHADER;
-            pipelineLayoutDesc.enableDrawParametersEmulation = true;
+            pipelineLayoutDesc.enableD3D12DrawParametersEmulation = true;
 
             NRI_ABORT_ON_FAILURE(NRI.CreatePipelineLayout(*m_Device, pipelineLayoutDesc, m_PipelineLayout));
         }
 
         {
             nri::DescriptorRangeDesc descriptorRange[2] = {};
-            descriptorRange[0] = { 0, 2, nri::DescriptorType::STORAGE_BUFFER, nri::StageBits::COMPUTE_SHADER };
-            descriptorRange[1] = { 0, BUFFER_COUNT, nri::DescriptorType::STRUCTURED_BUFFER, nri::StageBits::COMPUTE_SHADER };
+            descriptorRange[0] = {0, 2, nri::DescriptorType::STORAGE_BUFFER, nri::StageBits::COMPUTE_SHADER};
+            descriptorRange[1] = {0, BUFFER_COUNT, nri::DescriptorType::STRUCTURED_BUFFER, nri::StageBits::COMPUTE_SHADER};
 
             nri::DescriptorSetDesc descriptorSetDescs[] =
             {
@@ -591,7 +591,7 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
             nri::Descriptor* colorAttachment;
             NRI_ABORT_ON_FAILURE( NRI.CreateTexture2DView(textureViewDesc, colorAttachment) );
 
-            const BackBuffer backBuffer = { colorAttachment, swapChainTextures[i] };
+            const BackBuffer backBuffer = {colorAttachment, swapChainTextures[i]};
             m_SwapChainBuffers.push_back(backBuffer);
         }
     }
@@ -641,7 +641,7 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
         NRI.UpdateDescriptorRanges(*m_DescriptorSets[BUFFERED_FRAME_MAX_NUM], 0, 1, &descriptorRangeUpdateDesc);
 
         // Culling
-        nri::Descriptor* storageDescriptors[2] = { m_IndirectBufferCountStorageAttachement, m_IndirectBufferStorageAttachement };
+        nri::Descriptor* storageDescriptors[2] = {m_IndirectBufferCountStorageAttachement, m_IndirectBufferStorageAttachement};
         NRI_ABORT_ON_FAILURE(NRI.AllocateDescriptorSets(*m_DescriptorPool, *m_ComputePipelineLayout, 0, &m_DescriptorSets[BUFFERED_FRAME_MAX_NUM + 1], 1, 0));
         nri::DescriptorRangeUpdateDesc rangeUpdateDescs[2] = {};
         rangeUpdateDescs[0].descriptorNum = helper::GetCountOf(rangeUpdateDescs);
@@ -728,10 +728,10 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
 
         nri::BufferUploadDesc bufferData[] =
         {
-            {nullptr, 0,  m_Buffers[INDIRECT_BUFFER], 0, { nri::AccessBits::ARGUMENT_BUFFER, nri::StageBits::INDIRECT } },
-            {meshData.data(), meshData.size() * sizeof(MeshData), m_Buffers[MESH_BUFFER], 0,  {nri::AccessBits::SHADER_RESOURCE, nri::StageBits::FRAGMENT_SHADER |  nri::StageBits::COMPUTE_SHADER } },
-            {materialData.data(), materialData.size() * sizeof(MaterialData), m_Buffers[MATERIAL_BUFFER], 0,  {nri::AccessBits::SHADER_RESOURCE, nri::StageBits::FRAGMENT_SHADER |  nri::StageBits::COMPUTE_SHADER } },
-            {instanceData.data(), instanceData.size() * sizeof(InstanceData), m_Buffers[INSTANCE_BUFFER], 0,  {nri::AccessBits::SHADER_RESOURCE, nri::StageBits::FRAGMENT_SHADER |  nri::StageBits::COMPUTE_SHADER } },
+            {nullptr, 0,  m_Buffers[INDIRECT_BUFFER], 0, {nri::AccessBits::ARGUMENT_BUFFER, nri::StageBits::INDIRECT }},
+            {meshData.data(), meshData.size() * sizeof(MeshData), m_Buffers[MESH_BUFFER], 0,  {nri::AccessBits::SHADER_RESOURCE, nri::StageBits::FRAGMENT_SHADER |  nri::StageBits::COMPUTE_SHADER}},
+            {materialData.data(), materialData.size() * sizeof(MaterialData), m_Buffers[MATERIAL_BUFFER], 0,  {nri::AccessBits::SHADER_RESOURCE, nri::StageBits::FRAGMENT_SHADER |  nri::StageBits::COMPUTE_SHADER}},
+            {instanceData.data(), instanceData.size() * sizeof(InstanceData), m_Buffers[INSTANCE_BUFFER], 0,  {nri::AccessBits::SHADER_RESOURCE, nri::StageBits::FRAGMENT_SHADER |  nri::StageBits::COMPUTE_SHADER}},
             {m_Scene.vertices.data(), helper::GetByteSizeOf(m_Scene.vertices), m_Buffers[VERTEX_BUFFER], 0, {nri::AccessBits::VERTEX_BUFFER}},
             {m_Scene.indices.data(), helper::GetByteSizeOf(m_Scene.indices), m_Buffers[INDEX_BUFFER], 0, {nri::AccessBits::INDEX_BUFFER}},
         };
@@ -836,8 +836,8 @@ void Sample::RenderFrame(uint32_t frameIndex)
         nri::BarrierGroupDesc computeBarrierGroupDesc = {};
         nri::BufferBarrierDesc bufferBarrierDesc = {};
         bufferBarrierDesc.buffer = m_Buffers[INDIRECT_BUFFER];
-        bufferBarrierDesc.before = { nri::AccessBits::ARGUMENT_BUFFER, nri::StageBits::INDIRECT };
-        bufferBarrierDesc.after = { nri::AccessBits::SHADER_RESOURCE_STORAGE, nri::StageBits::COMPUTE_SHADER };
+        bufferBarrierDesc.before = {nri::AccessBits::ARGUMENT_BUFFER, nri::StageBits::INDIRECT};
+        bufferBarrierDesc.after = {nri::AccessBits::SHADER_RESOURCE_STORAGE, nri::StageBits::COMPUTE_SHADER};
         computeBarrierGroupDesc.bufferNum = 1;
         computeBarrierGroupDesc.buffers = &bufferBarrierDesc;
 
@@ -852,7 +852,6 @@ void Sample::RenderFrame(uint32_t frameIndex)
         NRI.CmdBarrier(commandBuffer, barrierGroupDesc);
 
         if (m_UseGPUDrawGeneration) {
-            size_t dispatchCount = helper::Align(m_Scene.instances.size(), 256) / 256;
             NRI.CmdSetPipelineLayout(commandBuffer, *m_ComputePipelineLayout);
             NRI.CmdSetDescriptorSet(commandBuffer, 0, *m_DescriptorSets[BUFFERED_FRAME_MAX_NUM + 1], nullptr);
 
@@ -862,11 +861,13 @@ void Sample::RenderFrame(uint32_t frameIndex)
             NRI.CmdSetConstants(commandBuffer, 0, &cullingConstants, sizeof(cullingConstants));
 
             NRI.CmdSetPipeline(commandBuffer, *m_ComputePipeline);
-            NRI.CmdDispatch(commandBuffer, { (uint32_t)dispatchCount, 1, 1 });
+
+            size_t dispatchCount = helper::Align(m_Scene.instances.size(), 256) / 256;
+            NRI.CmdDispatch(commandBuffer, {(uint32_t)dispatchCount, 1, 1});
 
             // Transition from UAV to indirect argument
-            bufferBarrierDesc.after = { nri::AccessBits::ARGUMENT_BUFFER, nri::StageBits::INDIRECT };
-            bufferBarrierDesc.before = { nri::AccessBits::SHADER_RESOURCE_STORAGE, nri::StageBits::COMPUTE_SHADER };
+            bufferBarrierDesc.after = {nri::AccessBits::ARGUMENT_BUFFER, nri::StageBits::INDIRECT};
+            bufferBarrierDesc.before = {nri::AccessBits::SHADER_RESOURCE_STORAGE, nri::StageBits::COMPUTE_SHADER};
             NRI.CmdBarrier(commandBuffer, computeBarrierGroupDesc);
         }
 
@@ -883,10 +884,10 @@ void Sample::RenderFrame(uint32_t frameIndex)
 
                 NRI.CmdClearAttachments(commandBuffer, clearDescs, helper::GetCountOf(clearDescs), nullptr, 0);
 
-                const nri::Viewport viewport = { 0.0f, 0.0f, (float)windowWidth, (float)windowHeight, 0.0f, 1.0f };
+                const nri::Viewport viewport = {0.0f, 0.0f, (float)windowWidth, (float)windowHeight, 0.0f, 1.0f};
                 NRI.CmdSetViewports(commandBuffer,  &viewport, 1);
 
-                const nri::Rect scissor = { 0, 0, (nri::Dim_t)windowWidth, (nri::Dim_t)windowHeight };
+                const nri::Rect scissor = {0, 0, (nri::Dim_t)windowWidth, (nri::Dim_t)windowHeight};
                 NRI.CmdSetScissors(commandBuffer,  &scissor, 1);
 
                 NRI.CmdSetIndexBuffer(commandBuffer, *m_Buffers[INDEX_BUFFER], 0, sizeof(utils::Index) == 2 ? nri::IndexType::UINT16 : nri::IndexType::UINT32);
@@ -900,12 +901,12 @@ void Sample::RenderFrame(uint32_t frameIndex)
                 NRI.CmdSetVertexBuffers(commandBuffer, 0, 1, &m_Buffers[VERTEX_BUFFER], &offset);
 
                 if (m_UseGPUDrawGeneration) {
-                    NRI.CmdDrawIndexedIndirectCount(commandBuffer, *m_Buffers[INDIRECT_BUFFER], 0, *m_Buffers[INDIRECT_COUNT_BUFFER], 0, (uint32_t)m_Scene.instances.size(), GetDrawIndexedCommandSize());
+                    NRI.CmdDrawIndexedIndirect(commandBuffer, *m_Buffers[INDIRECT_BUFFER], 0, (uint32_t)m_Scene.instances.size(), GetDrawIndexedCommandSize(), m_Buffers[INDIRECT_COUNT_BUFFER], 0);
                 } else {
                     for (uint32_t i = 0; i < m_Scene.instances.size(); i++) {
                         const utils::Instance& instance = m_Scene.instances[i];
                         const utils::Mesh& mesh = m_Scene.meshes[instance.meshInstanceIndex];
-                        NRI.CmdDrawIndexed(commandBuffer, { mesh.indexNum, 1, mesh.indexOffset, (int32_t)mesh.vertexOffset, i });
+                        NRI.CmdDrawIndexed(commandBuffer, {mesh.indexNum, 1, mesh.indexOffset, (int32_t)mesh.vertexOffset, i});
                     }
                 }
             }
