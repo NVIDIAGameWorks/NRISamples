@@ -1,6 +1,6 @@
 // © 2021 NVIDIA Corporation
 
-#include "BindingBridge.hlsli"
+#include "NRICompatibility.hlsli"
 
 NRI_RESOURCE( cbuffer, GlobalConstants, b, 1, 0 )
 {

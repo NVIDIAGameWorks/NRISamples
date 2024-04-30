@@ -1,6 +1,11 @@
 // © 2021 NVIDIA Corporation
 
+#define NRI_ENABLE_DRAW_PARAMETERS_EMULATION
+
 #include "NRICompatibility.hlsli"
+#include "SceneViewerBindlessStructs.h"
+
+NRI_ENABLE_DRAW_PARAMETERS;
 
 struct Input
 {
@@ -16,18 +21,14 @@ struct Attributes
     float4 Normal : TEXCOORD0; //.w = TexCoord.x
     float4 View : TEXCOORD1; //.w = TexCoord.y
     float4 Tangent : TEXCOORD2;
+    nointerpolation uint DrawParameters : ATTRIBUTES;
 };
 
-NRI_RESOURCE( cbuffer, Global, b, 0, 0 )
+Attributes main( in Input input, NRI_DECLARE_DRAW_PARAMETERS )
 {
-    float4x4 gWorldToClip;
-    float3 gCameraPos;
-};
+    Attributes output = (Attributes)0;
 
-Attributes main( in Input input )
-{
-    Attributes output;
-
+#ifndef NRI_DXBC
     float3 N = input.Normal * 2.0 - 1.0;
     float4 T = input.Tangent * 2.0 - 1.0;
     float3 V = gCameraPos - input.Position;
@@ -36,6 +37,8 @@ Attributes main( in Input input )
     output.Normal = float4( N, input.TexCoord.x );
     output.View = float4( V, input.TexCoord.y );
     output.Tangent = T;
+    output.DrawParameters = NRI_INSTANCE_ID_OFFSET;
+#endif
 
     return output;
 }

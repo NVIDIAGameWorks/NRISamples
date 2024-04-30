@@ -1,6 +1,6 @@
 // © 2021 NVIDIA Corporation
 
-#include "BindingBridge.hlsli"
+#include "NRICompatibility.hlsli"
 #include "ForwardResources.hlsli"
 
 [earlydepthstencil]

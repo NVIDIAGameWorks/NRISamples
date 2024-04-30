@@ -10,11 +10,13 @@ struct Attributes
     float4 Tangent : TEXCOORD2;
 };
 
+#ifndef DONT_DECLARE_RESOURCES
 NRI_RESOURCE( Texture2D, DiffuseMap, t, 0, 1 );
 NRI_RESOURCE( Texture2D, SpecularMap, t, 1, 1 );
 NRI_RESOURCE( Texture2D, NormalMap, t, 2, 1 );
 NRI_RESOURCE( Texture2D, EmissiveMap, t, 3, 1 );
 NRI_RESOURCE( SamplerState, AnisotropicSampler, s, 0, 0 );
+#endif
 
 #define SUN_ANGULAR_SIZE radians( 0.533 )
 

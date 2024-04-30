@@ -1,6 +1,6 @@
 // © 2021 NVIDIA Corporation
 
-#include "BindingBridge.hlsli"
+#include "NRICompatibility.hlsli"
 
 NRI_RESOURCE( RWTexture2D<unorm float4>, g_Result, u, 0, 0 );
 
