@@ -861,9 +861,7 @@ void Sample::RenderFrame(uint32_t frameIndex)
             NRI.CmdSetConstants(commandBuffer, 0, &cullingConstants, sizeof(cullingConstants));
 
             NRI.CmdSetPipeline(commandBuffer, *m_ComputePipeline);
-
-            size_t dispatchCount = helper::Align(m_Scene.instances.size(), 256) / 256;
-            NRI.CmdDispatch(commandBuffer, {(uint32_t)dispatchCount, 1, 1});
+            NRI.CmdDispatch(commandBuffer, {1, 1, 1});
 
             // Transition from UAV to indirect argument
             bufferBarrierDesc.after = {nri::AccessBits::ARGUMENT_BUFFER, nri::StageBits::INDIRECT};
