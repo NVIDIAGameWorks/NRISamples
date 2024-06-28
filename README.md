@@ -12,9 +12,13 @@ Or by running scripts only:
 - Run ``2-Build.bat``
 
 ### Linux (x86-64)
-- Install **VulkanSDK**, **libx11-dev**, **libxrandr-dev**
+- Install **VulkanSDK**, **xorg-dev**, **libwayland-dev**, **libxkbcommon-dev**
 - Clone project and init submodules
 - Generate and build project using **cmake**
+
+Or by running scripts only:
+- Run `./1-Deploy.sh`
+- RUn `./2-Build.sh`
 
 ### Linux (aarch64)
 - Install **libx11-dev**, **libxrandr-dev**
