@@ -1,13 +1,9 @@
-#!/bin/sh
+#!/bin/bash
 
 rm -rf "_Bin"
 rm -rf "_Build"
 rm -rf "_Data"
 rm -rf "_Shaders"
-rm -rf "External/NRIFramework/External/Assimp"
-rm -rf "External/NRIFramework/External/Detex"
-rm -rf "External/NRIFramework/External/Glfw"
-rm -rf "External/NRIFramework/External/ImGui"
 
 rm -rf "build"
 
