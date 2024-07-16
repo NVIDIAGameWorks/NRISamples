@@ -13,6 +13,9 @@
 
     #define VK_USE_PLATFORM_WIN32_KHR 1
     const char* VULKAN_LOADER_NAME = "vulkan-1.dll";
+#elif __APPLE__
+    #define VK_USE_PLATFORM_METAL_EXT 1
+    const char* VULKAN_LOADER_NAME = "libvulkan.dylib";
 #else
     #define VK_USE_PLATFORM_XLIB_KHR 1
     const char* VULKAN_LOADER_NAME = "libvulkan.so";
@@ -227,6 +230,8 @@ void Sample::CreateVulkanDevice()
 
 #ifdef _WIN32
     const char* instanceExtensions[] = { VK_KHR_WIN32_SURFACE_EXTENSION_NAME, VK_KHR_SURFACE_EXTENSION_NAME };
+#elif __APPLE__
+    const char* instanceExtensions[] = { VK_EXT_METAL_SURFACE_EXTENSION_NAME };
 #else
     const char* instanceExtensions[] = { VK_KHR_XLIB_SURFACE_EXTENSION_NAME };
 #endif
@@ -778,7 +783,7 @@ void Sample::RenderFrame(uint32_t frameIndex)
         FreeLibrary((HMODULE)&library);
     }
 
-#elif defined(__linux__)
+#elif defined(__linux__) || defined(__APPLE__)
 
     #include <dlfcn.h>
 
