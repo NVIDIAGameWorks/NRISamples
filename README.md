@@ -25,6 +25,16 @@ Or by running scripts only:
 - Clone project and init submodules
 - Generate and build project using **cmake**
 
+### MacOS (aarch64)
+- Install **VulkanSDK**
+- Setup environment variables using `setup-env.sh` from VulkanSDK (e.x. `source ~/VulkanSDK/1.3.283.0/setup-env.sh`)
+- Clone project and init submodules
+- Generate and build project using **cmake**
+
+Or by running scripts only:
+- Run `./1-Deploy.sh`
+- Run `./2-Build.sh`
+
 ### CMake options
 `-DUSE_MINIMAL_DATA=ON` - download minimal resource package (90MB)
 
