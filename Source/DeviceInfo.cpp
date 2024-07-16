@@ -1,7 +1,7 @@
 // © 2021 NVIDIA Corporation
 
 #include <stdio.h>
-#include <malloc.h>
+#include <stdlib.h>
 
 #define NRI_FORCE_C
 
