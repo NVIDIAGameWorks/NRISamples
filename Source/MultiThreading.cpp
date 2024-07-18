@@ -1051,10 +1051,10 @@ void Sample::SetupProjViewMatrix(float4x4& projViewMatrix)
     const float aspect = float( GetWindowResolution().x ) / float( GetWindowResolution().y );
 
     float4x4 projectionMatrix;
-    projectionMatrix.SetupByHalfFovxInf(DegToRad(45.0f), aspect, 0.1f, 0);
+    projectionMatrix.SetupByHalfFovxInf(radians(45.0f), aspect, 0.1f, 0);
 
     float4x4 viewMatrix = float4x4::Identity();
-    viewMatrix.SetupByRotationYPR(DegToRad(0.0f), DegToRad(0.0f), 0.0f);
+    viewMatrix.SetupByRotationYPR(radians(0.0f), radians(0.0f), 0.0f);
     viewMatrix.WorldToView();
 
     const float3 cameraPosition = float3(0.0f, -2.5f, 2.0f);

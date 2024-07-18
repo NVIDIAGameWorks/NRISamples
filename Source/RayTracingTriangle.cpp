@@ -570,7 +570,7 @@ void Sample::CreateShaderTable()
 {
     const nri::DeviceDesc& deviceDesc = NRI.GetDeviceDesc(*m_Device);
     const uint64_t identifierSize = deviceDesc.rayTracingShaderGroupIdentifierSize;
-    const uint64_t tableAlignment = deviceDesc.rayTracingShaderTableAligment;
+    const uint64_t tableAlignment = deviceDesc.rayTracingShaderTableAlignment;
 
     m_ShaderGroupIdentifierSize = identifierSize;
     m_MissShaderOffset = helper::Align(identifierSize, tableAlignment);

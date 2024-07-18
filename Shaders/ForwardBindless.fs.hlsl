@@ -53,17 +53,17 @@ float4 main( in BindlessAttributes input ) : SV_Target
     float3 emissive = EmissiveMap.Sample( AnisotropicSampler, uv ).xyz;
     float2 packedNormal = NormalMap.Sample( AnisotropicSampler, uv ).xy;
 
-    float3 N = STL::Geometry::TransformLocalNormal( packedNormal, T, Nvertex );
+    float3 N = Geometry::TransformLocalNormal( packedNormal, T, Nvertex );
     float3 albedo, Rf0;
-    STL::BRDF::ConvertBaseColorMetalnessToAlbedoRf0( diffuse.xyz, materialProps.z, albedo, Rf0 );
+    BRDF::ConvertBaseColorMetalnessToAlbedoRf0( diffuse.xyz, materialProps.z, albedo, Rf0 );
     float roughness = materialProps.y;
     const float3 sunDirection = normalize( float3( -0.8, -0.8, 1.0 ) );
-    float3 L = STL::ImportanceSampling::CorrectDirectionToInfiniteSource( N, sunDirection, V, tan( SUN_ANGULAR_SIZE ) );
+    float3 L = ImportanceSampling::CorrectDirectionToInfiniteSource( N, sunDirection, V, tan( SUN_ANGULAR_SIZE ) );
     const float3 Clight = 80000.0;
     const float exposure = 0.00025;
 
     float4 output = Shade( float4( albedo, diffuse.w ), Rf0, roughness, emissive, N, L, V, Clight, FAKE_AMBIENT );
-    output.xyz = STL::Color::HdrToLinear( output.xyz * exposure );
+    output.xyz = Color::HdrToLinear( output.xyz * exposure );
 
     return output;
 }

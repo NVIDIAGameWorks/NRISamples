@@ -1,6 +1,6 @@
 // © 2021 NVIDIA Corporation
 
-#include "MathLib/STL.hlsli"
+#include "MathLib/ml.hlsli"
 
 struct Attributes
 {
@@ -31,12 +31,12 @@ NRI_RESOURCE( SamplerState, AnisotropicSampler, s, 0, 0 );
     float3 materialProps = SpecularMap.Sample( AnisotropicSampler, uv ).xyz; \
     float3 emissive = EmissiveMap.Sample( AnisotropicSampler, uv ).xyz; \
     float2 packedNormal = NormalMap.Sample( AnisotropicSampler, uv ).xy; \
-    float3 N = STL::Geometry::TransformLocalNormal( packedNormal, T, Nvertex ); \
+    float3 N = Geometry::TransformLocalNormal( packedNormal, T, Nvertex ); \
     float3 albedo, Rf0; \
-    STL::BRDF::ConvertBaseColorMetalnessToAlbedoRf0( diffuse.xyz, materialProps.z, albedo, Rf0 ); \
+    BRDF::ConvertBaseColorMetalnessToAlbedoRf0( diffuse.xyz, materialProps.z, albedo, Rf0 ); \
     float roughness = materialProps.y; \
     const float3 sunDirection = normalize( float3( -0.8, -0.8, 1.0 ) ); \
-    float3 L = STL::ImportanceSampling::CorrectDirectionToInfiniteSource( N, sunDirection, V, tan( SUN_ANGULAR_SIZE ) ); \
+    float3 L = ImportanceSampling::CorrectDirectionToInfiniteSource( N, sunDirection, V, tan( SUN_ANGULAR_SIZE ) ); \
     const float3 Clight = 80000.0; \
     const float exposure = 0.00025
 
@@ -55,7 +55,7 @@ float4 Shade( float4 albedo, float3 Rf0, float roughness, float3 emissive, float
 
     // Direct lighting
     float3 Cdiff, Cspec;
-    STL::BRDF::DirectLighting( N, L, V, Rf0, roughness, Cdiff, Cspec );
+    BRDF::DirectLighting( N, L, V, Rf0, roughness, Cdiff, Cspec );
 
     if( flags & FAKE_AMBIENT )
     {
@@ -69,7 +69,7 @@ float4 Shade( float4 albedo, float3 Rf0, float roughness, float3 emissive, float
         float3 R = reflect( -V, N );
         float3 environment = lerp( fakeBottomColor, fakeTopColor, R.z * 0.5 + 0.5 ) * 0.3;
         float NoV = saturate( dot( N, V ) );
-        float3 Kenv = STL::BRDF::EnvironmentTerm( Rf0, NoV, roughness );
+        float3 Kenv = BRDF::EnvironmentTerm( Rf0, NoV, roughness );
         Cspec += Kenv * environment;
     }
 
@@ -81,7 +81,7 @@ float4 Shade( float4 albedo, float3 Rf0, float roughness, float3 emissive, float
     output.w = albedo.w;
 
     float NoL = saturate( dot( N, L ) );
-    float specIntensity = STL::Color::Luminance( Cspec * NoL );
+    float specIntensity = Color::Luminance( Cspec * NoL );
     if( flags & GLASS_HACK )
         output.w = saturate( 0.5 + specIntensity );
 

@@ -10,6 +10,6 @@ float4 main( in Attributes input ) : SV_Target
     if( output.w < 0.5 )
         discard;
 
-    output.xyz = STL::Color::HdrToLinear( output.xyz * exposure );
+    output.xyz = Color::HdrToLinear( output.xyz * exposure );
     return output;
 }

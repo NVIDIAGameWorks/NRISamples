@@ -314,24 +314,26 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
         NRI.UpdateDescriptorRanges(*m_DescriptorSet, 0, 1, &descriptorRangeUpdateDesc);
     }
 
+    Rng::Hash::Initialize(m_RngState, 567, 57);
+
     { // Upload data
         std::vector<Vertex> geometryBufferData(VERTEX_NUM);
         for (uint32_t i = 0; i < VERTEX_NUM; i += 3)
         {
             Vertex& v0 = geometryBufferData[i];
-            v0.position[0] = Rand::sf1(&m_FastRandState);
-            v0.position[1] = Rand::sf1(&m_FastRandState);
-            v0.position[2] = Rand::uf1(&m_FastRandState);
+            v0.position[0] = Rng::Hash::GetFloat(m_RngState) * 2.0f - 1.0f;
+            v0.position[1] = Rng::Hash::GetFloat(m_RngState) * 2.0f - 1.0f;
+            v0.position[2] = Rng::Hash::GetFloat(m_RngState);
 
             Vertex& v1 = geometryBufferData[i + 1];
-            v1.position[0] = v0.position[0] + Rand::sf1(&m_FastRandState) * 0.3f;
-            v1.position[1] = v0.position[1] + Rand::sf1(&m_FastRandState) * 0.3f;
-            v1.position[2] = Rand::uf1(&m_FastRandState);
+            v1.position[0] = v0.position[0] + (Rng::Hash::GetFloat(m_RngState) * 2.0f - 1.0f) * 0.3f;
+            v1.position[1] = v0.position[1] + (Rng::Hash::GetFloat(m_RngState) * 2.0f - 1.0f) * 0.3f;
+            v1.position[2] = Rng::Hash::GetFloat(m_RngState);
 
             Vertex& v2 = geometryBufferData[i + 2];
-            v2.position[0] = v0.position[0] + Rand::sf1(&m_FastRandState) * 0.3f;
-            v2.position[1] = v0.position[1] + Rand::sf1(&m_FastRandState) * 0.3f;
-            v2.position[2] = Rand::uf1(&m_FastRandState);
+            v2.position[0] = v0.position[0] + (Rng::Hash::GetFloat(m_RngState) * 2.0f - 1.0f) * 0.3f;
+            v2.position[1] = v0.position[1] + (Rng::Hash::GetFloat(m_RngState) * 2.0f - 1.0f) * 0.3f;
+            v2.position[2] = Rng::Hash::GetFloat(m_RngState);
         }
 
         nri::TextureUploadDesc textureData = {};

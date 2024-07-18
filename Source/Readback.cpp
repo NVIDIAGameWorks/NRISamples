@@ -235,8 +235,8 @@ void Sample::RenderFrame(uint32_t frameIndex)
         dstDataLayoutDesc.rowPitch = helper::Align(4, NRI.GetDeviceDesc(*m_Device).uploadBufferTextureRowAlignment);
 
         nri::TextureRegionDesc srcRegionDesc = {};
-        srcRegionDesc.x = (uint16_t)Clamp(ImGui::GetMousePos().x, 0.0f, float(windowWidth - 1));
-        srcRegionDesc.y = (uint16_t)Clamp(ImGui::GetMousePos().y, 0.0f, float(windowHeight - 1));
+        srcRegionDesc.x = (uint16_t)clamp(ImGui::GetMousePos().x, 0.0f, float(windowWidth - 1));
+        srcRegionDesc.y = (uint16_t)clamp(ImGui::GetMousePos().y, 0.0f, float(windowHeight - 1));
         srcRegionDesc.width = 1;
         srcRegionDesc.height = 1;
         srcRegionDesc.depth = 1;

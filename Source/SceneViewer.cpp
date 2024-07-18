@@ -207,7 +207,7 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
         nri::VertexAttributeDesc vertexAttributeDesc[4] = {};
         {
             vertexAttributeDesc[0].format = nri::Format::RGB32_SFLOAT;
-            vertexAttributeDesc[0].offset = helper::GetOffsetOf(&utils::Vertex::position);
+            vertexAttributeDesc[0].offset = helper::GetOffsetOf(&utils::Vertex::pos);
             vertexAttributeDesc[0].d3d = {"POSITION", 0};
             vertexAttributeDesc[0].vk = {0};
 
@@ -217,12 +217,12 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
             vertexAttributeDesc[1].vk = {1};
 
             vertexAttributeDesc[2].format = nri::Format::R10_G10_B10_A2_UNORM;
-            vertexAttributeDesc[2].offset = helper::GetOffsetOf(&utils::Vertex::normal);
+            vertexAttributeDesc[2].offset = helper::GetOffsetOf(&utils::Vertex::N);
             vertexAttributeDesc[2].d3d = {"NORMAL", 0};
             vertexAttributeDesc[2].vk = {2};
 
             vertexAttributeDesc[3].format = nri::Format::R10_G10_B10_A2_UNORM;
-            vertexAttributeDesc[3].offset = helper::GetOffsetOf(&utils::Vertex::tangent);
+            vertexAttributeDesc[3].offset = helper::GetOffsetOf(&utils::Vertex::T);
             vertexAttributeDesc[3].d3d = {"TANGENT", 0};
             vertexAttributeDesc[3].vk = {3};
         }
