@@ -15,15 +15,22 @@ constexpr uint32_t BUFFER_COUNT = 3;
 
 enum SceneBuffers
 {
+    // HOST_UPLOAD
     CONSTANT_BUFFER,
+
+    // READBACK
     READBACK_BUFFER,
+
+    // DEVICE
     INDEX_BUFFER,
     VERTEX_BUFFER,
     MATERIAL_BUFFER,
     MESH_BUFFER,
     INSTANCE_BUFFER,
     INDIRECT_BUFFER,
-    INDIRECT_COUNT_BUFFER
+    INDIRECT_COUNT_BUFFER,
+
+    MAX_NUM
 };
 
 struct NRIInterface
@@ -450,7 +457,7 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
         NRI_ABORT_ON_FAILURE( NRI.AllocateAndBindMemory(*m_Device, resourceGroupDesc, m_MemoryAllocations.data() + baseAllocation) );
 
         resourceGroupDesc.memoryLocation = nri::MemoryLocation::DEVICE;
-        resourceGroupDesc.bufferNum = 2;
+        resourceGroupDesc.bufferNum = (uint32_t)SceneBuffers::MAX_NUM - 2;
         resourceGroupDesc.buffers = &m_Buffers[INDEX_BUFFER];
         resourceGroupDesc.textureNum = (uint32_t)m_Textures.size();
         resourceGroupDesc.textures = m_Textures.data();
@@ -459,47 +466,6 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
         uint32_t allocationNum = NRI.CalculateAllocationNumber(*m_Device, resourceGroupDesc);
         m_MemoryAllocations.resize(baseAllocation + allocationNum, nullptr);
         NRI_ABORT_ON_FAILURE( NRI.AllocateAndBindMemory(*m_Device, resourceGroupDesc, m_MemoryAllocations.data() + baseAllocation) );
-        resourceGroupDesc.textureNum = 0;
-
-        resourceGroupDesc.memoryLocation = nri::MemoryLocation::DEVICE;
-        resourceGroupDesc.bufferNum = 1;
-        resourceGroupDesc.buffers = &m_Buffers[MATERIAL_BUFFER];
-
-        baseAllocation = m_MemoryAllocations.size();
-        m_MemoryAllocations.resize(baseAllocation + 1, nullptr);
-        NRI_ABORT_ON_FAILURE(NRI.AllocateAndBindMemory(*m_Device, resourceGroupDesc, m_MemoryAllocations.data() + baseAllocation));   
-        
-        resourceGroupDesc.memoryLocation = nri::MemoryLocation::DEVICE;
-        resourceGroupDesc.bufferNum = 1;
-        resourceGroupDesc.buffers = &m_Buffers[MESH_BUFFER];
-
-        baseAllocation = m_MemoryAllocations.size();
-        m_MemoryAllocations.resize(baseAllocation + 1, nullptr);
-        NRI_ABORT_ON_FAILURE(NRI.AllocateAndBindMemory(*m_Device, resourceGroupDesc, m_MemoryAllocations.data() + baseAllocation));    
-        
-        resourceGroupDesc.memoryLocation = nri::MemoryLocation::DEVICE;
-        resourceGroupDesc.bufferNum = 1;
-        resourceGroupDesc.buffers = &m_Buffers[INSTANCE_BUFFER];
-
-        baseAllocation = m_MemoryAllocations.size();
-        m_MemoryAllocations.resize(baseAllocation + 1, nullptr);
-        NRI_ABORT_ON_FAILURE(NRI.AllocateAndBindMemory(*m_Device, resourceGroupDesc, m_MemoryAllocations.data() + baseAllocation));    
-        
-        resourceGroupDesc.memoryLocation = nri::MemoryLocation::DEVICE;
-        resourceGroupDesc.bufferNum = 1;
-        resourceGroupDesc.buffers = &m_Buffers[INDIRECT_BUFFER];
-
-        baseAllocation = m_MemoryAllocations.size();
-        m_MemoryAllocations.resize(baseAllocation + 1, nullptr);
-        NRI_ABORT_ON_FAILURE(NRI.AllocateAndBindMemory(*m_Device, resourceGroupDesc, m_MemoryAllocations.data() + baseAllocation)); 
-        
-        resourceGroupDesc.memoryLocation = nri::MemoryLocation::DEVICE;
-        resourceGroupDesc.bufferNum = 1;
-        resourceGroupDesc.buffers = &m_Buffers[INDIRECT_COUNT_BUFFER];
-
-        baseAllocation = m_MemoryAllocations.size();
-        m_MemoryAllocations.resize(baseAllocation + 1, nullptr);
-        NRI_ABORT_ON_FAILURE(NRI.AllocateAndBindMemory(*m_Device, resourceGroupDesc, m_MemoryAllocations.data() + baseAllocation));
     }
 
     // Create descriptors
