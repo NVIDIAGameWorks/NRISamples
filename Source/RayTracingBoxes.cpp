@@ -185,11 +185,11 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
 
     nri::DeviceCreationDesc deviceCreationDesc = {};
     deviceCreationDesc.graphicsAPI = graphicsAPI;
-    deviceCreationDesc.enableAPIValidation = m_DebugAPI;
+    deviceCreationDesc.enableGraphicsAPIValidation = m_DebugAPI;
     deviceCreationDesc.enableNRIValidation = m_DebugNRI;
     deviceCreationDesc.spirvBindingOffsets = SPIRV_BINDING_OFFSETS;
     deviceCreationDesc.adapterDesc = &bestAdapterDesc;
-    deviceCreationDesc.memoryAllocatorInterface = m_MemoryAllocatorInterface;
+    deviceCreationDesc.allocationCallbacks = m_AllocationCallbacks;
     NRI_ABORT_ON_FAILURE( nri::nriCreateDevice(deviceCreationDesc, m_Device) );
 
     NRI_ABORT_ON_FAILURE( nri::nriGetInterface(*m_Device, NRI_INTERFACE(nri::CoreInterface), (nri::CoreInterface*)&NRI) );
@@ -417,8 +417,12 @@ void Sample::CreateRayTracingOutput(nri::Format swapChainFormat)
     nri::MemoryDesc memoryDesc = {};
     NRI.GetTextureMemoryDesc(*m_Device, rayTracingOutputDesc, nri::MemoryLocation::DEVICE, memoryDesc);
 
+    nri::AllocateMemoryDesc allocateMemoryDesc = {};
+    allocateMemoryDesc.size = memoryDesc.size;
+    allocateMemoryDesc.type = memoryDesc.type;
+
     nri::Memory* memory = nullptr;
-    NRI_ABORT_ON_FAILURE( NRI.AllocateMemory(*m_Device, memoryDesc.type, memoryDesc.size, memory) );
+    NRI_ABORT_ON_FAILURE( NRI.AllocateMemory(*m_Device, allocateMemoryDesc, memory) );
     m_MemoryAllocations.push_back(memory);
 
     const nri::TextureMemoryBindingDesc memoryBindingDesc = { memory, m_RayTracingOutput };
@@ -545,10 +549,14 @@ void Sample::CreateBottomLevelAccelerationStructure()
     NRI_ABORT_ON_FAILURE( NRI.CreateAccelerationStructure(*m_Device, accelerationStructureBLASDesc, m_BLAS) );
 
     nri::MemoryDesc memoryDesc = {};
-    NRI.GetAccelerationStructureMemoryDesc(*m_BLAS, memoryDesc);
+    NRI.GetAccelerationStructureMemoryDesc(*m_Device, accelerationStructureBLASDesc, nri::MemoryLocation::DEVICE, memoryDesc);
+
+    nri::AllocateMemoryDesc allocateMemoryDesc = {};
+    allocateMemoryDesc.size = memoryDesc.size;
+    allocateMemoryDesc.type = memoryDesc.type;
 
     nri::Memory* ASMemory = nullptr;
-    NRI_ABORT_ON_FAILURE( NRI.AllocateMemory(*m_Device, memoryDesc.type, memoryDesc.size, ASMemory) );
+    NRI_ABORT_ON_FAILURE( NRI.AllocateMemory(*m_Device, allocateMemoryDesc, ASMemory) );
     m_MemoryAllocations.push_back(ASMemory);
 
     const nri::AccelerationStructureMemoryBindingDesc memoryBindingDesc = { ASMemory, m_BLAS };
@@ -570,10 +578,14 @@ void Sample::CreateTopLevelAccelerationStructure()
     NRI_ABORT_ON_FAILURE( NRI.CreateAccelerationStructure(*m_Device, accelerationStructureTLASDesc, m_TLAS) );
 
     nri::MemoryDesc memoryDesc = {};
-    NRI.GetAccelerationStructureMemoryDesc(*m_TLAS, memoryDesc);
+    NRI.GetAccelerationStructureMemoryDesc(*m_Device, accelerationStructureTLASDesc, nri::MemoryLocation::DEVICE, memoryDesc);
+
+    nri::AllocateMemoryDesc allocateMemoryDesc = {};
+    allocateMemoryDesc.size = memoryDesc.size;
+    allocateMemoryDesc.type = memoryDesc.type;
 
     nri::Memory* ASMemory = nullptr;
-    NRI_ABORT_ON_FAILURE( NRI.AllocateMemory(*m_Device, memoryDesc.type, memoryDesc.size, ASMemory) );
+    NRI_ABORT_ON_FAILURE( NRI.AllocateMemory(*m_Device, allocateMemoryDesc, ASMemory) );
     m_MemoryAllocations.push_back(ASMemory);
 
     const nri::AccelerationStructureMemoryBindingDesc memoryBindingDesc = { ASMemory, m_TLAS };
@@ -626,7 +638,10 @@ void Sample::CreateUploadBuffer(uint64_t size, nri::BufferUsageBits usage, nri::
     nri::MemoryDesc memoryDesc = {};
     NRI.GetBufferMemoryDesc(*m_Device, bufferDesc, nri::MemoryLocation::HOST_UPLOAD, memoryDesc);
 
-    NRI_ABORT_ON_FAILURE( NRI.AllocateMemory(*m_Device, memoryDesc.type, memoryDesc.size, memory) );
+    nri::AllocateMemoryDesc allocateMemoryDesc = {};
+    allocateMemoryDesc.size = memoryDesc.size;
+    allocateMemoryDesc.type = memoryDesc.type;
+    NRI_ABORT_ON_FAILURE( NRI.AllocateMemory(*m_Device, allocateMemoryDesc, memory) );
 
     const nri::BufferMemoryBindingDesc bufferMemoryBindingDesc = { memory, buffer };
     NRI_ABORT_ON_FAILURE( NRI.BindBufferMemory(*m_Device, &bufferMemoryBindingDesc, 1) );
@@ -639,10 +654,13 @@ void Sample::CreateScratchBuffer(nri::AccelerationStructure& accelerationStructu
     const nri::BufferDesc bufferDesc = { scratchBufferSize, 0, nri::BufferUsageBits::RAY_TRACING_BUFFER };
     NRI_ABORT_ON_FAILURE( NRI.CreateBuffer(*m_Device, bufferDesc, buffer) );
 
-    nri::MemoryDesc bufferMemoryDesc = {};
-    NRI.GetBufferMemoryDesc(*m_Device, bufferDesc, nri::MemoryLocation::DEVICE, bufferMemoryDesc);
+    nri::MemoryDesc memoryDesc = {};
+    NRI.GetBufferMemoryDesc(*m_Device, bufferDesc, nri::MemoryLocation::DEVICE, memoryDesc);
 
-    NRI_ABORT_ON_FAILURE( NRI.AllocateMemory(*m_Device, bufferMemoryDesc.type, bufferMemoryDesc.size, memory) );
+    nri::AllocateMemoryDesc allocateMemoryDesc = {};
+    allocateMemoryDesc.size = memoryDesc.size;
+    allocateMemoryDesc.type = memoryDesc.type;
+    NRI_ABORT_ON_FAILURE( NRI.AllocateMemory(*m_Device, allocateMemoryDesc, memory) );
 
     const nri::BufferMemoryBindingDesc bufferMemoryBindingDesc = { memory, buffer };
     NRI_ABORT_ON_FAILURE( NRI.BindBufferMemory(*m_Device, &bufferMemoryBindingDesc, 1) );

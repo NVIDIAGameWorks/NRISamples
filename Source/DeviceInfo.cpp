@@ -47,7 +47,7 @@ bool EnumerateAdapters()
         const NriAdapterDesc* p = adapterDescs + i;
 
         printf("\nGroup #%u\n", i + 1);
-        printf("\tDescription: %s\n", p->description);
+        printf("\tName: %s\n", p->name);
         printf("\tLUID: 0x%016llX\n", p->luid);
         printf("\tVideo memory (Mb): %llu\n", p->videoMemorySize >> 20);
         printf("\tSystem memory (Mb): %llu\n", p->systemMemorySize >> 20);

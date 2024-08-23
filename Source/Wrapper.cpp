@@ -181,7 +181,7 @@ void Sample::CreateD3D11Device()
 
     nri::DeviceCreationD3D11Desc deviceDesc = {};
     deviceDesc.d3d11Device = m_D3D11Device;
-    deviceDesc.memoryAllocatorInterface = m_MemoryAllocatorInterface;
+    deviceDesc.allocationCallbacks = m_AllocationCallbacks;
     deviceDesc.enableNRIValidation = m_DebugNRI;
 
     NRI_ABORT_ON_FAILURE( nri::nriCreateDeviceFromD3D11Device(deviceDesc, m_Device) );
@@ -207,7 +207,7 @@ void Sample::CreateD3D12Device()
 
     nri::DeviceCreationD3D12Desc deviceDesc = {};
     deviceDesc.d3d12Device = m_D3D12Device;
-    deviceDesc.memoryAllocatorInterface = m_MemoryAllocatorInterface;
+    deviceDesc.allocationCallbacks = m_AllocationCallbacks;
     deviceDesc.enableNRIValidation = m_DebugNRI;
 
     NRI_ABORT_ON_FAILURE( nri::nriCreateDeviceFromD3D12Device(deviceDesc, m_Device) );
@@ -291,15 +291,15 @@ void Sample::CreateVulkanDevice()
     NRI_ABORT_ON_FALSE(result == VK_SUCCESS);
 
     nri::DeviceCreationVKDesc deviceDesc = {};
-    deviceDesc.memoryAllocatorInterface = m_MemoryAllocatorInterface;
+    deviceDesc.allocationCallbacks = m_AllocationCallbacks;
     deviceDesc.spirvBindingOffsets = SPIRV_BINDING_OFFSETS;
     deviceDesc.enabledExtensions.instanceExtensions = instanceExtensions;
     deviceDesc.enabledExtensions.instanceExtensionNum = helper::GetCountOf(instanceExtensions);
     deviceDesc.enabledExtensions.deviceExtensions = deviceExtensions;
     deviceDesc.enabledExtensions.deviceExtensionNum = helper::GetCountOf(deviceExtensions);
-    deviceDesc.vkInstance = (nri::NRIVkInstance)m_VKInstance;
-    deviceDesc.vkDevice = (nri::NRIVkDevice)m_VKDevice;
-    deviceDesc.vkPhysicalDevice = (nri::NRIVkPhysicalDevice)physicalDevice;
+    deviceDesc.vkInstance = (nri::VKHandle)m_VKInstance;
+    deviceDesc.vkDevice = (nri::VKHandle)m_VKDevice;
+    deviceDesc.vkPhysicalDevice = (nri::VKHandle)physicalDevice;
     deviceDesc.queueFamilyIndices = queueFamilyIndices;
     deviceDesc.queueFamilyIndexNum = helper::GetCountOf(queueFamilyIndices);
 
@@ -316,7 +316,7 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
     case nri::GraphicsAPI::D3D12:
         CreateD3D12Device();
         break;
-    case nri::GraphicsAPI::VULKAN:
+    case nri::GraphicsAPI::VK:
         CreateVulkanDevice();
         break;
     }
