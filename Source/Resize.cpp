@@ -5,24 +5,20 @@
 #include <array>
 
 struct NRIInterface
-    : public nri::CoreInterface
-    , public nri::HelperInterface
-    , public nri::StreamerInterface
-    , public nri::SwapChainInterface
-{};
+    : public nri::CoreInterface,
+      public nri::HelperInterface,
+      public nri::StreamerInterface,
+      public nri::SwapChainInterface {};
 
-struct Frame
-{
+struct Frame {
     nri::CommandAllocator* commandAllocator;
     nri::CommandBuffer* commandBuffer;
 };
 
-class Sample : public SampleBase
-{
+class Sample : public SampleBase {
 public:
-
-    Sample()
-    {}
+    Sample() {
+    }
 
     ~Sample();
 
@@ -32,7 +28,6 @@ public:
     void ResizeSwapChain();
 
 private:
-
     NRIInterface NRI = {};
     nri::Device* m_Device = nullptr;
     nri::Streamer* m_Streamer = nullptr;
@@ -49,12 +44,10 @@ private:
     bool m_IsFullscreen = false;
 };
 
-Sample::~Sample()
-{
+Sample::~Sample() {
     NRI.WaitForIdle(*m_CommandQueue);
 
-    for (Frame& frame : m_Frames)
-    {
+    for (Frame& frame : m_Frames) {
         NRI.DestroyCommandBuffer(*frame.commandBuffer);
         NRI.DestroyCommandAllocator(*frame.commandAllocator);
     }
@@ -74,13 +67,12 @@ Sample::~Sample()
     nri::nriDestroyDevice(*m_Device);
 }
 
-bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
-{
+bool Sample::Initialize(nri::GraphicsAPI graphicsAPI) {
     m_PrevWindowResolution = m_WindowResolution;
 
     nri::AdapterDesc bestAdapterDesc = {};
     uint32_t adapterDescsNum = 1;
-    NRI_ABORT_ON_FAILURE( nri::nriEnumerateAdapters(&bestAdapterDesc, adapterDescsNum) );
+    NRI_ABORT_ON_FAILURE(nri::nriEnumerateAdapters(&bestAdapterDesc, adapterDescsNum));
 
     // Device
     nri::DeviceCreationDesc deviceCreationDesc = {};
@@ -91,13 +83,13 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
     deviceCreationDesc.spirvBindingOffsets = SPIRV_BINDING_OFFSETS;
     deviceCreationDesc.adapterDesc = &bestAdapterDesc;
     deviceCreationDesc.allocationCallbacks = m_AllocationCallbacks;
-    NRI_ABORT_ON_FAILURE( nri::nriCreateDevice(deviceCreationDesc, m_Device) );
+    NRI_ABORT_ON_FAILURE(nri::nriCreateDevice(deviceCreationDesc, m_Device));
 
     // NRI
-    NRI_ABORT_ON_FAILURE( nri::nriGetInterface(*m_Device, NRI_INTERFACE(nri::CoreInterface), (nri::CoreInterface*)&NRI) );
-    NRI_ABORT_ON_FAILURE( nri::nriGetInterface(*m_Device, NRI_INTERFACE(nri::HelperInterface), (nri::HelperInterface*)&NRI) );
-    NRI_ABORT_ON_FAILURE( nri::nriGetInterface(*m_Device, NRI_INTERFACE(nri::StreamerInterface), (nri::StreamerInterface*)&NRI) );
-    NRI_ABORT_ON_FAILURE( nri::nriGetInterface(*m_Device, NRI_INTERFACE(nri::SwapChainInterface), (nri::SwapChainInterface*)&NRI) );
+    NRI_ABORT_ON_FAILURE(nri::nriGetInterface(*m_Device, NRI_INTERFACE(nri::CoreInterface), (nri::CoreInterface*)&NRI));
+    NRI_ABORT_ON_FAILURE(nri::nriGetInterface(*m_Device, NRI_INTERFACE(nri::HelperInterface), (nri::HelperInterface*)&NRI));
+    NRI_ABORT_ON_FAILURE(nri::nriGetInterface(*m_Device, NRI_INTERFACE(nri::StreamerInterface), (nri::StreamerInterface*)&NRI));
+    NRI_ABORT_ON_FAILURE(nri::nriGetInterface(*m_Device, NRI_INTERFACE(nri::SwapChainInterface), (nri::SwapChainInterface*)&NRI));
 
     // Create streamer
     nri::StreamerDesc streamerDesc = {};
@@ -105,13 +97,13 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
     streamerDesc.dynamicBufferUsageBits = nri::BufferUsageBits::VERTEX_BUFFER | nri::BufferUsageBits::INDEX_BUFFER;
     streamerDesc.constantBufferMemoryLocation = nri::MemoryLocation::HOST_UPLOAD;
     streamerDesc.frameInFlightNum = BUFFERED_FRAME_MAX_NUM;
-    NRI_ABORT_ON_FAILURE( NRI.CreateStreamer(*m_Device, streamerDesc, m_Streamer) );
+    NRI_ABORT_ON_FAILURE(NRI.CreateStreamer(*m_Device, streamerDesc, m_Streamer));
 
     // Command queue
-    NRI_ABORT_ON_FAILURE( NRI.GetCommandQueue(*m_Device, nri::CommandQueueType::GRAPHICS, m_CommandQueue) );
+    NRI_ABORT_ON_FAILURE(NRI.GetCommandQueue(*m_Device, nri::CommandQueueType::GRAPHICS, m_CommandQueue));
 
     // Fences
-    NRI_ABORT_ON_FAILURE( NRI.CreateFence(*m_Device, 0, m_FrameFence) );
+    NRI_ABORT_ON_FAILURE(NRI.CreateFence(*m_Device, 0, m_FrameFence));
 
     { // Swap chain
         nri::SwapChainDesc swapChainDesc = {};
@@ -122,36 +114,33 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
         swapChainDesc.width = (uint16_t)m_WindowResolution.x;
         swapChainDesc.height = (uint16_t)m_WindowResolution.y;
         swapChainDesc.textureNum = SWAP_CHAIN_TEXTURE_NUM;
-        NRI_ABORT_ON_FAILURE( NRI.CreateSwapChain(*m_Device, swapChainDesc, m_SwapChain) );
+        NRI_ABORT_ON_FAILURE(NRI.CreateSwapChain(*m_Device, swapChainDesc, m_SwapChain));
 
         uint32_t swapChainTextureNum;
         nri::Texture* const* swapChainTextures = NRI.GetSwapChainTextures(*m_SwapChain, swapChainTextureNum);
         m_SwapChainFormat = NRI.GetTextureDesc(*swapChainTextures[0]).format;
 
-        for (uint32_t i = 0; i < swapChainTextureNum; i++)
-        {
+        for (uint32_t i = 0; i < swapChainTextureNum; i++) {
             nri::Texture2DViewDesc textureViewDesc = {swapChainTextures[i], nri::Texture2DViewType::COLOR_ATTACHMENT, m_SwapChainFormat};
 
             nri::Descriptor* colorAttachment;
-            NRI_ABORT_ON_FAILURE( NRI.CreateTexture2DView(textureViewDesc, colorAttachment) );
+            NRI_ABORT_ON_FAILURE(NRI.CreateTexture2DView(textureViewDesc, colorAttachment));
 
-            const BackBuffer backBuffer = { colorAttachment, swapChainTextures[i] };
+            const BackBuffer backBuffer = {colorAttachment, swapChainTextures[i]};
             m_SwapChainBuffers.push_back(backBuffer);
         }
     }
 
     // Buffered resources
-    for (Frame& frame : m_Frames)
-    {
-        NRI_ABORT_ON_FAILURE( NRI.CreateCommandAllocator(*m_CommandQueue, frame.commandAllocator) );
-        NRI_ABORT_ON_FAILURE( NRI.CreateCommandBuffer(*frame.commandAllocator, frame.commandBuffer) );
+    for (Frame& frame : m_Frames) {
+        NRI_ABORT_ON_FAILURE(NRI.CreateCommandAllocator(*m_CommandQueue, frame.commandAllocator));
+        NRI_ABORT_ON_FAILURE(NRI.CreateCommandBuffer(*frame.commandAllocator, frame.commandBuffer));
     }
 
     return InitUI(NRI, NRI, *m_Device, m_SwapChainFormat);
 }
 
-void Sample::PrepareFrame(uint32_t frameIndex)
-{
+void Sample::PrepareFrame(uint32_t frameIndex) {
     const uint32_t N = 10000;
     uint32_t n = N - 1 - (frameIndex % N);
 
@@ -163,8 +152,7 @@ void Sample::PrepareFrame(uint32_t frameIndex)
         snprintf(s, sizeof(s), "Going fullscreen in %u...", n / 1000);
 
     // Resize
-    if (n == 0)
-    {
+    if (n == 0) {
         m_IsFullscreen = !m_IsFullscreen;
 
         GLFWmonitor* monitor = glfwGetPrimaryMonitor();
@@ -190,7 +178,7 @@ void Sample::PrepareFrame(uint32_t frameIndex)
     // UI
     BeginUI();
 
-    ImVec2 dims  = ImGui::CalcTextSize(s);
+    ImVec2 dims = ImGui::CalcTextSize(s);
 
     ImVec2 p;
     p.x = ((float)m_WindowResolution.x - dims.x) * 0.5f;
@@ -207,8 +195,7 @@ void Sample::PrepareFrame(uint32_t frameIndex)
     NRI.CopyStreamerUpdateRequests(*m_Streamer);
 }
 
-void Sample::ResizeSwapChain()
-{
+void Sample::ResizeSwapChain() {
     // Wait for idle
     NRI.WaitForIdle(*m_CommandQueue);
 
@@ -227,32 +214,29 @@ void Sample::ResizeSwapChain()
     swapChainDesc.width = (uint16_t)m_WindowResolution.x;
     swapChainDesc.height = (uint16_t)m_WindowResolution.y;
     swapChainDesc.textureNum = SWAP_CHAIN_TEXTURE_NUM;
-    NRI_ABORT_ON_FAILURE( NRI.CreateSwapChain(*m_Device, swapChainDesc, m_SwapChain) );
+    NRI_ABORT_ON_FAILURE(NRI.CreateSwapChain(*m_Device, swapChainDesc, m_SwapChain));
 
     uint32_t swapChainTextureNum;
     nri::Texture* const* swapChainTextures = NRI.GetSwapChainTextures(*m_SwapChain, swapChainTextureNum);
     m_SwapChainFormat = NRI.GetTextureDesc(*swapChainTextures[0]).format;
 
     m_SwapChainBuffers.clear();
-    for (uint32_t i = 0; i < swapChainTextureNum; i++)
-    {
+    for (uint32_t i = 0; i < swapChainTextureNum; i++) {
         nri::Texture2DViewDesc textureViewDesc = {swapChainTextures[i], nri::Texture2DViewType::COLOR_ATTACHMENT, m_SwapChainFormat};
 
         nri::Descriptor* colorAttachment;
-        NRI_ABORT_ON_FAILURE( NRI.CreateTexture2DView(textureViewDesc, colorAttachment) );
+        NRI_ABORT_ON_FAILURE(NRI.CreateTexture2DView(textureViewDesc, colorAttachment));
 
-        const BackBuffer backBuffer = { colorAttachment, swapChainTextures[i] };
+        const BackBuffer backBuffer = {colorAttachment, swapChainTextures[i]};
         m_SwapChainBuffers.push_back(backBuffer);
     }
 }
 
-void Sample::RenderFrame(uint32_t frameIndex)
-{
+void Sample::RenderFrame(uint32_t frameIndex) {
     const uint32_t bufferedFrameIndex = frameIndex % BUFFERED_FRAME_MAX_NUM;
     const Frame& frame = m_Frames[bufferedFrameIndex];
 
-    if (frameIndex >= BUFFERED_FRAME_MAX_NUM)
-    {
+    if (frameIndex >= BUFFERED_FRAME_MAX_NUM) {
         NRI.Wait(*m_FrameFence, 1 + frameIndex - BUFFERED_FRAME_MAX_NUM);
         NRI.ResetCommandAllocator(*frame.commandAllocator);
     }
@@ -267,7 +251,7 @@ void Sample::RenderFrame(uint32_t frameIndex)
         nri::TextureBarrierDesc textureBarrierDescs = {};
         textureBarrierDescs.texture = backBuffer.texture;
         textureBarrierDescs.after = {nri::AccessBits::COPY_SOURCE, nri::Layout::COPY_SOURCE};
-        textureBarrierDescs.arraySize = 1;
+        textureBarrierDescs.layerNum = 1;
         textureBarrierDescs.mipNum = 1;
 
         nri::BarrierGroupDesc barrierGroupDesc = {};

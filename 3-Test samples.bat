@@ -43,7 +43,7 @@ exit /b
 :TestSample
 
 echo %1 [D3D11]
-"%DIR_BIN%\%1.exe" --api=D3D11 --frameNum=%2
+"%DIR_BIN%\%1.exe" --api=D3D11 --frameNum=%2 --debugAPI --debugNRI
 if %ERRORLEVEL% equ 0 (
     echo =^> OK
 ) else (
@@ -52,7 +52,7 @@ if %ERRORLEVEL% equ 0 (
 echo.
 
 echo %1 [D3D12]
-"%DIR_BIN%\%1.exe" --api=D3D12 --frameNum=%2
+"%DIR_BIN%\%1.exe" --api=D3D12 --frameNum=%2 --debugAPI --debugNRI
 if %ERRORLEVEL% equ 0 (
     echo =^> OK
 ) else (
@@ -61,7 +61,7 @@ if %ERRORLEVEL% equ 0 (
 echo.
 
 echo %1 [VULKAN]
-"%DIR_BIN%\%1.exe" --api=VULKAN --frameNum=%2
+"%DIR_BIN%\%1.exe" --api=VULKAN --frameNum=%2 --debugAPI --debugNRI
 if %ERRORLEVEL% equ 0 (
     echo =^> OK
 ) else (

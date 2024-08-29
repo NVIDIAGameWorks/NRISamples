@@ -3,19 +3,19 @@
 #include "NRIFramework.h"
 
 #ifdef _WIN32
-    #undef APIENTRY // defined in GLFW
+#    undef APIENTRY // defined in GLFW
 
-    #include <d3d11.h>
-    #include "Extensions/NRIWrapperD3D11.h"
+#    include <d3d11.h>
+#    include "Extensions/NRIWrapperD3D11.h"
 
-    #include <d3d12.h>
-    #include "Extensions/NRIWrapperD3D12.h"
+#    include <d3d12.h>
+#    include "Extensions/NRIWrapperD3D12.h"
 
-    #define VK_USE_PLATFORM_WIN32_KHR 1
-    const char* VULKAN_LOADER_NAME = "vulkan-1.dll";
+#    define VK_USE_PLATFORM_WIN32_KHR 1
+const char* VULKAN_LOADER_NAME = "vulkan-1.dll";
 #else
-    #define VK_USE_PLATFORM_XLIB_KHR 1
-    const char* VULKAN_LOADER_NAME = "libvulkan.so";
+#    define VK_USE_PLATFORM_XLIB_KHR 1
+const char* VULKAN_LOADER_NAME = "libvulkan.so";
 #endif
 
 #define VK_NO_PROTOTYPES 1
@@ -31,36 +31,30 @@ void UnloadSharedLibrary(Library& library);
 constexpr nri::Color32f COLOR_0 = {1.0f, 1.0f, 0.0f, 1.0f};
 constexpr nri::Color32f COLOR_1 = {0.46f, 0.72f, 0.0f, 1.0f};
 
-struct ConstantBufferLayout
-{
+struct ConstantBufferLayout {
     float color[3];
     float scale;
 };
 
-struct Vertex
-{
+struct Vertex {
     float position[2];
     float uv[2];
 };
 
-static const Vertex g_VertexData[] =
-{
+static const Vertex g_VertexData[] = {
     {-0.71f, -0.50f, 0.0f, 0.0f},
-    {0.00f,  0.71f, 1.0f, 1.0f},
-    {0.71f, -0.50f, 0.0f, 1.0f}
-};
+    {0.00f, 0.71f, 1.0f, 1.0f},
+    {0.71f, -0.50f, 0.0f, 1.0f}};
 
 static const uint16_t g_IndexData[] = {0, 1, 2};
 
 struct NRIInterface
-    : public nri::CoreInterface
-    , public nri::HelperInterface
-    , public nri::StreamerInterface
-    , public nri::SwapChainInterface
-{};
+    : public nri::CoreInterface,
+      public nri::HelperInterface,
+      public nri::StreamerInterface,
+      public nri::SwapChainInterface {};
 
-struct Frame
-{
+struct Frame {
     nri::CommandAllocator* commandAllocator;
     nri::CommandBuffer* commandBuffer;
     nri::Descriptor* constantBufferView;
@@ -68,12 +62,10 @@ struct Frame
     uint64_t constantBufferViewOffset;
 };
 
-class Sample : public SampleBase
-{
+class Sample : public SampleBase {
 public:
-
-    Sample()
-    {}
+    Sample() {
+    }
 
     ~Sample();
 
@@ -119,12 +111,10 @@ private:
     float m_Scale = 1.0f;
 };
 
-Sample::~Sample()
-{
+Sample::~Sample() {
     NRI.WaitForIdle(*m_CommandQueue);
 
-    for (Frame& frame : m_Frames)
-    {
+    for (Frame& frame : m_Frames) {
         NRI.DestroyCommandBuffer(*frame.commandBuffer);
         NRI.DestroyCommandAllocator(*frame.commandAllocator);
         NRI.DestroyDescriptor(*frame.constantBufferView);
@@ -152,8 +142,7 @@ Sample::~Sample()
 
     nri::nriDestroyDevice(*m_Device);
 
-    if (m_VulkanLoader)
-    {
+    if (m_VulkanLoader) {
         auto vkGetInstanceProcAddr = (PFN_vkGetInstanceProcAddr)GetSharedLibraryFunction(*m_VulkanLoader, "vkGetInstanceProcAddr");
         auto vkDestroyInstance = (PFN_vkDestroyInstance)vkGetInstanceProcAddr(m_VKInstance, "vkDestroyInstance");
         auto vkDestroyDevice = (PFN_vkDestroyDevice)vkGetInstanceProcAddr(m_VKInstance, "vkDestroyDevice");
@@ -172,8 +161,7 @@ Sample::~Sample()
 #endif
 }
 
-void Sample::CreateD3D11Device()
-{
+void Sample::CreateD3D11Device() {
 #ifdef _WIN32
     const HRESULT result = D3D11CreateDevice(nullptr, D3D_DRIVER_TYPE_HARDWARE, nullptr, m_DebugAPI ? D3D11_CREATE_DEVICE_DEBUG : 0, nullptr, 0, D3D11_SDK_VERSION, &m_D3D11Device, nullptr, nullptr);
 
@@ -184,18 +172,15 @@ void Sample::CreateD3D11Device()
     deviceDesc.allocationCallbacks = m_AllocationCallbacks;
     deviceDesc.enableNRIValidation = m_DebugNRI;
 
-    NRI_ABORT_ON_FAILURE( nri::nriCreateDeviceFromD3D11Device(deviceDesc, m_Device) );
+    NRI_ABORT_ON_FAILURE(nri::nriCreateDeviceFromD3D11Device(deviceDesc, m_Device));
 #endif
 }
 
-void Sample::CreateD3D12Device()
-{
+void Sample::CreateD3D12Device() {
 #ifdef _WIN32
-    if (m_DebugAPI)
-    {
+    if (m_DebugAPI) {
         ID3D12Debug* debugController;
-        if (SUCCEEDED(D3D12GetDebugInterface(IID_PPV_ARGS(&debugController))))
-        {
+        if (SUCCEEDED(D3D12GetDebugInterface(IID_PPV_ARGS(&debugController)))) {
             debugController->EnableDebugLayer();
             debugController->Release();
         }
@@ -210,12 +195,11 @@ void Sample::CreateD3D12Device()
     deviceDesc.allocationCallbacks = m_AllocationCallbacks;
     deviceDesc.enableNRIValidation = m_DebugNRI;
 
-    NRI_ABORT_ON_FAILURE( nri::nriCreateDeviceFromD3D12Device(deviceDesc, m_Device) );
+    NRI_ABORT_ON_FAILURE(nri::nriCreateDeviceFromD3D12Device(deviceDesc, m_Device));
 #endif
 }
 
-void Sample::CreateVulkanDevice()
-{
+void Sample::CreateVulkanDevice() {
     m_VulkanLoader = LoadSharedLibrary(VULKAN_LOADER_NAME);
 
     auto vkGetInstanceProcAddr = (PFN_vkGetInstanceProcAddr)GetSharedLibraryFunction(*m_VulkanLoader, "vkGetInstanceProcAddr");
@@ -226,12 +210,12 @@ void Sample::CreateVulkanDevice()
     applicationInfo.apiVersion = VK_API_VERSION_1_3;
 
 #ifdef _WIN32
-    const char* instanceExtensions[] = { VK_KHR_WIN32_SURFACE_EXTENSION_NAME, VK_KHR_SURFACE_EXTENSION_NAME };
+    const char* instanceExtensions[] = {VK_KHR_WIN32_SURFACE_EXTENSION_NAME, VK_KHR_SURFACE_EXTENSION_NAME};
 #else
-    const char* instanceExtensions[] = { VK_KHR_XLIB_SURFACE_EXTENSION_NAME };
+    const char* instanceExtensions[] = {VK_KHR_XLIB_SURFACE_EXTENSION_NAME};
 #endif
-    const char* deviceExtensions[] = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
-    const char* layers[] = { "VK_LAYER_KHRONOS_validation" };
+    const char* deviceExtensions[] = {VK_KHR_SWAPCHAIN_EXTENSION_NAME};
+    const char* layers[] = {"VK_LAYER_KHRONOS_validation"};
 
     VkInstanceCreateInfo instanceCreateInfo = {};
     instanceCreateInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
@@ -262,11 +246,11 @@ void Sample::CreateVulkanDevice()
 
     const float priority = 1.0f;
 
-    VkPhysicalDeviceVulkan11Features featuresVulkan11 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES };
-    VkPhysicalDeviceVulkan12Features featuresVulkan12 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES };
-    VkPhysicalDeviceVulkan13Features featuresVulkan13 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES };
+    VkPhysicalDeviceVulkan11Features featuresVulkan11 = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES};
+    VkPhysicalDeviceVulkan12Features featuresVulkan12 = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES};
+    VkPhysicalDeviceVulkan13Features featuresVulkan13 = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES};
 
-    VkPhysicalDeviceFeatures2 deviceFeatures2 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2 };
+    VkPhysicalDeviceFeatures2 deviceFeatures2 = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2};
     deviceFeatures2.pNext = &featuresVulkan11;
     featuresVulkan11.pNext = &featuresVulkan12;
     featuresVulkan12.pNext = &featuresVulkan13;
@@ -303,29 +287,27 @@ void Sample::CreateVulkanDevice()
     deviceDesc.queueFamilyIndices = queueFamilyIndices;
     deviceDesc.queueFamilyIndexNum = helper::GetCountOf(queueFamilyIndices);
 
-    NRI_ABORT_ON_FAILURE( nri::nriCreateDeviceFromVkDevice(deviceDesc, m_Device) );
+    NRI_ABORT_ON_FAILURE(nri::nriCreateDeviceFromVkDevice(deviceDesc, m_Device));
 }
 
-bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
-{
-    switch (graphicsAPI)
-    {
-    case nri::GraphicsAPI::D3D11:
-        CreateD3D11Device();
-        break;
-    case nri::GraphicsAPI::D3D12:
-        CreateD3D12Device();
-        break;
-    case nri::GraphicsAPI::VK:
-        CreateVulkanDevice();
-        break;
+bool Sample::Initialize(nri::GraphicsAPI graphicsAPI) {
+    switch (graphicsAPI) {
+        case nri::GraphicsAPI::D3D11:
+            CreateD3D11Device();
+            break;
+        case nri::GraphicsAPI::D3D12:
+            CreateD3D12Device();
+            break;
+        case nri::GraphicsAPI::VK:
+            CreateVulkanDevice();
+            break;
     }
 
     // NRI
-    NRI_ABORT_ON_FAILURE( nri::nriGetInterface(*m_Device, NRI_INTERFACE(nri::CoreInterface), (nri::CoreInterface*)&NRI) );
-    NRI_ABORT_ON_FAILURE( nri::nriGetInterface(*m_Device, NRI_INTERFACE(nri::HelperInterface), (nri::HelperInterface*)&NRI) );
-    NRI_ABORT_ON_FAILURE( nri::nriGetInterface(*m_Device, NRI_INTERFACE(nri::StreamerInterface), (nri::StreamerInterface*)&NRI) );
-    NRI_ABORT_ON_FAILURE( nri::nriGetInterface(*m_Device, NRI_INTERFACE(nri::SwapChainInterface), (nri::SwapChainInterface*)&NRI) );
+    NRI_ABORT_ON_FAILURE(nri::nriGetInterface(*m_Device, NRI_INTERFACE(nri::CoreInterface), (nri::CoreInterface*)&NRI));
+    NRI_ABORT_ON_FAILURE(nri::nriGetInterface(*m_Device, NRI_INTERFACE(nri::HelperInterface), (nri::HelperInterface*)&NRI));
+    NRI_ABORT_ON_FAILURE(nri::nriGetInterface(*m_Device, NRI_INTERFACE(nri::StreamerInterface), (nri::StreamerInterface*)&NRI));
+    NRI_ABORT_ON_FAILURE(nri::nriGetInterface(*m_Device, NRI_INTERFACE(nri::SwapChainInterface), (nri::SwapChainInterface*)&NRI));
 
     // Create streamer
     nri::StreamerDesc streamerDesc = {};
@@ -333,13 +315,13 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
     streamerDesc.dynamicBufferUsageBits = nri::BufferUsageBits::VERTEX_BUFFER | nri::BufferUsageBits::INDEX_BUFFER;
     streamerDesc.constantBufferMemoryLocation = nri::MemoryLocation::HOST_UPLOAD;
     streamerDesc.frameInFlightNum = BUFFERED_FRAME_MAX_NUM;
-    NRI_ABORT_ON_FAILURE( NRI.CreateStreamer(*m_Device, streamerDesc, m_Streamer) );
+    NRI_ABORT_ON_FAILURE(NRI.CreateStreamer(*m_Device, streamerDesc, m_Streamer));
 
     // Command queue
-    NRI_ABORT_ON_FAILURE( NRI.GetCommandQueue(*m_Device, nri::CommandQueueType::GRAPHICS, m_CommandQueue) );
+    NRI_ABORT_ON_FAILURE(NRI.GetCommandQueue(*m_Device, nri::CommandQueueType::GRAPHICS, m_CommandQueue));
 
     // Fences
-    NRI_ABORT_ON_FAILURE( NRI.CreateFence(*m_Device, 0, m_FrameFence) );
+    NRI_ABORT_ON_FAILURE(NRI.CreateFence(*m_Device, 0, m_FrameFence));
 
     // Swap chain
     nri::Format swapChainFormat;
@@ -352,29 +334,27 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
         swapChainDesc.width = (uint16_t)GetWindowResolution().x;
         swapChainDesc.height = (uint16_t)GetWindowResolution().y;
         swapChainDesc.textureNum = SWAP_CHAIN_TEXTURE_NUM;
-        NRI_ABORT_ON_FAILURE( NRI.CreateSwapChain(*m_Device, swapChainDesc, m_SwapChain) );
+        NRI_ABORT_ON_FAILURE(NRI.CreateSwapChain(*m_Device, swapChainDesc, m_SwapChain));
 
         uint32_t swapChainTextureNum;
         nri::Texture* const* swapChainTextures = NRI.GetSwapChainTextures(*m_SwapChain, swapChainTextureNum);
         swapChainFormat = NRI.GetTextureDesc(*swapChainTextures[0]).format;
 
-        for (uint32_t i = 0; i < swapChainTextureNum; i++)
-        {
-            nri::Texture2DViewDesc textureViewDesc = { swapChainTextures[i], nri::Texture2DViewType::COLOR_ATTACHMENT, swapChainFormat };
+        for (uint32_t i = 0; i < swapChainTextureNum; i++) {
+            nri::Texture2DViewDesc textureViewDesc = {swapChainTextures[i], nri::Texture2DViewType::COLOR_ATTACHMENT, swapChainFormat};
 
             nri::Descriptor* colorAttachment;
-            NRI_ABORT_ON_FAILURE( NRI.CreateTexture2DView(textureViewDesc, colorAttachment) );
+            NRI_ABORT_ON_FAILURE(NRI.CreateTexture2DView(textureViewDesc, colorAttachment));
 
-            const BackBuffer backBuffer = { colorAttachment, swapChainTextures[i] };
+            const BackBuffer backBuffer = {colorAttachment, swapChainTextures[i]};
             m_SwapChainBuffers.push_back(backBuffer);
         }
     }
 
     // Buffered resources
-    for (Frame& frame : m_Frames)
-    {
-        NRI_ABORT_ON_FAILURE( NRI.CreateCommandAllocator(*m_CommandQueue, frame.commandAllocator) );
-        NRI_ABORT_ON_FAILURE( NRI.CreateCommandBuffer(*frame.commandAllocator, frame.commandBuffer) );
+    for (Frame& frame : m_Frames) {
+        NRI_ABORT_ON_FAILURE(NRI.CreateCommandAllocator(*m_CommandQueue, frame.commandAllocator));
+        NRI_ABORT_ON_FAILURE(NRI.CreateCommandBuffer(*frame.commandAllocator, frame.commandBuffer));
     }
 
     // Pipeline
@@ -388,13 +368,12 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
         descriptorRangeTexture[0] = {0, 1, nri::DescriptorType::TEXTURE, nri::StageBits::FRAGMENT_SHADER};
         descriptorRangeTexture[1] = {0, 1, nri::DescriptorType::SAMPLER, nri::StageBits::FRAGMENT_SHADER};
 
-        nri::DescriptorSetDesc descriptorSetDescs[] =
-        {
+        nri::DescriptorSetDesc descriptorSetDescs[] = {
             {0, descriptorRangeConstant, helper::GetCountOf(descriptorRangeConstant)},
             {1, descriptorRangeTexture, helper::GetCountOf(descriptorRangeTexture)},
         };
 
-        nri::PushConstantDesc pushConstant = { 1, sizeof(float), nri::StageBits::FRAGMENT_SHADER };
+        nri::PushConstantDesc pushConstant = {1, sizeof(float), nri::StageBits::FRAGMENT_SHADER};
 
         nri::PipelineLayoutDesc pipelineLayoutDesc = {};
         pipelineLayoutDesc.descriptorSetNum = helper::GetCountOf(descriptorSetDescs);
@@ -403,7 +382,7 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
         pipelineLayoutDesc.pushConstants = &pushConstant;
         pipelineLayoutDesc.shaderStages = nri::StageBits::VERTEX_SHADER | nri::StageBits::FRAGMENT_SHADER;
 
-        NRI_ABORT_ON_FAILURE( NRI.CreatePipelineLayout(*m_Device, pipelineLayoutDesc, m_PipelineLayout) );
+        NRI_ABORT_ON_FAILURE(NRI.CreatePipelineLayout(*m_Device, pipelineLayoutDesc, m_PipelineLayout));
 
         nri::VertexStreamDesc vertexStreamDesc = {};
         vertexStreamDesc.bindingSlot = 0;
@@ -414,14 +393,14 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
             vertexAttributeDesc[0].format = nri::Format::RG32_SFLOAT;
             vertexAttributeDesc[0].streamIndex = 0;
             vertexAttributeDesc[0].offset = helper::GetOffsetOf(&Vertex::position);
-            vertexAttributeDesc[0].d3d = { "POSITION", 0 };
-            vertexAttributeDesc[0].vk.location = { 0 };
+            vertexAttributeDesc[0].d3d = {"POSITION", 0};
+            vertexAttributeDesc[0].vk.location = {0};
 
             vertexAttributeDesc[1].format = nri::Format::RG32_SFLOAT;
             vertexAttributeDesc[1].streamIndex = 0;
             vertexAttributeDesc[1].offset = helper::GetOffsetOf(&Vertex::uv);
-            vertexAttributeDesc[1].d3d = { "TEXCOORD", 0 };
-            vertexAttributeDesc[1].vk.location = { 1 };
+            vertexAttributeDesc[1].d3d = {"TEXCOORD", 0};
+            vertexAttributeDesc[1].vk.location = {1};
         }
 
         nri::VertexInputDesc vertexInputDesc = {};
@@ -442,14 +421,13 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
         colorAttachmentDesc.format = swapChainFormat;
         colorAttachmentDesc.colorWriteMask = nri::ColorWriteBits::RGBA;
         colorAttachmentDesc.blendEnabled = true;
-        colorAttachmentDesc.colorBlend = { nri::BlendFactor::SRC_ALPHA, nri::BlendFactor::ONE_MINUS_SRC_ALPHA, nri::BlendFunc::ADD };
+        colorAttachmentDesc.colorBlend = {nri::BlendFactor::SRC_ALPHA, nri::BlendFactor::ONE_MINUS_SRC_ALPHA, nri::BlendFunc::ADD};
 
         nri::OutputMergerDesc outputMergerDesc = {};
         outputMergerDesc.colorNum = 1;
         outputMergerDesc.color = &colorAttachmentDesc;
 
-        nri::ShaderDesc shaderStages[] =
-        {
+        nri::ShaderDesc shaderStages[] = {
             utils::LoadShader(deviceDesc.graphicsAPI, "Triangle.vs", shaderCodeStorage),
             utils::LoadShader(deviceDesc.graphicsAPI, "Triangle.fs", shaderCodeStorage),
         };
@@ -463,7 +441,7 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
         graphicsPipelineDesc.shaders = shaderStages;
         graphicsPipelineDesc.shaderNum = helper::GetCountOf(shaderStages);
 
-        NRI_ABORT_ON_FAILURE( NRI.CreateGraphicsPipeline(*m_Device, graphicsPipelineDesc, m_Pipeline) );
+        NRI_ABORT_ON_FAILURE(NRI.CreateGraphicsPipeline(*m_Device, graphicsPipelineDesc, m_Pipeline));
     }
 
     // Descriptor pool
@@ -474,7 +452,7 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
         descriptorPoolDesc.textureMaxNum = 1;
         descriptorPoolDesc.samplerMaxNum = 1;
 
-        NRI_ABORT_ON_FAILURE( NRI.CreateDescriptorPool(*m_Device, descriptorPoolDesc, m_DescriptorPool) );
+        NRI_ABORT_ON_FAILURE(NRI.CreateDescriptorPool(*m_Device, descriptorPoolDesc, m_DescriptorPool));
     }
 
     // Load texture
@@ -492,14 +470,14 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
         // Texture
         nri::TextureDesc textureDesc = nri::Texture2D(texture.GetFormat(),
             texture.GetWidth(), texture.GetHeight(), texture.GetMipNum());
-        NRI_ABORT_ON_FAILURE( NRI.CreateTexture(*m_Device, textureDesc, m_Texture) );
+        NRI_ABORT_ON_FAILURE(NRI.CreateTexture(*m_Device, textureDesc, m_Texture));
 
         // Constant buffer
         {
             nri::BufferDesc bufferDesc = {};
             bufferDesc.size = constantBufferSize * BUFFERED_FRAME_MAX_NUM;
             bufferDesc.usageMask = nri::BufferUsageBits::CONSTANT_BUFFER;
-            NRI_ABORT_ON_FAILURE( NRI.CreateBuffer(*m_Device, bufferDesc, m_ConstantBuffer) );
+            NRI_ABORT_ON_FAILURE(NRI.CreateBuffer(*m_Device, bufferDesc, m_ConstantBuffer));
         }
 
         // Geometry buffer
@@ -507,7 +485,7 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
             nri::BufferDesc bufferDesc = {};
             bufferDesc.size = indexDataAlignedSize + vertexDataSize;
             bufferDesc.usageMask = nri::BufferUsageBits::VERTEX_BUFFER | nri::BufferUsageBits::INDEX_BUFFER;
-            NRI_ABORT_ON_FAILURE( NRI.CreateBuffer(*m_Device, bufferDesc, m_GeometryBuffer) );
+            NRI_ABORT_ON_FAILURE(NRI.CreateBuffer(*m_Device, bufferDesc, m_GeometryBuffer));
         }
         m_GeometryOffset = indexDataAlignedSize;
     }
@@ -518,7 +496,7 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
     resourceGroupDesc.buffers = &m_ConstantBuffer;
 
     m_MemoryAllocations.resize(1, nullptr);
-    NRI_ABORT_ON_FAILURE( NRI.AllocateAndBindMemory(*m_Device, resourceGroupDesc, m_MemoryAllocations.data()) );
+    NRI_ABORT_ON_FAILURE(NRI.AllocateAndBindMemory(*m_Device, resourceGroupDesc, m_MemoryAllocations.data()));
 
     resourceGroupDesc.memoryLocation = nri::MemoryLocation::DEVICE;
     resourceGroupDesc.bufferNum = 1;
@@ -527,31 +505,30 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
     resourceGroupDesc.textures = &m_Texture;
 
     m_MemoryAllocations.resize(1 + NRI.CalculateAllocationNumber(*m_Device, resourceGroupDesc), nullptr);
-    NRI_ABORT_ON_FAILURE( NRI.AllocateAndBindMemory(*m_Device, resourceGroupDesc, m_MemoryAllocations.data() + 1) );
+    NRI_ABORT_ON_FAILURE(NRI.AllocateAndBindMemory(*m_Device, resourceGroupDesc, m_MemoryAllocations.data() + 1));
 
     // Descriptors
     {
         // Texture
-        nri::Texture2DViewDesc texture2DViewDesc = { m_Texture, nri::Texture2DViewType::SHADER_RESOURCE_2D, texture.GetFormat() };
-        NRI_ABORT_ON_FAILURE( NRI.CreateTexture2DView(texture2DViewDesc, m_TextureShaderResource) );
+        nri::Texture2DViewDesc texture2DViewDesc = {m_Texture, nri::Texture2DViewType::SHADER_RESOURCE_2D, texture.GetFormat()};
+        NRI_ABORT_ON_FAILURE(NRI.CreateTexture2DView(texture2DViewDesc, m_TextureShaderResource));
 
         // Sampler
         nri::SamplerDesc samplerDesc = {};
-        samplerDesc.addressModes = { nri::AddressMode::MIRRORED_REPEAT, nri::AddressMode::MIRRORED_REPEAT };
+        samplerDesc.addressModes = {nri::AddressMode::MIRRORED_REPEAT, nri::AddressMode::MIRRORED_REPEAT};
         samplerDesc.filters = {nri::Filter::LINEAR, nri::Filter::LINEAR, nri::Filter::LINEAR};
         samplerDesc.anisotropy = 4;
         samplerDesc.mipMax = 16.0f;
-        NRI_ABORT_ON_FAILURE( NRI.CreateSampler(*m_Device, samplerDesc, m_Sampler) );
+        NRI_ABORT_ON_FAILURE(NRI.CreateSampler(*m_Device, samplerDesc, m_Sampler));
 
         // Constant buffer
-        for (uint32_t i = 0; i < BUFFERED_FRAME_MAX_NUM; i++)
-        {
+        for (uint32_t i = 0; i < BUFFERED_FRAME_MAX_NUM; i++) {
             nri::BufferViewDesc bufferViewDesc = {};
             bufferViewDesc.buffer = m_ConstantBuffer;
             bufferViewDesc.viewType = nri::BufferViewType::CONSTANT;
             bufferViewDesc.offset = i * constantBufferSize;
             bufferViewDesc.size = constantBufferSize;
-            NRI_ABORT_ON_FAILURE( NRI.CreateBufferView(bufferViewDesc, m_Frames[i].constantBufferView) );
+            NRI_ABORT_ON_FAILURE(NRI.CreateBufferView(bufferViewDesc, m_Frames[i].constantBufferView));
 
             m_Frames[i].constantBufferViewOffset = bufferViewDesc.offset;
         }
@@ -560,7 +537,7 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
     // Descriptor sets
     {
         // Texture
-        NRI_ABORT_ON_FAILURE( NRI.AllocateDescriptorSets(*m_DescriptorPool, *m_PipelineLayout, 1, &m_TextureDescriptorSet, 1, 0));
+        NRI_ABORT_ON_FAILURE(NRI.AllocateDescriptorSets(*m_DescriptorPool, *m_PipelineLayout, 1, &m_TextureDescriptorSet, 1, 0));
 
         nri::DescriptorRangeUpdateDesc descriptorRangeUpdateDescs[2] = {};
         descriptorRangeUpdateDescs[0].descriptorNum = 1;
@@ -571,11 +548,10 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
         NRI.UpdateDescriptorRanges(*m_TextureDescriptorSet, 0, helper::GetCountOf(descriptorRangeUpdateDescs), descriptorRangeUpdateDescs);
 
         // Constant buffer
-        for (Frame& frame : m_Frames)
-        {
-            NRI_ABORT_ON_FAILURE( NRI.AllocateDescriptorSets(*m_DescriptorPool, *m_PipelineLayout, 0, &frame.constantBufferDescriptorSet, 1, 0) );
+        for (Frame& frame : m_Frames) {
+            NRI_ABORT_ON_FAILURE(NRI.AllocateDescriptorSets(*m_DescriptorPool, *m_PipelineLayout, 0, &frame.constantBufferDescriptorSet, 1, 0));
 
-            nri::DescriptorRangeUpdateDesc descriptorRangeUpdateDesc = { &frame.constantBufferView, 1 };
+            nri::DescriptorRangeUpdateDesc descriptorRangeUpdateDesc = {&frame.constantBufferView, 1};
             NRI.UpdateDescriptorRanges(*frame.constantBufferDescriptorSet, 0, 1, &descriptorRangeUpdateDesc);
         }
     }
@@ -601,7 +577,7 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
         bufferData.dataSize = geometryBufferData.size();
         bufferData.after = {nri::AccessBits::INDEX_BUFFER | nri::AccessBits::VERTEX_BUFFER};
 
-        NRI_ABORT_ON_FAILURE( NRI.UploadData(*m_CommandQueue, &textureData, 1, &bufferData, 1) );
+        NRI_ABORT_ON_FAILURE(NRI.UploadData(*m_CommandQueue, &textureData, 1, &bufferData, 1));
     }
 
     // User interface
@@ -610,8 +586,7 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
     return initialized;
 }
 
-void Sample::PrepareFrame(uint32_t)
-{
+void Sample::PrepareFrame(uint32_t) {
     BeginUI();
 
     ImGui::SetNextWindowPos(ImVec2(30, 30), ImGuiCond_Once);
@@ -627,8 +602,7 @@ void Sample::PrepareFrame(uint32_t)
     NRI.CopyStreamerUpdateRequests(*m_Streamer);
 }
 
-void Sample::RenderFrame(uint32_t frameIndex)
-{
+void Sample::RenderFrame(uint32_t frameIndex) {
     nri::Dim_t windowWidth = (nri::Dim_t)GetWindowResolution().x;
     nri::Dim_t windowHeight = (nri::Dim_t)GetWindowResolution().y;
     nri::Dim_t halfWidth = windowWidth / 2;
@@ -637,15 +611,13 @@ void Sample::RenderFrame(uint32_t frameIndex)
     const uint32_t bufferedFrameIndex = frameIndex % BUFFERED_FRAME_MAX_NUM;
     const Frame& frame = m_Frames[bufferedFrameIndex];
 
-    if (frameIndex >= BUFFERED_FRAME_MAX_NUM)
-    {
+    if (frameIndex >= BUFFERED_FRAME_MAX_NUM) {
         NRI.Wait(*m_FrameFence, 1 + frameIndex - BUFFERED_FRAME_MAX_NUM);
         NRI.ResetCommandAllocator(*frame.commandAllocator);
     }
 
     ConstantBufferLayout* commonConstants = (ConstantBufferLayout*)NRI.MapBuffer(*m_ConstantBuffer, frame.constantBufferViewOffset, sizeof(ConstantBufferLayout));
-    if (commonConstants)
-    {
+    if (commonConstants) {
         commonConstants->color[0] = 0.8f;
         commonConstants->color[1] = 0.5f;
         commonConstants->color[2] = 0.1f;
@@ -660,7 +632,7 @@ void Sample::RenderFrame(uint32_t frameIndex)
     nri::TextureBarrierDesc textureBarrierDescs = {};
     textureBarrierDescs.texture = currentBackBuffer.texture;
     textureBarrierDescs.after = {nri::AccessBits::COLOR_ATTACHMENT, nri::Layout::COLOR_ATTACHMENT};
-    textureBarrierDescs.arraySize = 1;
+    textureBarrierDescs.layerNum = 1;
     textureBarrierDescs.mipNum = 1;
 
     // Record
@@ -699,8 +671,8 @@ void Sample::RenderFrame(uint32_t frameIndex)
             {
                 helper::Annotation annotation(NRI, *commandBuffer, "Triangle");
 
-                const nri::Viewport viewport = { 0.0f, 0.0f, (float)windowWidth, (float)windowHeight, 0.0f, 1.0f };
-                NRI.CmdSetViewports( *commandBuffer, &viewport, 1 );
+                const nri::Viewport viewport = {0.0f, 0.0f, (float)windowWidth, (float)windowHeight, 0.0f, 1.0f};
+                NRI.CmdSetViewports(*commandBuffer, &viewport, 1);
 
                 NRI.CmdSetPipelineLayout(*commandBuffer, *m_PipelineLayout);
                 NRI.CmdSetPipeline(*commandBuffer, *m_Pipeline);
@@ -710,11 +682,11 @@ void Sample::RenderFrame(uint32_t frameIndex)
                 NRI.CmdSetDescriptorSet(*commandBuffer, 0, *frame.constantBufferDescriptorSet, nullptr);
                 NRI.CmdSetDescriptorSet(*commandBuffer, 1, *m_TextureDescriptorSet, nullptr);
 
-                nri::Rect scissor = { 0, 0, halfWidth, windowHeight };
+                nri::Rect scissor = {0, 0, halfWidth, windowHeight};
                 NRI.CmdSetScissors(*commandBuffer, &scissor, 1);
                 NRI.CmdDrawIndexed(*commandBuffer, {3, 1, 0, 0, 0});
 
-                scissor = { (int16_t)halfWidth, (int16_t)halfHeight, halfWidth, halfHeight };
+                scissor = {(int16_t)halfWidth, (int16_t)halfHeight, halfWidth, halfHeight};
                 NRI.CmdSetScissors(*commandBuffer, &scissor, 1);
                 NRI.CmdDraw(*commandBuffer, {3, 1, 0, 0});
             }
@@ -760,45 +732,39 @@ void Sample::RenderFrame(uint32_t frameIndex)
 
 #ifdef _WIN32
 
-    #include <windows.h>
-    #undef LoadLibrary
+#    include <windows.h>
+#    undef LoadLibrary
 
-    Library* LoadSharedLibrary(const char* path)
-    {
-        return (Library*)LoadLibraryA(path);
-    }
+Library* LoadSharedLibrary(const char* path) {
+    return (Library*)LoadLibraryA(path);
+}
 
-    void* GetSharedLibraryFunction(Library& library, const char* name)
-    {
-        return (void*)GetProcAddress((HMODULE)&library, name);
-    }
+void* GetSharedLibraryFunction(Library& library, const char* name) {
+    return (void*)GetProcAddress((HMODULE)&library, name);
+}
 
-    void UnloadSharedLibrary(Library& library)
-    {
-        FreeLibrary((HMODULE)&library);
-    }
+void UnloadSharedLibrary(Library& library) {
+    FreeLibrary((HMODULE)&library);
+}
 
 #elif defined(__linux__)
 
-    #include <dlfcn.h>
+#    include <dlfcn.h>
 
-    Library* LoadSharedLibrary(const char* path)
-    {
-        return (Library*)dlopen(path, RTLD_NOW);
-    }
+Library* LoadSharedLibrary(const char* path) {
+    return (Library*)dlopen(path, RTLD_NOW);
+}
 
-    void* GetSharedLibraryFunction(Library& library, const char* name)
-    {
-        return dlsym((void*)&library, name);
-    }
+void* GetSharedLibraryFunction(Library& library, const char* name) {
+    return dlsym((void*)&library, name);
+}
 
-    void UnloadSharedLibrary(Library& library)
-    {
-        dlclose((void*)&library);
-    }
+void UnloadSharedLibrary(Library& library) {
+    dlclose((void*)&library);
+}
 
 #else
-    #error unknown platform
+#    error unknown platform
 #endif
 
 SAMPLE_MAIN(Sample, 0);

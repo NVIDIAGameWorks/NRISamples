@@ -1,29 +1,27 @@
 // © 2021 NVIDIA Corporation
 
-#include <stdio.h>
 #include <malloc.h>
+#include <stdio.h>
 
 #define NRI_FORCE_C
 
 #include "NRI.h"
+
 #include "Extensions/NRIDeviceCreation.h"
 
-static const char* vendors[] =
-{
+static const char* vendors[] = {
     "unknown",
     "NVIDIA",
     "AMD",
-    "INTEL"
-};
+    "INTEL"};
 
 #if _WIN32
-    #define alloca _alloca
+#    define alloca _alloca
 #else
-    #include <alloca.h>
+#    include <alloca.h>
 #endif
 
-bool EnumerateAdapters()
-{
+bool EnumerateAdapters() {
     // Query device adapterDescs number
     uint32_t adaptersNum = 0;
     NriResult result = nriEnumerateAdapters(NULL, &adaptersNum);
@@ -42,8 +40,7 @@ bool EnumerateAdapters()
         return false;
 
     // Print information
-    for (uint32_t i = 0; i < adaptersNum; i++)
-    {
+    for (uint32_t i = 0; i < adaptersNum; i++) {
         const NriAdapterDesc* p = adapterDescs + i;
 
         printf("\nGroup #%u\n", i + 1);
@@ -58,7 +55,6 @@ bool EnumerateAdapters()
     return true;
 }
 
-int main()
-{
+int main() {
     return EnumerateAdapters() ? 0 : 1;
 }

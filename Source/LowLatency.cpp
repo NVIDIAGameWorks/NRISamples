@@ -1,7 +1,6 @@
 // © 2024 NVIDIA Corporation
 
 #include "NRIFramework.h"
-#include "Extensions/NRILowLatency.h"
 
 #include <array>
 
@@ -15,25 +14,21 @@
 #define CTA_NUM 38000 // tuned to reach ~1ms on RTX 4080
 
 struct NRIInterface
-    : public nri::CoreInterface
-    , public nri::HelperInterface
-    , public nri::StreamerInterface
-    , public nri::SwapChainInterface
-    , public nri::LowLatencyInterface
-{};
+    : public nri::CoreInterface,
+      public nri::HelperInterface,
+      public nri::StreamerInterface,
+      public nri::SwapChainInterface,
+      public nri::LowLatencyInterface {};
 
-struct Frame
-{
+struct Frame {
     nri::CommandAllocator* commandAllocator;
     nri::CommandBuffer* commandBuffer;
 };
 
-class Sample : public SampleBase
-{
+class Sample : public SampleBase {
 public:
-
-    Sample()
-    {}
+    Sample() {
+    }
 
     ~Sample();
 
@@ -43,7 +38,6 @@ public:
     void RenderFrame(uint32_t frameIndex) override;
 
 private:
-
     NRIInterface NRI = {};
     nri::Device* m_Device = nullptr;
     nri::Streamer* m_Streamer = nullptr;
@@ -60,19 +54,17 @@ private:
 
     std::array<Frame, QUEUED_FRAMES_MAX_NUM> m_Frames = {};
     std::vector<BackBuffer> m_SwapChainBuffers;
-    float m_CpuWorkload = 4.0f; // ms
-    uint32_t m_GpuWorkload = 10; // in pigeons, current settings give ~10 ms on RTX 4080
+    float m_CpuWorkload = 4.0f;                        // ms
+    uint32_t m_GpuWorkload = 10;                       // in pigeons, current settings give ~10 ms on RTX 4080
     uint32_t m_QueuedFrameNum = QUEUED_FRAMES_MAX_NUM; // [1; QUEUED_FRAMES_MAX_NUM]
     bool m_AllowLowLatency = false;
     bool m_EnableLowLatency = false;
 };
 
-Sample::~Sample()
-{
+Sample::~Sample() {
     NRI.WaitForIdle(*m_CommandQueue);
 
-    for (Frame& frame : m_Frames)
-    {
+    for (Frame& frame : m_Frames) {
         NRI.DestroyCommandBuffer(*frame.commandBuffer);
         NRI.DestroyCommandAllocator(*frame.commandAllocator);
     }
@@ -96,11 +88,10 @@ Sample::~Sample()
     nri::nriDestroyDevice(*m_Device);
 }
 
-bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
-{
+bool Sample::Initialize(nri::GraphicsAPI graphicsAPI) {
     nri::AdapterDesc bestAdapterDesc = {};
     uint32_t adapterDescsNum = 1;
-    NRI_ABORT_ON_FAILURE( nri::nriEnumerateAdapters(&bestAdapterDesc, adapterDescsNum) );
+    NRI_ABORT_ON_FAILURE(nri::nriEnumerateAdapters(&bestAdapterDesc, adapterDescsNum));
 
     // Device
     nri::DeviceCreationDesc deviceCreationDesc = {};
@@ -111,13 +102,13 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
     deviceCreationDesc.spirvBindingOffsets = SPIRV_BINDING_OFFSETS;
     deviceCreationDesc.adapterDesc = &bestAdapterDesc;
     deviceCreationDesc.allocationCallbacks = m_AllocationCallbacks;
-    NRI_ABORT_ON_FAILURE( nri::nriCreateDevice(deviceCreationDesc, m_Device) );
+    NRI_ABORT_ON_FAILURE(nri::nriCreateDevice(deviceCreationDesc, m_Device));
 
     // NRI
-    NRI_ABORT_ON_FAILURE( nri::nriGetInterface(*m_Device, NRI_INTERFACE(nri::CoreInterface), (nri::CoreInterface*)&NRI) );
-    NRI_ABORT_ON_FAILURE( nri::nriGetInterface(*m_Device, NRI_INTERFACE(nri::HelperInterface), (nri::HelperInterface*)&NRI) );
-    NRI_ABORT_ON_FAILURE( nri::nriGetInterface(*m_Device, NRI_INTERFACE(nri::StreamerInterface), (nri::StreamerInterface*)&NRI) );
-    NRI_ABORT_ON_FAILURE( nri::nriGetInterface(*m_Device, NRI_INTERFACE(nri::SwapChainInterface), (nri::SwapChainInterface*)&NRI) );
+    NRI_ABORT_ON_FAILURE(nri::nriGetInterface(*m_Device, NRI_INTERFACE(nri::CoreInterface), (nri::CoreInterface*)&NRI));
+    NRI_ABORT_ON_FAILURE(nri::nriGetInterface(*m_Device, NRI_INTERFACE(nri::HelperInterface), (nri::HelperInterface*)&NRI));
+    NRI_ABORT_ON_FAILURE(nri::nriGetInterface(*m_Device, NRI_INTERFACE(nri::StreamerInterface), (nri::StreamerInterface*)&NRI));
+    NRI_ABORT_ON_FAILURE(nri::nriGetInterface(*m_Device, NRI_INTERFACE(nri::SwapChainInterface), (nri::SwapChainInterface*)&NRI));
 
     const nri::DeviceDesc& deviceDesc = NRI.GetDeviceDesc(*m_Device);
 
@@ -127,19 +118,19 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
     streamerDesc.dynamicBufferUsageBits = nri::BufferUsageBits::VERTEX_BUFFER | nri::BufferUsageBits::INDEX_BUFFER;
     streamerDesc.constantBufferMemoryLocation = nri::MemoryLocation::HOST_UPLOAD;
     streamerDesc.frameInFlightNum = QUEUED_FRAMES_MAX_NUM;
-    NRI_ABORT_ON_FAILURE( NRI.CreateStreamer(*m_Device, streamerDesc, m_Streamer) );
+    NRI_ABORT_ON_FAILURE(NRI.CreateStreamer(*m_Device, streamerDesc, m_Streamer));
 
     // Low latency
     m_AllowLowLatency = ALLOW_LOW_LATENCY && deviceDesc.isLowLatencySupported;
 
     if (m_AllowLowLatency)
-        NRI_ABORT_ON_FAILURE( nri::nriGetInterface(*m_Device, NRI_INTERFACE(nri::LowLatencyInterface), (nri::LowLatencyInterface*)&NRI) );
+        NRI_ABORT_ON_FAILURE(nri::nriGetInterface(*m_Device, NRI_INTERFACE(nri::LowLatencyInterface), (nri::LowLatencyInterface*)&NRI));
 
     // Command queue
-    NRI_ABORT_ON_FAILURE( NRI.GetCommandQueue(*m_Device, nri::CommandQueueType::GRAPHICS, m_CommandQueue) );
+    NRI_ABORT_ON_FAILURE(NRI.GetCommandQueue(*m_Device, nri::CommandQueueType::GRAPHICS, m_CommandQueue));
 
     // Fence
-    NRI_ABORT_ON_FAILURE( NRI.CreateFence(*m_Device, 0, m_FrameFence) );
+    NRI_ABORT_ON_FAILURE(NRI.CreateFence(*m_Device, 0, m_FrameFence));
 
     // Swap chain
     nri::Format swapChainFormat;
@@ -156,20 +147,19 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
         swapChainDesc.queuedFrameNum = WAITABLE_SWAP_CHAIN ? WAITABLE_SWAP_CHAIN_MAX_FRAME_LATENCY : (uint8_t)m_Frames.size();
         swapChainDesc.waitable = WAITABLE_SWAP_CHAIN;
         swapChainDesc.allowLowLatency = m_AllowLowLatency;
-        NRI_ABORT_ON_FAILURE( NRI.CreateSwapChain(*m_Device, swapChainDesc, m_SwapChain) );
+        NRI_ABORT_ON_FAILURE(NRI.CreateSwapChain(*m_Device, swapChainDesc, m_SwapChain));
 
         uint32_t swapChainTextureNum;
         nri::Texture* const* swapChainTextures = NRI.GetSwapChainTextures(*m_SwapChain, swapChainTextureNum);
         swapChainFormat = NRI.GetTextureDesc(*swapChainTextures[0]).format;
 
-        for (uint32_t i = 0; i < swapChainTextureNum; i++)
-        {
+        for (uint32_t i = 0; i < swapChainTextureNum; i++) {
             nri::Texture2DViewDesc textureViewDesc = {swapChainTextures[i], nri::Texture2DViewType::COLOR_ATTACHMENT, swapChainFormat};
 
             nri::Descriptor* colorAttachment;
-            NRI_ABORT_ON_FAILURE( NRI.CreateTexture2DView(textureViewDesc, colorAttachment) );
+            NRI_ABORT_ON_FAILURE(NRI.CreateTexture2DView(textureViewDesc, colorAttachment));
 
-            const BackBuffer backBuffer = { colorAttachment, swapChainTextures[i] };
+            const BackBuffer backBuffer = {colorAttachment, swapChainTextures[i]};
             m_SwapChainBuffers.push_back(backBuffer);
         }
     }
@@ -179,21 +169,21 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
         bufferDesc.size = CTA_NUM * 256 * sizeof(float);
         bufferDesc.usageMask = nri::BufferUsageBits::SHADER_RESOURCE_STORAGE;
 
-        NRI_ABORT_ON_FAILURE( NRI.CreateBuffer(*m_Device, bufferDesc, m_Buffer) );
+        NRI_ABORT_ON_FAILURE(NRI.CreateBuffer(*m_Device, bufferDesc, m_Buffer));
 
         nri::ResourceGroupDesc resourceGroupDesc = {};
         resourceGroupDesc.memoryLocation = nri::MemoryLocation::DEVICE;
         resourceGroupDesc.bufferNum = 1;
         resourceGroupDesc.buffers = &m_Buffer;
 
-        NRI_ABORT_ON_FAILURE( NRI.AllocateAndBindMemory(*m_Device, resourceGroupDesc, &m_Memory) );
+        NRI_ABORT_ON_FAILURE(NRI.AllocateAndBindMemory(*m_Device, resourceGroupDesc, &m_Memory));
 
         nri::BufferViewDesc bufferViewDesc = {};
         bufferViewDesc.buffer = m_Buffer;
         bufferViewDesc.format = nri::Format::R16_SFLOAT;
         bufferViewDesc.viewType = nri::BufferViewType::SHADER_RESOURCE_STORAGE;
 
-        NRI_ABORT_ON_FAILURE( NRI.CreateBufferView(bufferViewDesc, m_BufferStorage) );
+        NRI_ABORT_ON_FAILURE(NRI.CreateBufferView(bufferViewDesc, m_BufferStorage));
     }
 
     { // Compute pipeline
@@ -206,12 +196,12 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
         pipelineLayoutDesc.descriptorSetNum = 1;
         pipelineLayoutDesc.descriptorSets = &descriptorSetDesc;
         pipelineLayoutDesc.shaderStages = nri::StageBits::COMPUTE_SHADER;
-        NRI_ABORT_ON_FAILURE( NRI.CreatePipelineLayout(*m_Device, pipelineLayoutDesc, m_PipelineLayout) );
+        NRI_ABORT_ON_FAILURE(NRI.CreatePipelineLayout(*m_Device, pipelineLayoutDesc, m_PipelineLayout));
 
         nri::ComputePipelineDesc computePipelineDesc = {};
         computePipelineDesc.pipelineLayout = m_PipelineLayout;
         computePipelineDesc.shader = utils::LoadShader(deviceDesc.graphicsAPI, "Compute.cs", shaderCodeStorage);
-        NRI_ABORT_ON_FAILURE( NRI.CreateComputePipeline(*m_Device, computePipelineDesc, m_Pipeline) );
+        NRI_ABORT_ON_FAILURE(NRI.CreateComputePipeline(*m_Device, computePipelineDesc, m_Pipeline));
     }
 
     { // Descriptor pool
@@ -219,25 +209,23 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI)
         descriptorPoolDesc.descriptorSetMaxNum = 1;
         descriptorPoolDesc.storageBufferMaxNum = 1;
 
-        NRI_ABORT_ON_FAILURE( NRI.CreateDescriptorPool(*m_Device, descriptorPoolDesc, m_DescriptorPool) );    
-        NRI_ABORT_ON_FAILURE( NRI.AllocateDescriptorSets(*m_DescriptorPool, *m_PipelineLayout, 0, &m_DescriptorSet, 1, 0) );
+        NRI_ABORT_ON_FAILURE(NRI.CreateDescriptorPool(*m_Device, descriptorPoolDesc, m_DescriptorPool));
+        NRI_ABORT_ON_FAILURE(NRI.AllocateDescriptorSets(*m_DescriptorPool, *m_PipelineLayout, 0, &m_DescriptorSet, 1, 0));
 
         nri::DescriptorRangeUpdateDesc descriptorRangeUpdateDesc = {&m_BufferStorage, 1, 0};
         NRI.UpdateDescriptorRanges(*m_DescriptorSet, 0, 1, &descriptorRangeUpdateDesc);
     }
 
     // Buffered resources
-    for (Frame& frame : m_Frames)
-    {
-        NRI_ABORT_ON_FAILURE( NRI.CreateCommandAllocator(*m_CommandQueue, frame.commandAllocator) );
-        NRI_ABORT_ON_FAILURE( NRI.CreateCommandBuffer(*frame.commandAllocator, frame.commandBuffer) );
+    for (Frame& frame : m_Frames) {
+        NRI_ABORT_ON_FAILURE(NRI.CreateCommandAllocator(*m_CommandQueue, frame.commandAllocator));
+        NRI_ABORT_ON_FAILURE(NRI.CreateCommandBuffer(*frame.commandAllocator, frame.commandBuffer));
     }
 
     return InitUI(NRI, NRI, *m_Device, swapChainFormat);
 }
 
-void Sample::LatencySleep(uint32_t frameIndex)
-{
+void Sample::LatencySleep(uint32_t frameIndex) {
     // Marker
     if (m_AllowLowLatency)
         NRI.SetLatencyMarker(*m_SwapChain, nri::LatencyMarker::SIMULATION_START);
@@ -247,29 +235,25 @@ void Sample::LatencySleep(uint32_t frameIndex)
         NRI.WaitForPresent(*m_SwapChain);
 
     // Preserve frame queue (optimal place for "non-waitable" swap chain)
-    if constexpr (WAITABLE_SWAP_CHAIN == EMULATE_BAD_PRACTICE)
-    {
+    if constexpr (WAITABLE_SWAP_CHAIN == EMULATE_BAD_PRACTICE) {
         const Frame& frame = m_Frames[frameIndex % m_QueuedFrameNum];
-        if (frameIndex >= m_QueuedFrameNum)
-        {
+        if (frameIndex >= m_QueuedFrameNum) {
             NRI.Wait(*m_FrameFence, 1 + frameIndex - m_QueuedFrameNum);
             NRI.ResetCommandAllocator(*frame.commandAllocator);
         }
     }
 
     // Sleep just before sampling input
-    if (m_AllowLowLatency)
-    {
+    if (m_AllowLowLatency) {
         NRI.LatencySleep(*m_SwapChain);
         NRI.SetLatencyMarker(*m_SwapChain, nri::LatencyMarker::INPUT_SAMPLE);
     }
 }
 
-void Sample::PrepareFrame(uint32_t)
-{
+void Sample::PrepareFrame(uint32_t) {
     // Emulate CPU workload
     double begin = m_Timer.GetTimeStamp() + m_CpuWorkload;
-    while(m_Timer.GetTimeStamp() < begin)
+    while (m_Timer.GetTimeStamp() < begin)
         ;
 
     BeginUI();
@@ -313,11 +297,13 @@ void Sample::PrepareFrame(uint32_t)
         ImGui::SetNextItemWidth(210.0f);
         ImGui::SliderInt("##Frames", (int32_t*)&m_QueuedFrameNum, 1, (int32_t)m_Frames.size(), "%d", ImGuiSliderFlags_NoInput);
 
-        if (!m_AllowLowLatency) ImGui::BeginDisabled();
+        if (!m_AllowLowLatency)
+            ImGui::BeginDisabled();
         ImGui::Checkbox("Low latency (F1)", &m_EnableLowLatency);
         if (m_AllowLowLatency && IsKeyToggled(Key::F1))
             m_EnableLowLatency = !m_EnableLowLatency;
-        if (!m_AllowLowLatency) ImGui::EndDisabled();
+        if (!m_AllowLowLatency)
+            ImGui::EndDisabled();
 
         ImGui::BeginDisabled();
         bool waitable = WAITABLE_SWAP_CHAIN;
@@ -331,8 +317,7 @@ void Sample::PrepareFrame(uint32_t)
     EndUI(NRI, *m_Streamer);
     NRI.CopyStreamerUpdateRequests(*m_Streamer);
 
-    if (enableLowLatencyPrev != m_EnableLowLatency)
-    {
+    if (enableLowLatencyPrev != m_EnableLowLatency) {
         nri::LatencySleepMode sleepMode = {};
         sleepMode.lowLatencyMode = m_EnableLowLatency;
         sleepMode.lowLatencyBoost = m_EnableLowLatency;
@@ -348,17 +333,14 @@ void Sample::PrepareFrame(uint32_t)
         NRI.SetLatencyMarker(*m_SwapChain, nri::LatencyMarker::SIMULATION_END);
 }
 
-void Sample::RenderFrame(uint32_t frameIndex)
-{
+void Sample::RenderFrame(uint32_t frameIndex) {
     const uint32_t backBufferIndex = NRI.AcquireNextSwapChainTexture(*m_SwapChain);
     const BackBuffer& backBuffer = m_SwapChainBuffers[backBufferIndex];
     const Frame& frame = m_Frames[frameIndex % m_QueuedFrameNum];
 
     // Preserve frame queue (optimal place for "waitable" swapchain)
-    if constexpr (WAITABLE_SWAP_CHAIN != EMULATE_BAD_PRACTICE)
-    {
-        if (frameIndex >= m_QueuedFrameNum)
-        {
+    if constexpr (WAITABLE_SWAP_CHAIN != EMULATE_BAD_PRACTICE) {
+        if (frameIndex >= m_QueuedFrameNum) {
             NRI.Wait(*m_FrameFence, 1 + frameIndex - m_QueuedFrameNum);
             NRI.ResetCommandAllocator(*frame.commandAllocator);
         }
@@ -371,7 +353,7 @@ void Sample::RenderFrame(uint32_t frameIndex)
         nri::TextureBarrierDesc swapchainBarrier = {};
         swapchainBarrier.texture = backBuffer.texture;
         swapchainBarrier.after = {nri::AccessBits::COLOR_ATTACHMENT, nri::Layout::COLOR_ATTACHMENT};
-        swapchainBarrier.arraySize = 1;
+        swapchainBarrier.layerNum = 1;
         swapchainBarrier.mipNum = 1;
 
         { // Barrier
@@ -387,8 +369,7 @@ void Sample::RenderFrame(uint32_t frameIndex)
         NRI.CmdSetPipeline(commandBuffer, *m_Pipeline);
         NRI.CmdSetDescriptorSet(commandBuffer, 0, *m_DescriptorSet, nullptr);
 
-        for (uint32_t i = 0; i < m_GpuWorkload; i++)
-        {
+        for (uint32_t i = 0; i < m_GpuWorkload; i++) {
             NRI.CmdDispatch(commandBuffer, {CTA_NUM, 1, 1});
 
             { // Barrier
@@ -445,13 +426,11 @@ void Sample::RenderFrame(uint32_t frameIndex)
         queueSubmitDesc.signalFences = &signalFence;
         queueSubmitDesc.signalFenceNum = 1;
 
-        if (m_AllowLowLatency)
-        {
+        if (m_AllowLowLatency) {
             NRI.SetLatencyMarker(*m_SwapChain, nri::LatencyMarker::RENDER_SUBMIT_START);
             NRI.QueueSubmitTrackable(*m_CommandQueue, queueSubmitDesc, *m_SwapChain);
             NRI.SetLatencyMarker(*m_SwapChain, nri::LatencyMarker::RENDER_SUBMIT_END);
-        }
-        else
+        } else
             NRI.QueueSubmit(*m_CommandQueue, queueSubmitDesc);
     }
 
