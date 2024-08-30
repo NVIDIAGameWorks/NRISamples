@@ -157,6 +157,7 @@ void Sample::RenderFrame(uint32_t frameIndex) {
 
             nri::ClearDesc clearDesc = {};
             clearDesc.colorAttachmentIndex = 0;
+            clearDesc.planes = nri::PlaneBits::COLOR;
 
             nri::Dim_t w = (nri::Dim_t)GetWindowResolution().x;
             nri::Dim_t h = (nri::Dim_t)GetWindowResolution().y;

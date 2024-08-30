@@ -144,7 +144,7 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI) {
     // Fences
     NRI_ABORT_ON_FAILURE(NRI.CreateFence(*m_Device, 0, m_FrameFence));
 
-    m_DepthFormat = nri::GetSupportedDepthFormat(NRI, *m_Device, 24, false);
+    m_DepthFormat = nri::GetSupportedDepthFormat(NRI, *m_Device, 24, true);
 
     { // Swap chain
         nri::SwapChainDesc swapChainDesc = {};
@@ -168,10 +168,7 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI) {
         NRI_ABORT_ON_FAILURE(NRI.CreateCommandBuffer(*frame.commandAllocator, frame.commandBuffer));
     }
 
-    // Pipeline
-    const nri::DeviceDesc& deviceDesc = NRI.GetDeviceDesc(*m_Device);
-    utils::ShaderCodeStorage shaderCodeStorage;
-    {
+    { // Pipeline layout
         nri::DescriptorRangeDesc globalDescriptorRange[2];
         globalDescriptorRange[0] = {0, 1, nri::DescriptorType::CONSTANT_BUFFER, nri::StageBits::ALL};
         globalDescriptorRange[1] = {0, 1, nri::DescriptorType::SAMPLER, nri::StageBits::FRAGMENT_SHADER};
@@ -190,7 +187,12 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI) {
         pipelineLayoutDesc.shaderStages = nri::StageBits::VERTEX_SHADER | nri::StageBits::FRAGMENT_SHADER;
 
         NRI_ABORT_ON_FAILURE(NRI.CreatePipelineLayout(*m_Device, pipelineLayoutDesc, m_PipelineLayout));
+    }
 
+    // Pipeline
+    const nri::DeviceDesc& deviceDesc = NRI.GetDeviceDesc(*m_Device);
+    utils::ShaderCodeStorage shaderCodeStorage;
+    {
         nri::VertexStreamDesc vertexStreamDesc = {};
         vertexStreamDesc.bindingSlot = 0;
         vertexStreamDesc.stride = sizeof(utils::Vertex);
@@ -568,7 +570,7 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI) {
             {m_Scene.indices.data(), helper::GetByteSizeOf(m_Scene.indices), m_Buffers[INDEX_BUFFER], 0, {nri::AccessBits::INDEX_BUFFER}},
         };
 
-        NRI_ABORT_ON_FAILURE(NRI.UploadData(*m_CommandQueue, textureData.data(), (uint32_t)textureData.size(), bufferData, helper::GetCountOf(bufferData)));
+        NRI_ABORT_ON_FAILURE(NRI.UploadData(*m_CommandQueue, textureData.data(), i, bufferData, helper::GetCountOf(bufferData)));
     }
 
     { // Pipeline statistics
@@ -701,9 +703,9 @@ void Sample::RenderFrame(uint32_t frameIndex) {
             NRI.CmdBeginRendering(commandBuffer, attachmentsDesc);
             {
                 nri::ClearDesc clearDescs[2] = {};
-                clearDescs[0].attachmentContentType = nri::AttachmentContentType::COLOR;
+                clearDescs[0].planes = nri::PlaneBits::COLOR;
                 clearDescs[0].value.color32f = {0.0f, 0.63f, 1.0f};
-                clearDescs[1].attachmentContentType = nri::AttachmentContentType::DEPTH;
+                clearDescs[1].planes = nri::PlaneBits::DEPTH;
                 clearDescs[1].value.depthStencil.depth = CLEAR_DEPTH;
 
                 NRI.CmdClearAttachments(commandBuffer, clearDescs, helper::GetCountOf(clearDescs), nullptr, 0);

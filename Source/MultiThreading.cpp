@@ -343,8 +343,8 @@ void Sample::RenderFrame(uint32_t frameIndex) {
         NRI.CmdBeginRendering(commandBuffer, attachmentsDesc);
         {
             nri::ClearDesc clearDescs[2] = {};
-            clearDescs[0].attachmentContentType = nri::AttachmentContentType::COLOR;
-            clearDescs[1].attachmentContentType = nri::AttachmentContentType::DEPTH;
+            clearDescs[0].planes = nri::PlaneBits::COLOR;
+            clearDescs[1].planes = nri::PlaneBits::DEPTH;
             clearDescs[1].value.depthStencil.depth = 1.0f;
             NRI.CmdClearAttachments(commandBuffer, clearDescs, helper::GetCountOf(clearDescs), nullptr, 0);
 

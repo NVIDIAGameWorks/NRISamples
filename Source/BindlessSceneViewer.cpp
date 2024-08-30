@@ -131,7 +131,7 @@ Sample::~Sample() {
 
 bool Sample::Initialize(nri::GraphicsAPI graphicsAPI) {
     if (graphicsAPI == nri::GraphicsAPI::D3D11) {
-        printf("This sample supports only D3D12 and Vulkan.");
+        printf("This sample supports only D3D12 and Vulkan");
         return false;
     }
 
@@ -809,9 +809,9 @@ void Sample::RenderFrame(uint32_t frameIndex) {
             NRI.CmdBeginRendering(commandBuffer, attachmentsDesc);
             {
                 nri::ClearDesc clearDescs[2] = {};
-                clearDescs[0].attachmentContentType = nri::AttachmentContentType::COLOR;
+                clearDescs[0].planes = nri::PlaneBits::COLOR;
                 clearDescs[0].value.color32f = {0.0f, 0.63f, 1.0f};
-                clearDescs[1].attachmentContentType = nri::AttachmentContentType::DEPTH;
+                clearDescs[1].planes = nri::PlaneBits::DEPTH;
                 clearDescs[1].value.depthStencil.depth = CLEAR_DEPTH;
 
                 NRI.CmdClearAttachments(commandBuffer, clearDescs, helper::GetCountOf(clearDescs), nullptr, 0);
