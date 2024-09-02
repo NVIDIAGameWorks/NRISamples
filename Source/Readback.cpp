@@ -250,15 +250,15 @@ void Sample::RenderFrame(uint32_t frameIndex) {
             nri::Dim_t h3 = h / 3;
             int16_t y = (int16_t)h3;
 
-            clearDesc.value.color32f = {1.0f, 0.0f, 0.0f, 1.0f};
+            clearDesc.value.color.f = {1.0f, 0.0f, 0.0f, 1.0f};
             nri::Rect rect1 = {0, 0, w, h3};
             NRI.CmdClearAttachments(commandBuffer, &clearDesc, 1, &rect1, 1);
 
-            clearDesc.value.color32f = {0.0f, 1.0f, 0.0f, 1.0f};
+            clearDesc.value.color.f = {0.0f, 1.0f, 0.0f, 1.0f};
             nri::Rect rect2 = {0, y, w, h3};
             NRI.CmdClearAttachments(commandBuffer, &clearDesc, 1, &rect2, 1);
 
-            clearDesc.value.color32f = {0.0f, 0.0f, 1.0f, 1.0f};
+            clearDesc.value.color.f = {0.0f, 0.0f, 1.0f, 1.0f};
             nri::Rect rect3 = {0, y * 2, w, h3};
             NRI.CmdClearAttachments(commandBuffer, &clearDesc, 1, &rect3, 1);
 

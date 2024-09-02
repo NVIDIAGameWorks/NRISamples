@@ -470,11 +470,11 @@ void Sample::RenderFrame(uint32_t frameIndex) {
 
                 nri::ClearDesc clearDesc = {};
                 clearDesc.planes = nri::PlaneBits::COLOR;
-                clearDesc.value.color32f = COLOR_0;
+                clearDesc.value.color.f = COLOR_0;
 
                 NRI.CmdClearAttachments(*commandBuffer, &clearDesc, 1, nullptr, 0);
 
-                clearDesc.value.color32f = COLOR_1;
+                clearDesc.value.color.f = COLOR_1;
 
                 nri::Rect rects[2];
                 rects[0] = {0, 0, halfWidth, halfHeight};

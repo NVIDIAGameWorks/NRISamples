@@ -281,9 +281,9 @@ void Sample::CreateVulkanDevice() {
     deviceDesc.enabledExtensions.instanceExtensionNum = helper::GetCountOf(instanceExtensions);
     deviceDesc.enabledExtensions.deviceExtensions = deviceExtensions;
     deviceDesc.enabledExtensions.deviceExtensionNum = helper::GetCountOf(deviceExtensions);
-    deviceDesc.vkInstance = (nri::VKHandle)m_VKInstance;
-    deviceDesc.vkDevice = (nri::VKHandle)m_VKDevice;
-    deviceDesc.vkPhysicalDevice = (nri::VKHandle)physicalDevice;
+    deviceDesc.vkInstance = (VKHandle)m_VKInstance;
+    deviceDesc.vkDevice = (VKHandle)m_VKDevice;
+    deviceDesc.vkPhysicalDevice = (VKHandle)physicalDevice;
     deviceDesc.queueFamilyIndices = queueFamilyIndices;
     deviceDesc.queueFamilyIndexNum = helper::GetCountOf(queueFamilyIndices);
 
@@ -655,11 +655,11 @@ void Sample::RenderFrame(uint32_t frameIndex) {
 
                 nri::ClearDesc clearDesc = {};
                 clearDesc.planes = nri::PlaneBits::COLOR;
-                clearDesc.value.color32f = COLOR_0;
+                clearDesc.value.color.f = COLOR_0;
 
                 NRI.CmdClearAttachments(*commandBuffer, &clearDesc, 1, nullptr, 0);
 
-                clearDesc.value.color32f = COLOR_1;
+                clearDesc.value.color.f = COLOR_1;
 
                 nri::Rect rects[2];
                 rects[0] = {0, 0, halfWidth, halfHeight};

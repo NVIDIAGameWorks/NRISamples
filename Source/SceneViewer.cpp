@@ -682,7 +682,7 @@ void Sample::RenderFrame(uint32_t frameIndex) {
         // Test VRS (per pipeline)
         if (deviceDesc.isPipelineShadingRateSupported) {
             nri::ShadingRateDesc shadingRateDesc = {};
-            shadingRateDesc.shadingRate = nri::ShadingRate::_1x1;
+            shadingRateDesc.shadingRate = nri::ShadingRate::FRAGMENT_SIZE_1X1;
 
             NRI.CmdSetShadingRate(commandBuffer, shadingRateDesc);
         }
@@ -704,7 +704,7 @@ void Sample::RenderFrame(uint32_t frameIndex) {
             {
                 nri::ClearDesc clearDescs[2] = {};
                 clearDescs[0].planes = nri::PlaneBits::COLOR;
-                clearDescs[0].value.color32f = {0.0f, 0.63f, 1.0f};
+                clearDescs[0].value.color.f = {0.0f, 0.63f, 1.0f};
                 clearDescs[1].planes = nri::PlaneBits::DEPTH;
                 clearDescs[1].value.depthStencil.depth = CLEAR_DEPTH;
 
@@ -747,7 +747,7 @@ void Sample::RenderFrame(uint32_t frameIndex) {
         // Reset VRS (per pipeline)
         if (deviceDesc.isPipelineShadingRateSupported) {
             nri::ShadingRateDesc shadingRateDesc = {};
-            shadingRateDesc.shadingRate = nri::ShadingRate::_1x1;
+            shadingRateDesc.shadingRate = nri::ShadingRate::FRAGMENT_SIZE_1X1;
             shadingRateDesc.primitiveCombiner = nri::ShadingRateCombiner::KEEP;
             shadingRateDesc.attachmentCombiner = nri::ShadingRateCombiner::KEEP;
 

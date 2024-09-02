@@ -277,9 +277,9 @@ void Sample::RenderFrame(uint32_t frameIndex) {
             nri::ClearDesc clearDesc = {};
             clearDesc.planes = nri::PlaneBits::COLOR;
             if (m_IsFullscreen)
-                clearDesc.value.color32f = {0.0f, 1.0f, 0.0f, 1.0f};
+                clearDesc.value.color.f = {0.0f, 1.0f, 0.0f, 1.0f};
             else
-                clearDesc.value.color32f = {1.0f, 0.0f, 0.0f, 1.0f};
+                clearDesc.value.color.f = {1.0f, 0.0f, 0.0f, 1.0f};
             NRI.CmdClearAttachments(commandBuffer, &clearDesc, 1, nullptr, 0);
 
             RenderUI(NRI, NRI, *m_Streamer, commandBuffer, 1.0f, true);
