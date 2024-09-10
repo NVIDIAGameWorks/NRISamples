@@ -239,7 +239,7 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI) {
         nri::MultisampleDesc multisampleDesc = {};
         multisampleDesc.sampleNum = 1;
         multisampleDesc.sampleMask = nri::ALL_SAMPLES;
-        multisampleDesc.programmableSampleLocations = deviceDesc.programmableSampleLocationsTier == 2;
+        multisampleDesc.sampleLocations = deviceDesc.sampleLocationsTier >= 2;
 
         nri::ColorAttachmentDesc colorAttachmentDesc = {};
         colorAttachmentDesc.format = swapChainFormat;
@@ -329,7 +329,7 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI) {
     uint8_t* shadingRateData = nullptr;
     uint32_t shadingRateTexWidth = (GetWindowResolution().x + deviceDesc.shadingRateAttachmentTileSize - 1) / deviceDesc.shadingRateAttachmentTileSize;
     uint32_t shadingRateTexHeight = (GetWindowResolution().y + deviceDesc.shadingRateAttachmentTileSize - 1) / deviceDesc.shadingRateAttachmentTileSize;
-    if (deviceDesc.isAttachmentShadingRateSupported) {
+    if (deviceDesc.shadingRateTier >= 2) {
         nri::TextureDesc textureDesc = nri::Texture2D(nri::Format::R8_UINT, (uint16_t)shadingRateTexWidth, (uint16_t)shadingRateTexHeight, 1, 1, nri::TextureUsageBits::SHADING_RATE_ATTACHMENT);
 
         NRI_ABORT_ON_FAILURE(NRI.CreateTexture(*m_Device, textureDesc, shadingRateTexture));
@@ -668,19 +668,19 @@ void Sample::RenderFrame(uint32_t frameIndex) {
         NRI.CmdBarrier(commandBuffer, barrierGroupDesc);
 
         // Test PSL // TODO: D3D11 gets DEVICE_REMOVED if VRS is used with PSL...
-        if (deviceDesc.programmableSampleLocationsTier == 2 && deviceDesc.graphicsAPI != nri::GraphicsAPI::D3D11) {
-            static const nri::SamplePosition samplePos[4] = {
+        if (deviceDesc.sampleLocationsTier >= 2 && deviceDesc.graphicsAPI != nri::GraphicsAPI::D3D11) {
+            static const nri::SampleLocation samplePos[4] = {
                 {-6, -2},
                 {-2, 6},
                 {6, 2},
                 {2, -6},
             };
 
-            NRI.CmdSetSamplePositions(commandBuffer, samplePos + (frameIndex % 4), 1, 1);
+            NRI.CmdSetSampleLocations(commandBuffer, samplePos + (frameIndex % 4), 1, 1);
         }
 
         // Test VRS (per pipeline)
-        if (deviceDesc.isPipelineShadingRateSupported) {
+        if (deviceDesc.shadingRateTier) {
             nri::ShadingRateDesc shadingRateDesc = {};
             shadingRateDesc.shadingRate = nri::ShadingRate::FRAGMENT_SIZE_1X1;
 
@@ -697,7 +697,7 @@ void Sample::RenderFrame(uint32_t frameIndex) {
             attachmentsDesc.colors = &currentBackBuffer.colorAttachment;
             attachmentsDesc.depthStencil = m_DepthAttachment;
 
-            if (deviceDesc.isAttachmentShadingRateSupported)
+            if (deviceDesc.shadingRateTier >= 2)
                 attachmentsDesc.shadingRate = m_ShadingRateAttachment;
 
             NRI.CmdBeginRendering(commandBuffer, attachmentsDesc);
@@ -745,7 +745,7 @@ void Sample::RenderFrame(uint32_t frameIndex) {
         NRI.CmdCopyQueries(commandBuffer, *m_QueryPool, 0, 1, *m_Buffers[READBACK_BUFFER], 0);
 
         // Reset VRS (per pipeline)
-        if (deviceDesc.isPipelineShadingRateSupported) {
+        if (deviceDesc.shadingRateTier) {
             nri::ShadingRateDesc shadingRateDesc = {};
             shadingRateDesc.shadingRate = nri::ShadingRate::FRAGMENT_SIZE_1X1;
             shadingRateDesc.primitiveCombiner = nri::ShadingRateCombiner::KEEP;

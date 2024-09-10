@@ -431,7 +431,7 @@ void Sample::CreateRayTracingPipeline() {
     nri::DescriptorRangeDesc descriptorRanges[] = {
         {0, 1, nri::DescriptorType::STORAGE_TEXTURE, nri::StageBits::RAYGEN_SHADER},
         {1, 1, nri::DescriptorType::ACCELERATION_STRUCTURE, nri::StageBits::RAYGEN_SHADER},
-        {0, BOX_NUM, nri::DescriptorType::BUFFER, nri::StageBits::CLOSEST_HIT_SHADER, nri::VARIABLE_DESCRIPTOR_NUM, nri::DESCRIPTOR_ARRAY},
+        {0, BOX_NUM, nri::DescriptorType::BUFFER, nri::StageBits::CLOSEST_HIT_SHADER, nri::DescriptorRangeBits::VARIABLE_SIZED_ARRAY | nri::DescriptorRangeBits::PARTIALLY_BOUND},
     };
 
     nri::DescriptorSetDesc descriptorSetDescs[] = {

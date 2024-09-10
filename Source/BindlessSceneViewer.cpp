@@ -91,6 +91,9 @@ private:
 };
 
 Sample::~Sample() {
+    if (!m_Device)
+        return;
+
     NRI.WaitForIdle(*m_CommandQueue);
 
     for (Frame& frame : m_Frames) {
@@ -201,17 +204,17 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI) {
     {
         {
             nri::DescriptorRangeDesc globalDescriptorRange[3] = {};
-            globalDescriptorRange[0] = {(uint32_t)((deviceDesc.graphicsAPI == nri::GraphicsAPI::D3D12) ? 0 : 0), 1, nri::DescriptorType::CONSTANT_BUFFER, nri::StageBits::ALL};
+            globalDescriptorRange[0] = {0, 1, nri::DescriptorType::CONSTANT_BUFFER, nri::StageBits::ALL};
             globalDescriptorRange[1] = {0, 1, nri::DescriptorType::SAMPLER, nri::StageBits::FRAGMENT_SHADER};
             globalDescriptorRange[2] = {0, BUFFER_COUNT, nri::DescriptorType::STRUCTURED_BUFFER, nri::StageBits::ALL};
 
             // Bindless descriptors
             nri::DescriptorRangeDesc textureDescriptorRange[1] = {};
-            textureDescriptorRange[0] = {0, 512, nri::DescriptorType::TEXTURE, nri::StageBits::FRAGMENT_SHADER, true, true};
+            textureDescriptorRange[0] = {0, 512, nri::DescriptorType::TEXTURE, nri::StageBits::FRAGMENT_SHADER, nri::DescriptorRangeBits::VARIABLE_SIZED_ARRAY | nri::DescriptorRangeBits::PARTIALLY_BOUND};
 
             nri::DescriptorSetDesc descriptorSetDescs[] = {
                 {0, globalDescriptorRange, helper::GetCountOf(globalDescriptorRange)},
-                {1, textureDescriptorRange, helper::GetCountOf(textureDescriptorRange), nullptr, 0, true},
+                {1, textureDescriptorRange, helper::GetCountOf(textureDescriptorRange), nullptr, 0},
             };
 
             nri::PipelineLayoutDesc pipelineLayoutDesc = {};
