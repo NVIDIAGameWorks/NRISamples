@@ -570,7 +570,7 @@ void Sample::CreateShaderResources() {
     rangeUpdateDesc.descriptors = &m_TexCoordBufferView;
 
     for (uint32_t i = 0; i < BOX_NUM; i++) {
-        rangeUpdateDesc.offsetInRange = i;
+        rangeUpdateDesc.baseDescriptor = i;
         NRI.UpdateDescriptorRanges(*m_DescriptorSets[1], 0, 1, &rangeUpdateDesc);
     }
 
@@ -578,7 +578,7 @@ void Sample::CreateShaderResources() {
     rangeUpdateDesc.descriptors = &m_IndexBufferView;
 
     for (uint32_t i = 0; i < BOX_NUM; i++) {
-        rangeUpdateDesc.offsetInRange = i;
+        rangeUpdateDesc.baseDescriptor = i;
         NRI.UpdateDescriptorRanges(*m_DescriptorSets[2], 0, 1, &rangeUpdateDesc);
     }
 }

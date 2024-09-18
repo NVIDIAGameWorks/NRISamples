@@ -13,7 +13,7 @@ struct PushConstants
     float transparency;
 };
 
-NRI_PUSH_CONSTANTS( PushConstants, g_PushConstants, 1 );
+NRI_ROOT_CONSTANTS( PushConstants, g_PushConstants, 1 );
 
 NRI_RESOURCE( Texture2D, g_DiffuseTexture, t, 0, 1 );
 NRI_RESOURCE( SamplerState, g_Sampler, s, 0, 1 );

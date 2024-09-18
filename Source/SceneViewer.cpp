@@ -246,8 +246,8 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI) {
         colorAttachmentDesc.colorWriteMask = nri::ColorWriteBits::RGBA;
 
         nri::OutputMergerDesc outputMergerDesc = {};
+        outputMergerDesc.colors = &colorAttachmentDesc;
         outputMergerDesc.colorNum = 1;
-        outputMergerDesc.color = &colorAttachmentDesc;
         outputMergerDesc.depthStencilFormat = m_DepthFormat;
         outputMergerDesc.depth.write = true;
         outputMergerDesc.depth.compareFunc = CLEAR_DEPTH == 1.0f ? nri::CompareFunc::LESS : nri::CompareFunc::GREATER;

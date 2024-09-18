@@ -220,8 +220,8 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI) {
         colorAttachmentDesc.colorWriteMask = nri::ColorWriteBits::RGBA;
 
         nri::OutputMergerDesc outputMergerDesc = {};
+        outputMergerDesc.colors = &colorAttachmentDesc;
         outputMergerDesc.colorNum = 1;
-        outputMergerDesc.color = &colorAttachmentDesc;
 
         nri::ShaderDesc shaderStages[] = {
             utils::LoadShader(deviceDesc.graphicsAPI, "Triangles.vs", shaderCodeStorage),

@@ -373,13 +373,13 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI) {
             {1, descriptorRangeTexture, helper::GetCountOf(descriptorRangeTexture)},
         };
 
-        nri::PushConstantDesc pushConstant = {1, sizeof(float), nri::StageBits::FRAGMENT_SHADER};
+        nri::RootConstantDesc rootConstant = {1, sizeof(float), nri::StageBits::FRAGMENT_SHADER};
 
         nri::PipelineLayoutDesc pipelineLayoutDesc = {};
         pipelineLayoutDesc.descriptorSetNum = helper::GetCountOf(descriptorSetDescs);
         pipelineLayoutDesc.descriptorSets = descriptorSetDescs;
-        pipelineLayoutDesc.pushConstantNum = 1;
-        pipelineLayoutDesc.pushConstants = &pushConstant;
+        pipelineLayoutDesc.rootConstantNum = 1;
+        pipelineLayoutDesc.rootConstants = &rootConstant;
         pipelineLayoutDesc.shaderStages = nri::StageBits::VERTEX_SHADER | nri::StageBits::FRAGMENT_SHADER;
 
         NRI_ABORT_ON_FAILURE(NRI.CreatePipelineLayout(*m_Device, pipelineLayoutDesc, m_PipelineLayout));
@@ -424,8 +424,8 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI) {
         colorAttachmentDesc.colorBlend = {nri::BlendFactor::SRC_ALPHA, nri::BlendFactor::ONE_MINUS_SRC_ALPHA, nri::BlendFunc::ADD};
 
         nri::OutputMergerDesc outputMergerDesc = {};
+        outputMergerDesc.colors = &colorAttachmentDesc;
         outputMergerDesc.colorNum = 1;
-        outputMergerDesc.color = &colorAttachmentDesc;
 
         nri::ShaderDesc shaderStages[] = {
             utils::LoadShader(deviceDesc.graphicsAPI, "Triangle.vs", shaderCodeStorage),
@@ -676,7 +676,7 @@ void Sample::RenderFrame(uint32_t frameIndex) {
 
                 NRI.CmdSetPipelineLayout(*commandBuffer, *m_PipelineLayout);
                 NRI.CmdSetPipeline(*commandBuffer, *m_Pipeline);
-                NRI.CmdSetConstants(*commandBuffer, 0, &m_Transparency, 4);
+                NRI.CmdSetRootConstants(*commandBuffer, 0, &m_Transparency, 4);
                 NRI.CmdSetIndexBuffer(*commandBuffer, *m_GeometryBuffer, 0, nri::IndexType::UINT16);
                 NRI.CmdSetVertexBuffers(*commandBuffer, 0, 1, &m_GeometryBuffer, &m_GeometryOffset);
                 NRI.CmdSetDescriptorSet(*commandBuffer, 0, *frame.constantBufferDescriptorSet, nullptr);

@@ -235,14 +235,14 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI) {
                 {0, descriptorRange, helper::GetCountOf(descriptorRange)},
             };
 
-            nri::PushConstantDesc pushConstantDesc = {};
-            pushConstantDesc.registerIndex = 0;
-            pushConstantDesc.shaderStages = nri::StageBits::COMPUTE_SHADER;
-            pushConstantDesc.size = sizeof(CullingConstants);
+            nri::RootConstantDesc rootConstantDesc = {};
+            rootConstantDesc.registerIndex = 0;
+            rootConstantDesc.shaderStages = nri::StageBits::COMPUTE_SHADER;
+            rootConstantDesc.size = sizeof(CullingConstants);
 
             nri::PipelineLayoutDesc pipelineLayoutDesc = {};
-            pipelineLayoutDesc.pushConstantNum = 1;
-            pipelineLayoutDesc.pushConstants = &pushConstantDesc;
+            pipelineLayoutDesc.rootConstantNum = 1;
+            pipelineLayoutDesc.rootConstants = &rootConstantDesc;
             pipelineLayoutDesc.descriptorSetNum = helper::GetCountOf(descriptorSetDescs);
             pipelineLayoutDesc.descriptorSets = descriptorSetDescs;
             pipelineLayoutDesc.shaderStages = nri::StageBits::COMPUTE_SHADER;
@@ -301,8 +301,8 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI) {
         colorAttachmentDesc.colorWriteMask = nri::ColorWriteBits::RGBA;
 
         nri::OutputMergerDesc outputMergerDesc = {};
+        outputMergerDesc.colors = &colorAttachmentDesc;
         outputMergerDesc.colorNum = 1;
-        outputMergerDesc.color = &colorAttachmentDesc;
         outputMergerDesc.depthStencilFormat = m_DepthFormat;
         outputMergerDesc.depth.write = true;
         outputMergerDesc.depth.compareFunc = CLEAR_DEPTH == 1.0f ? nri::CompareFunc::LESS : nri::CompareFunc::GREATER;
@@ -795,7 +795,7 @@ void Sample::RenderFrame(uint32_t frameIndex) {
             // Culling
             CullingConstants cullingConstants = {};
             cullingConstants.DrawCount = (uint32_t)m_Scene.instances.size();
-            NRI.CmdSetConstants(commandBuffer, 0, &cullingConstants, sizeof(cullingConstants));
+            NRI.CmdSetRootConstants(commandBuffer, 0, &cullingConstants, sizeof(cullingConstants));
 
             NRI.CmdSetPipeline(commandBuffer, *m_ComputePipeline);
             NRI.CmdDispatch(commandBuffer, {1, 1, 1});

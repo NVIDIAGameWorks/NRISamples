@@ -618,8 +618,8 @@ bool Sample::CreatePipeline(nri::Format swapChainFormat) {
     depthAttachmentDesc.write = true;
 
     nri::OutputMergerDesc outputMergerDesc = {};
+    outputMergerDesc.colors = &colorAttachmentDesc;
     outputMergerDesc.colorNum = 1;
-    outputMergerDesc.color = &colorAttachmentDesc;
 
     outputMergerDesc.depthStencilFormat = m_DepthFormat;
     outputMergerDesc.depth.compareFunc = nri::CompareFunc::LESS;
