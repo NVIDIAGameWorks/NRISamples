@@ -287,8 +287,14 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI) {
     const uint64_t vertexDataSize = sizeof(g_VertexData);
     {
         // Texture
-        nri::TextureDesc textureDesc = nri::Texture2D(texture.GetFormat(),
-            texture.GetWidth(), texture.GetHeight(), texture.GetMipNum());
+        nri::TextureDesc textureDesc = {};
+        textureDesc.type = nri::TextureType::TEXTURE_2D;
+        textureDesc.usageMask = nri::TextureUsageBits::SHADER_RESOURCE;
+        textureDesc.format = texture.GetFormat();
+        textureDesc.width = texture.GetWidth();
+        textureDesc.height = texture.GetHeight();
+        textureDesc.mipNum = texture.GetMipNum();
+
         NRI_ABORT_ON_FAILURE(NRI.CreateTexture(*m_Device, textureDesc, m_Texture));
 
         { // Constant buffer

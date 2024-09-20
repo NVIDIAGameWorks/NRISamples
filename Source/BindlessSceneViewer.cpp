@@ -343,7 +343,14 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI) {
 
     // Textures
     for (const utils::Texture* textureData : m_Scene.textures) {
-        nri::TextureDesc textureDesc = nri::Texture2D(textureData->GetFormat(), textureData->GetWidth(), textureData->GetHeight(), textureData->GetMipNum(), textureData->GetArraySize());
+        nri::TextureDesc textureDesc = {};
+        textureDesc.type = nri::TextureType::TEXTURE_2D;
+        textureDesc.usageMask = nri::TextureUsageBits::SHADER_RESOURCE;
+        textureDesc.format = textureData->GetFormat();
+        textureDesc.width =  textureData->GetWidth();
+        textureDesc.height = textureData->GetHeight();
+        textureDesc.mipNum = textureData->GetMipNum();
+        textureDesc.layerNum = textureData->GetArraySize();
 
         nri::Texture* texture;
         NRI_ABORT_ON_FAILURE(NRI.CreateTexture(*m_Device, textureDesc, texture));
@@ -353,7 +360,13 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI) {
     // Depth attachment
     nri::Texture* depthTexture;
     {
-        nri::TextureDesc textureDesc = nri::Texture2D(m_DepthFormat, (uint16_t)GetWindowResolution().x, (uint16_t)GetWindowResolution().y, 1, 1, nri::TextureUsageBits::DEPTH_STENCIL_ATTACHMENT);
+        nri::TextureDesc textureDesc = {};
+        textureDesc.type = nri::TextureType::TEXTURE_2D;
+        textureDesc.usageMask = nri::TextureUsageBits::DEPTH_STENCIL_ATTACHMENT;
+        textureDesc.format = m_DepthFormat;
+        textureDesc.width =  (uint16_t)GetWindowResolution().x;
+        textureDesc.height = (uint16_t)GetWindowResolution().y;
+        textureDesc.mipNum = 1;
 
         NRI_ABORT_ON_FAILURE(NRI.CreateTexture(*m_Device, textureDesc, depthTexture));
         m_Textures.push_back(depthTexture);

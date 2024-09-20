@@ -3,7 +3,7 @@
 #include "NRICompatibility.hlsli"
 #include "SceneViewerBindlessStructs.h"
 
-NRI_ROOT_CONSTANTS(CullingConstants, Constants, 0);
+NRI_ROOT_CONSTANTS(CullingConstants, Constants, 0, 0);
 NRI_RESOURCE(StructuredBuffer<MaterialData>, Materials, t, 0, 0);
 NRI_RESOURCE(StructuredBuffer<MeshData>, Meshes, t, 1, 0);
 NRI_RESOURCE(StructuredBuffer<InstanceData>, Instances, t, 2, 0);

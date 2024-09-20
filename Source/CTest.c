@@ -39,15 +39,26 @@ int main() {
 
     // NRI usage
     NriBuffer* buffer = NULL;
-    NRI_ABORT_ON_FAILURE(nriCore.CreateBuffer(device, &(NriBufferDesc){
-                                                          .size = 1024,
-                                                          .structureStride = 0,
-                                                          .usageMask = NriBufferUsageBits_SHADER_RESOURCE,
-                                                      },
+    NRI_ABORT_ON_FAILURE(nriCore.CreateBuffer(device,
+        &(NriBufferDesc){
+            .size = 1024,
+            .structureStride = 0,
+            .usageMask = NriBufferUsageBits_SHADER_RESOURCE,
+        },
         &buffer));
 
+    NriTextureDesc textureDesc = {0};
+    textureDesc.type = NriTextureType_TEXTURE_2D;
+    textureDesc.usageMask = NriTextureUsageBits_SHADER_RESOURCE;
+    textureDesc.format = NriFormat_RGBA8_UNORM;
+    textureDesc.width = 32;
+    textureDesc.height = 32;
+    textureDesc.depth = 1;
+    textureDesc.mipNum = 1;
+    textureDesc.layerNum = 1;
+    textureDesc.sampleNum = 1;
+
     NriTexture* texture = NULL;
-    NriTextureDesc textureDesc = nriTexture2D(NriFormat_RGBA8_UNORM, 32, 32, 1, 1, NriTextureUsageBits_SHADER_RESOURCE, 1);
     NRI_ABORT_ON_FAILURE(nriCore.CreateTexture(device, &textureDesc, &texture));
 
     NriResourceGroupDesc resourceGroupDesc = {

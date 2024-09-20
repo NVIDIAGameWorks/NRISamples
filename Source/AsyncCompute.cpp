@@ -257,8 +257,14 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI) {
     }
 
     { // Storage texture
-        nri::TextureDesc textureDesc = nri::Texture2D(swapChainFormat, (uint16_t)GetWindowResolution().x / 2, (uint16_t)GetWindowResolution().y, 1, 1,
-            nri::TextureUsageBits::SHADER_RESOURCE_STORAGE);
+        nri::TextureDesc textureDesc = {};
+        textureDesc.type = nri::TextureType::TEXTURE_2D;
+        textureDesc.usageMask = nri::TextureUsageBits::SHADER_RESOURCE_STORAGE;
+        textureDesc.format = swapChainFormat;
+        textureDesc.width = (uint16_t)GetWindowResolution().x / 2;
+        textureDesc.height = (uint16_t)GetWindowResolution().y;
+        textureDesc.mipNum = 1;
+
         NRI_ABORT_ON_FAILURE(NRI.CreateTexture(*m_Device, textureDesc, m_Texture));
     }
 

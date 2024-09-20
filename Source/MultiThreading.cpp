@@ -646,8 +646,13 @@ bool Sample::CreatePipeline(nri::Format swapChainFormat) {
 }
 
 void Sample::CreateDepthTexture() {
-    nri::TextureDesc textureDesc = nri::Texture2D(m_DepthFormat, (uint16_t)GetWindowResolution().x, (uint16_t)GetWindowResolution().y, 1, 1,
-        nri::TextureUsageBits::DEPTH_STENCIL_ATTACHMENT);
+    nri::TextureDesc textureDesc = {};
+    textureDesc.type = nri::TextureType::TEXTURE_2D;
+    textureDesc.usageMask = nri::TextureUsageBits::DEPTH_STENCIL_ATTACHMENT;
+    textureDesc.format = m_DepthFormat;
+    textureDesc.width =  (uint16_t)GetWindowResolution().x;
+    textureDesc.height = (uint16_t)GetWindowResolution().y;
+    textureDesc.mipNum = 1;
 
     NRI_ABORT_ON_FAILURE(NRI.CreateTexture(*m_Device, textureDesc, m_DepthTexture));
 
@@ -867,10 +872,16 @@ void Sample::LoadTextures() {
 
     m_Textures.resize(textureVariations);
     for (size_t i = 0; i < m_Textures.size(); i++) {
-        const utils::Texture& loadedTexture = loadedTextures[i % textureNum];
+        const utils::Texture& texture = loadedTextures[i % textureNum];
 
-        nri::TextureDesc textureDesc = nri::Texture2D(loadedTexture.GetFormat(),
-            loadedTexture.GetWidth(), loadedTexture.GetHeight(), loadedTexture.GetMipNum());
+        nri::TextureDesc textureDesc = {};
+        textureDesc.type = nri::TextureType::TEXTURE_2D;
+        textureDesc.usageMask = nri::TextureUsageBits::SHADER_RESOURCE;
+        textureDesc.format = texture.GetFormat();
+        textureDesc.width = texture.GetWidth();
+        textureDesc.height = texture.GetHeight();
+        textureDesc.mipNum = texture.GetMipNum();
+
         NRI_ABORT_ON_FAILURE(NRI.CreateTexture(*m_Device, textureDesc, m_Textures[i]));
     }
 
