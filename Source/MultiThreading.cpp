@@ -648,7 +648,7 @@ bool Sample::CreatePipeline(nri::Format swapChainFormat) {
 void Sample::CreateDepthTexture() {
     nri::TextureDesc textureDesc = {};
     textureDesc.type = nri::TextureType::TEXTURE_2D;
-    textureDesc.usageMask = nri::TextureUsageBits::DEPTH_STENCIL_ATTACHMENT;
+    textureDesc.usage = nri::TextureUsageBits::DEPTH_STENCIL_ATTACHMENT;
     textureDesc.format = m_DepthFormat;
     textureDesc.width =  (uint16_t)GetWindowResolution().x;
     textureDesc.height = (uint16_t)GetWindowResolution().y;
@@ -716,11 +716,11 @@ void Sample::CreateVertexBuffer() {
 
     nri::BufferDesc bufferDesc = {};
     bufferDesc.size = helper::GetByteSizeOf(vertices);
-    bufferDesc.usageMask = nri::BufferUsageBits::VERTEX_BUFFER;
+    bufferDesc.usage = nri::BufferUsageBits::VERTEX_BUFFER;
     NRI_ABORT_ON_FAILURE(NRI.CreateBuffer(*m_Device, bufferDesc, m_VertexBuffer));
 
     bufferDesc.size = helper::GetByteSizeOf(indices);
-    bufferDesc.usageMask = nri::BufferUsageBits::INDEX_BUFFER;
+    bufferDesc.usage = nri::BufferUsageBits::INDEX_BUFFER;
     NRI_ABORT_ON_FAILURE(NRI.CreateBuffer(*m_Device, bufferDesc, m_IndexBuffer));
 
     nri::Buffer* const buffers[] = {m_VertexBuffer, m_IndexBuffer};
@@ -758,7 +758,7 @@ void Sample::CreateTransformConstantBuffer() {
 
     nri::BufferDesc bufferDesc = {};
     bufferDesc.size = m_Boxes.size() * alignedMatrixSize;
-    bufferDesc.usageMask = nri::BufferUsageBits::CONSTANT_BUFFER;
+    bufferDesc.usage = nri::BufferUsageBits::CONSTANT_BUFFER;
     NRI_ABORT_ON_FAILURE(NRI.CreateBuffer(*m_Device, bufferDesc, m_TransformConstantBuffer));
 
     nri::ResourceGroupDesc resourceGroupDesc = {};
@@ -876,7 +876,7 @@ void Sample::LoadTextures() {
 
         nri::TextureDesc textureDesc = {};
         textureDesc.type = nri::TextureType::TEXTURE_2D;
-        textureDesc.usageMask = nri::TextureUsageBits::SHADER_RESOURCE;
+        textureDesc.usage = nri::TextureUsageBits::SHADER_RESOURCE;
         textureDesc.format = texture.GetFormat();
         textureDesc.width = texture.GetWidth();
         textureDesc.height = texture.GetHeight();
@@ -930,7 +930,7 @@ void Sample::CreateFakeConstantBuffers() {
 
     nri::BufferDesc bufferDesc = {};
     bufferDesc.size = fakeConstantBufferRangeNum * constantRangeSize;
-    bufferDesc.usageMask = nri::BufferUsageBits::CONSTANT_BUFFER;
+    bufferDesc.usage = nri::BufferUsageBits::CONSTANT_BUFFER;
     NRI_ABORT_ON_FAILURE(NRI.CreateBuffer(*m_Device, bufferDesc, m_FakeConstantBuffer));
 
     nri::ResourceGroupDesc resourceGroupDesc = {};
@@ -970,7 +970,7 @@ void Sample::CreateViewConstantBuffer() {
 
     nri::BufferDesc bufferDesc = {};
     bufferDesc.size = constantRangeSize;
-    bufferDesc.usageMask = nri::BufferUsageBits::CONSTANT_BUFFER;
+    bufferDesc.usage = nri::BufferUsageBits::CONSTANT_BUFFER;
     NRI_ABORT_ON_FAILURE(NRI.CreateBuffer(*m_Device, bufferDesc, m_ViewConstantBuffer));
 
     nri::ResourceGroupDesc resourceGroupDesc = {};

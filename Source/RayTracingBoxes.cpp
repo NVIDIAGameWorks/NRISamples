@@ -483,7 +483,7 @@ void Sample::CreateRayTracingOutput(nri::Format swapChainFormat) {
     rayTracingOutputDesc.layerNum = 1;
     rayTracingOutputDesc.mipNum = 1;
     rayTracingOutputDesc.sampleNum = 1;
-    rayTracingOutputDesc.usageMask = nri::TextureUsageBits::SHADER_RESOURCE_STORAGE;
+    rayTracingOutputDesc.usage = nri::TextureUsageBits::SHADER_RESOURCE_STORAGE;
     NRI_ABORT_ON_FAILURE(NRI.CreateTexture(*m_Device, rayTracingOutputDesc, m_RayTracingOutput));
 
     nri::MemoryDesc memoryDesc = {};
@@ -586,7 +586,7 @@ void Sample::CreateShaderResources() {
 void Sample::CreateBottomLevelAccelerationStructure() {
     nri::Buffer* buffer = nullptr;
     nri::Memory* memory = nullptr;
-    CreateUploadBuffer(sizeof(positions) + sizeof(indices), nri::BufferUsageBits::ACCELERATION_STRUCTURE_BUILD_READ, buffer, memory);
+    CreateUploadBuffer(sizeof(positions) + sizeof(indices), nri::BufferUsageBits::ACCELERATION_STRUCTURE_BUILD_INPUT, buffer, memory);
 
     uint8_t* data = (uint8_t*)NRI.MapBuffer(*buffer, 0, sizeof(positions) + sizeof(indices));
     memcpy(data, positions, sizeof(positions));
@@ -676,7 +676,7 @@ void Sample::CreateTopLevelAccelerationStructure() {
 
     nri::Buffer* buffer = nullptr;
     nri::Memory* memory = nullptr;
-    CreateUploadBuffer(helper::GetByteSizeOf(geometryObjectInstances), nri::BufferUsageBits::ACCELERATION_STRUCTURE_BUILD_READ, buffer, memory);
+    CreateUploadBuffer(helper::GetByteSizeOf(geometryObjectInstances), nri::BufferUsageBits::ACCELERATION_STRUCTURE_BUILD_INPUT, buffer, memory);
 
     void* data = NRI.MapBuffer(*buffer, 0, nri::WHOLE_SIZE);
     memcpy(data, geometryObjectInstances.data(), helper::GetByteSizeOf(geometryObjectInstances));
@@ -712,7 +712,7 @@ void Sample::CreateUploadBuffer(uint64_t size, nri::BufferUsageBits usage, nri::
 void Sample::CreateScratchBuffer(nri::AccelerationStructure& accelerationStructure, nri::Buffer*& buffer, nri::Memory*& memory) {
     const uint64_t scratchBufferSize = NRI.GetAccelerationStructureBuildScratchBufferSize(accelerationStructure);
 
-    const nri::BufferDesc bufferDesc = {scratchBufferSize, 0, nri::BufferUsageBits::RAY_TRACING_BUFFER};
+    const nri::BufferDesc bufferDesc = {scratchBufferSize, 0, nri::BufferUsageBits::SCRATCH_BUFFER};
     NRI_ABORT_ON_FAILURE(NRI.CreateBuffer(*m_Device, bufferDesc, buffer));
 
     nri::MemoryDesc memoryDesc = {};
@@ -784,14 +784,14 @@ void Sample::BuildTopLevelAccelerationStructure(nri::AccelerationStructure& acce
 void Sample::CreateShaderTable() {
     const nri::DeviceDesc& deviceDesc = NRI.GetDeviceDesc(*m_Device);
     const uint64_t identifierSize = deviceDesc.rayTracingShaderGroupIdentifierSize;
-    const uint64_t tableAlignment = deviceDesc.rayTracingShaderTableAlignment;
+    const uint64_t tableAlignment = deviceDesc.shaderBindingTableAlignment;
 
     m_ShaderGroupIdentifierSize = identifierSize;
     m_MissShaderOffset = helper::Align(identifierSize, tableAlignment);
     m_HitShaderGroupOffset = helper::Align(m_MissShaderOffset + identifierSize, tableAlignment);
     const uint64_t shaderTableSize = helper::Align(m_HitShaderGroupOffset + identifierSize, tableAlignment);
 
-    const nri::BufferDesc bufferDesc = {shaderTableSize, 0, nri::BufferUsageBits::RAY_TRACING_BUFFER};
+    const nri::BufferDesc bufferDesc = {shaderTableSize, 0, nri::BufferUsageBits::SHADER_BINDING_TABLE};
     NRI_ABORT_ON_FAILURE(NRI.CreateBuffer(*m_Device, bufferDesc, m_ShaderTable));
 
     nri::ResourceGroupDesc resourceGroupDesc = {};

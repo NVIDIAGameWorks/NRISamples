@@ -259,7 +259,7 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI) {
     { // Storage texture
         nri::TextureDesc textureDesc = {};
         textureDesc.type = nri::TextureType::TEXTURE_2D;
-        textureDesc.usageMask = nri::TextureUsageBits::SHADER_RESOURCE_STORAGE;
+        textureDesc.usage = nri::TextureUsageBits::SHADER_RESOURCE_STORAGE;
         textureDesc.format = swapChainFormat;
         textureDesc.width = (uint16_t)GetWindowResolution().x / 2;
         textureDesc.height = (uint16_t)GetWindowResolution().y;
@@ -271,7 +271,7 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI) {
     { // Geometry buffer
         nri::BufferDesc bufferDesc = {};
         bufferDesc.size = sizeof(Vertex) * VERTEX_NUM;
-        bufferDesc.usageMask = nri::BufferUsageBits::VERTEX_BUFFER | nri::BufferUsageBits::INDEX_BUFFER;
+        bufferDesc.usage = nri::BufferUsageBits::VERTEX_BUFFER | nri::BufferUsageBits::INDEX_BUFFER;
         NRI_ABORT_ON_FAILURE(NRI.CreateBuffer(*m_Device, bufferDesc, m_GeometryBuffer));
     }
 

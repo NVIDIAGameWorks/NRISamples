@@ -310,7 +310,7 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI) {
     for (const utils::Texture* textureData : m_Scene.textures) {
         nri::TextureDesc textureDesc = {};
         textureDesc.type = nri::TextureType::TEXTURE_2D;
-        textureDesc.usageMask = nri::TextureUsageBits::SHADER_RESOURCE;
+        textureDesc.usage = nri::TextureUsageBits::SHADER_RESOURCE;
         textureDesc.format = textureData->GetFormat();
         textureDesc.width =  textureData->GetWidth();
         textureDesc.height = textureData->GetHeight();
@@ -327,7 +327,7 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI) {
     {
         nri::TextureDesc textureDesc = {};
         textureDesc.type = nri::TextureType::TEXTURE_2D;
-        textureDesc.usageMask = nri::TextureUsageBits::DEPTH_STENCIL_ATTACHMENT;
+        textureDesc.usage = nri::TextureUsageBits::DEPTH_STENCIL_ATTACHMENT;
         textureDesc.format = m_DepthFormat;
         textureDesc.width =  (uint16_t)GetWindowResolution().x;
         textureDesc.height = (uint16_t)GetWindowResolution().y;
@@ -345,7 +345,7 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI) {
     if (deviceDesc.shadingRateTier >= 2) {
         nri::TextureDesc textureDesc = {};
         textureDesc.type = nri::TextureType::TEXTURE_2D;
-        textureDesc.usageMask = nri::TextureUsageBits::SHADING_RATE_ATTACHMENT;
+        textureDesc.usage = nri::TextureUsageBits::SHADING_RATE_ATTACHMENT;
         textureDesc.format = nri::Format::R8_UINT;
         textureDesc.width =  (uint16_t)shadingRateTexWidth;
         textureDesc.height = (uint16_t)shadingRateTexHeight;
@@ -372,26 +372,26 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI) {
         // CONSTANT_BUFFER
         nri::BufferDesc bufferDesc = {};
         bufferDesc.size = constantBufferSize * BUFFERED_FRAME_MAX_NUM;
-        bufferDesc.usageMask = nri::BufferUsageBits::CONSTANT_BUFFER;
+        bufferDesc.usage = nri::BufferUsageBits::CONSTANT_BUFFER;
         nri::Buffer* buffer;
         NRI_ABORT_ON_FAILURE(NRI.CreateBuffer(*m_Device, bufferDesc, buffer));
         m_Buffers.push_back(buffer);
 
         // READBACK_BUFFER
         bufferDesc.size = sizeof(nri::PipelineStatisticsDesc) * BUFFERED_FRAME_MAX_NUM;
-        bufferDesc.usageMask = nri::BufferUsageBits::NONE;
+        bufferDesc.usage = nri::BufferUsageBits::NONE;
         NRI_ABORT_ON_FAILURE(NRI.CreateBuffer(*m_Device, bufferDesc, buffer));
         m_Buffers.push_back(buffer);
 
         // INDEX_BUFFER
         bufferDesc.size = helper::GetByteSizeOf(m_Scene.indices);
-        bufferDesc.usageMask = nri::BufferUsageBits::INDEX_BUFFER;
+        bufferDesc.usage = nri::BufferUsageBits::INDEX_BUFFER;
         NRI_ABORT_ON_FAILURE(NRI.CreateBuffer(*m_Device, bufferDesc, buffer));
         m_Buffers.push_back(buffer);
 
         // VERTEX_BUFFER
         bufferDesc.size = helper::GetByteSizeOf(m_Scene.vertices);
-        bufferDesc.usageMask = nri::BufferUsageBits::VERTEX_BUFFER;
+        bufferDesc.usage = nri::BufferUsageBits::VERTEX_BUFFER;
         NRI_ABORT_ON_FAILURE(NRI.CreateBuffer(*m_Device, bufferDesc, buffer));
         m_Buffers.push_back(buffer);
     }

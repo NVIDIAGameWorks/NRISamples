@@ -470,7 +470,7 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI) {
         // Texture
         nri::TextureDesc textureDesc = {};
         textureDesc.type = nri::TextureType::TEXTURE_2D;
-        textureDesc.usageMask = nri::TextureUsageBits::SHADER_RESOURCE;
+        textureDesc.usage = nri::TextureUsageBits::SHADER_RESOURCE;
         textureDesc.format = texture.GetFormat();
         textureDesc.width = texture.GetWidth();
         textureDesc.height = texture.GetHeight();
@@ -482,7 +482,7 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI) {
         {
             nri::BufferDesc bufferDesc = {};
             bufferDesc.size = constantBufferSize * BUFFERED_FRAME_MAX_NUM;
-            bufferDesc.usageMask = nri::BufferUsageBits::CONSTANT_BUFFER;
+            bufferDesc.usage = nri::BufferUsageBits::CONSTANT_BUFFER;
             NRI_ABORT_ON_FAILURE(NRI.CreateBuffer(*m_Device, bufferDesc, m_ConstantBuffer));
         }
 
@@ -490,7 +490,7 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI) {
         {
             nri::BufferDesc bufferDesc = {};
             bufferDesc.size = indexDataAlignedSize + vertexDataSize;
-            bufferDesc.usageMask = nri::BufferUsageBits::VERTEX_BUFFER | nri::BufferUsageBits::INDEX_BUFFER;
+            bufferDesc.usage = nri::BufferUsageBits::VERTEX_BUFFER | nri::BufferUsageBits::INDEX_BUFFER;
             NRI_ABORT_ON_FAILURE(NRI.CreateBuffer(*m_Device, bufferDesc, m_GeometryBuffer));
         }
         m_GeometryOffset = indexDataAlignedSize;

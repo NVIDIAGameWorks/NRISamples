@@ -167,7 +167,7 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI) {
     { // Buffer
         nri::BufferDesc bufferDesc = {};
         bufferDesc.size = CTA_NUM * 256 * sizeof(float);
-        bufferDesc.usageMask = nri::BufferUsageBits::SHADER_RESOURCE_STORAGE;
+        bufferDesc.usage = nri::BufferUsageBits::SHADER_RESOURCE_STORAGE;
 
         NRI_ABORT_ON_FAILURE(NRI.CreateBuffer(*m_Device, bufferDesc, m_Buffer));
 

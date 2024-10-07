@@ -43,13 +43,13 @@ int main() {
         &(NriBufferDesc){
             .size = 1024,
             .structureStride = 0,
-            .usageMask = NriBufferUsageBits_SHADER_RESOURCE,
+            .usage = NriBufferUsageBits_SHADER_RESOURCE,
         },
         &buffer));
 
     NriTextureDesc textureDesc = {0};
     textureDesc.type = NriTextureType_TEXTURE_2D;
-    textureDesc.usageMask = NriTextureUsageBits_SHADER_RESOURCE;
+    textureDesc.usage = NriTextureUsageBits_SHADER_RESOURCE;
     textureDesc.format = NriFormat_RGBA8_UNORM;
     textureDesc.width = 32;
     textureDesc.height = 32;
