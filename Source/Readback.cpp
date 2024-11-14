@@ -259,7 +259,7 @@ void Sample::RenderFrame(uint32_t frameIndex) {
             NRI.CmdClearAttachments(commandBuffer, &clearDesc, 1, &rect2, 1);
 
             clearDesc.value.color.f = {0.0f, 0.0f, 1.0f, 1.0f};
-            nri::Rect rect3 = {0, y * 2, w, h3};
+            nri::Rect rect3 = {0, static_cast<int16_t>(y * 2), w, h3};
             NRI.CmdClearAttachments(commandBuffer, &clearDesc, 1, &rect3, 1);
 
             RenderUI(NRI, NRI, *m_Streamer, commandBuffer, 1.0f, true);
