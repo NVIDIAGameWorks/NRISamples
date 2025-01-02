@@ -25,17 +25,19 @@ if %ERRORLEVEL% equ 0 (
 echo.
 
 :: API dependent samples
-call :TestSample Clear 1000
-call :TestSample Triangle 1000
-call :TestSample SceneViewer 1000
-call :TestSample Readback 1000
 call :TestSample AsyncCompute 500
+call :TestSample BindlessSceneViewer 1000
+call :TestSample Clear 1000
+call :TestSample LowLatency 1000
 call :TestSample MultiThreading 100
-call :TestSample MultiGPU 100
-call :TestSample RayTracingTriangle 1000
+call :TestSample Multiview 1000
 call :TestSample RayTracingBoxes 1000
-call :TestSample Wrapper 1000
+call :TestSample RayTracingTriangle 1000
+call :TestSample Readback 1000
 call :TestSample Resize 25000
+call :TestSample SceneViewer 1000
+call :TestSample Triangle 1000
+call :TestSample Wrapper 1000
 
 exit /b
 

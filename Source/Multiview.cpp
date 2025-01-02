@@ -2,7 +2,7 @@
 
 #include "NRIFramework.h"
 
-constexpr uint32_t VIEW_MASK = 0b11;
+constexpr uint32_t VIEW_NUM = 2;
 constexpr nri::Color32f COLOR_0 = {1.0f, 1.0f, 0.0f, 1.0f};
 constexpr nri::Color32f COLOR_1 = {0.46f, 0.72f, 0.0f, 1.0f};
 
@@ -58,20 +58,20 @@ private:
     nri::DescriptorPool* m_DescriptorPool = nullptr;
     nri::PipelineLayout* m_PipelineLayout = nullptr;
     nri::Pipeline* m_Pipeline = nullptr;
-    nri::Pipeline* m_PipelineMultiview = nullptr;
     nri::DescriptorSet* m_TextureDescriptorSet = nullptr;
     nri::Descriptor* m_TextureShaderResource = nullptr;
     nri::Descriptor* m_Sampler = nullptr;
+    nri::Descriptor* m_MultiviewAttachment = nullptr;
     nri::Buffer* m_ConstantBuffer = nullptr;
     nri::Buffer* m_GeometryBuffer = nullptr;
     nri::Texture* m_Texture = nullptr;
+    nri::Texture* m_MultiviewTexture = nullptr;
 
     std::array<Frame, BUFFERED_FRAME_MAX_NUM> m_Frames = {};
     std::vector<BackBuffer> m_SwapChainBuffers;
     std::vector<nri::Memory*> m_MemoryAllocations;
 
     uint64_t m_GeometryOffset = 0;
-    bool m_Multiview = false;
     float m_Transparency = 1.0f;
     float m_Scale = 1.0f;
 };
@@ -89,13 +89,14 @@ Sample::~Sample() {
         NRI.DestroyDescriptor(*backBuffer.colorAttachment);
 
     NRI.DestroyPipeline(*m_Pipeline);
-    NRI.DestroyPipeline(*m_PipelineMultiview);
     NRI.DestroyPipelineLayout(*m_PipelineLayout);
+    NRI.DestroyDescriptor(*m_MultiviewAttachment);
     NRI.DestroyDescriptor(*m_TextureShaderResource);
     NRI.DestroyDescriptor(*m_Sampler);
     NRI.DestroyBuffer(*m_ConstantBuffer);
     NRI.DestroyBuffer(*m_GeometryBuffer);
     NRI.DestroyTexture(*m_Texture);
+    NRI.DestroyTexture(*m_MultiviewTexture);
     NRI.DestroyDescriptorPool(*m_DescriptorPool);
     NRI.DestroyFence(*m_FrameFence);
     NRI.DestroySwapChain(*m_SwapChain);
@@ -130,6 +131,11 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI) {
     NRI_ABORT_ON_FAILURE(nri::nriGetInterface(*m_Device, NRI_INTERFACE(nri::HelperInterface), (nri::HelperInterface*)&NRI));
     NRI_ABORT_ON_FAILURE(nri::nriGetInterface(*m_Device, NRI_INTERFACE(nri::StreamerInterface), (nri::StreamerInterface*)&NRI));
     NRI_ABORT_ON_FAILURE(nri::nriGetInterface(*m_Device, NRI_INTERFACE(nri::SwapChainInterface), (nri::SwapChainInterface*)&NRI));
+
+    const nri::DeviceDesc& deviceDesc = NRI.GetDeviceDesc(*m_Device);
+    if (!deviceDesc.isLayerBasedMultiviewSupported)
+        printf("Multiview is not supported!\n");
+    NRI_ABORT_ON_FALSE(deviceDesc.isLayerBasedMultiviewSupported);
 
     // Create streamer
     nri::StreamerDesc streamerDesc = {};
@@ -180,7 +186,6 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI) {
     }
 
     // Pipeline
-    const nri::DeviceDesc& deviceDesc = NRI.GetDeviceDesc(*m_Device);
     utils::ShaderCodeStorage shaderCodeStorage;
     {
         nri::DescriptorRangeDesc descriptorRangeConstant[1];
@@ -248,9 +253,11 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI) {
         nri::OutputMergerDesc outputMergerDesc = {};
         outputMergerDesc.colors = &colorAttachmentDesc;
         outputMergerDesc.colorNum = 1;
+        outputMergerDesc.viewMask = (1 << VIEW_NUM) - 1;
+        outputMergerDesc.multiview = nri::Multiview::LAYER_BASED;
 
         nri::ShaderDesc shaderStages[] = {
-            utils::LoadShader(deviceDesc.graphicsAPI, "TriangleFlexibleMultiview.vs", shaderCodeStorage),
+            utils::LoadShader(deviceDesc.graphicsAPI, "Triangle.vs", shaderCodeStorage),
             utils::LoadShader(deviceDesc.graphicsAPI, "Triangle.fs", shaderCodeStorage),
         };
 
@@ -264,14 +271,6 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI) {
         graphicsPipelineDesc.shaderNum = helper::GetCountOf(shaderStages);
 
         NRI_ABORT_ON_FAILURE(NRI.CreateGraphicsPipeline(*m_Device, graphicsPipelineDesc, m_Pipeline));
-
-        // Multiview
-        if (deviceDesc.isFlexibleMultiviewSupported) {
-            graphicsPipelineDesc.outputMerger.viewMask = VIEW_MASK;
-            graphicsPipelineDesc.outputMerger.multiview = nri::Multiview::FLEXIBLE;
-
-            NRI_ABORT_ON_FAILURE(NRI.CreateGraphicsPipeline(*m_Device, graphicsPipelineDesc, m_PipelineMultiview));
-        }
     }
 
     { // Descriptor pool
@@ -308,6 +307,18 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI) {
             NRI_ABORT_ON_FAILURE(NRI.CreateTexture(*m_Device, textureDesc, m_Texture));
         }
 
+        { // Layered target for multiview
+            nri::TextureDesc textureDesc = {};
+            textureDesc.type = nri::TextureType::TEXTURE_2D;
+            textureDesc.usage = nri::TextureUsageBits::COLOR_ATTACHMENT;
+            textureDesc.format = swapChainFormat;
+            textureDesc.width = (nri::Dim_t)GetWindowResolution().x / 2u;
+            textureDesc.height = (nri::Dim_t)GetWindowResolution().y;
+            textureDesc.layerNum = VIEW_NUM;
+
+            NRI_ABORT_ON_FAILURE(NRI.CreateTexture(*m_Device, textureDesc, m_MultiviewTexture));
+        }
+
         { // Constant buffer
             nri::BufferDesc bufferDesc = {};
             bufferDesc.size = constantBufferSize * BUFFERED_FRAME_MAX_NUM;
@@ -332,11 +343,13 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI) {
     m_MemoryAllocations.resize(1, nullptr);
     NRI_ABORT_ON_FAILURE(NRI.AllocateAndBindMemory(*m_Device, resourceGroupDesc, m_MemoryAllocations.data()));
 
+    nri::Texture* textures[2] = {m_Texture, m_MultiviewTexture};
+
     resourceGroupDesc.memoryLocation = nri::MemoryLocation::DEVICE;
     resourceGroupDesc.bufferNum = 1;
     resourceGroupDesc.buffers = &m_GeometryBuffer;
-    resourceGroupDesc.textureNum = 1;
-    resourceGroupDesc.textures = &m_Texture;
+    resourceGroupDesc.textureNum = helper::GetCountOf(textures);
+    resourceGroupDesc.textures = textures;
 
     m_MemoryAllocations.resize(1 + NRI.CalculateAllocationNumber(*m_Device, resourceGroupDesc), nullptr);
     NRI_ABORT_ON_FAILURE(NRI.AllocateAndBindMemory(*m_Device, resourceGroupDesc, m_MemoryAllocations.data() + 1));
@@ -345,6 +358,11 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI) {
         { // Read-only texture
             nri::Texture2DViewDesc texture2DViewDesc = {m_Texture, nri::Texture2DViewType::SHADER_RESOURCE_2D, texture.GetFormat()};
             NRI_ABORT_ON_FAILURE(NRI.CreateTexture2DView(texture2DViewDesc, m_TextureShaderResource));
+        }
+
+        { // Multiview attachment
+            nri::Texture2DViewDesc texture2DViewDesc = {m_MultiviewTexture, nri::Texture2DViewType::COLOR_ATTACHMENT, swapChainFormat, 0, 1, 0, VIEW_NUM};
+            NRI_ABORT_ON_FAILURE(NRI.CreateTexture2DView(texture2DViewDesc, m_MultiviewAttachment));
         }
 
         { // Sampler
@@ -428,11 +446,6 @@ void Sample::PrepareFrame(uint32_t) {
     {
         ImGui::SliderFloat("Transparency", &m_Transparency, 0.0f, 1.0f);
         ImGui::SliderFloat("Scale", &m_Scale, 0.75f, 1.25f);
-
-        const nri::DeviceDesc& deviceDesc = NRI.GetDeviceDesc(*m_Device);
-        ImGui::BeginDisabled(!deviceDesc.isFlexibleMultiviewSupported);
-        ImGui::Checkbox("Multiview", &m_Multiview);
-        ImGui::EndDisabled();
     }
     ImGui::End();
 
@@ -472,21 +485,30 @@ void Sample::RenderFrame(uint32_t frameIndex) {
     nri::CommandBuffer* commandBuffer = frame.commandBuffer;
     NRI.BeginCommandBuffer(*commandBuffer, m_DescriptorPool);
     {
-        nri::TextureBarrierDesc textureBarrierDescs = {};
-        textureBarrierDescs.texture = currentBackBuffer.texture;
-        textureBarrierDescs.after = {nri::AccessBits::COLOR_ATTACHMENT, nri::Layout::COLOR_ATTACHMENT};
+        // Barriers
+        nri::TextureBarrierDesc textureBarrierDescs[2] = {};
 
-        nri::BarrierGroupDesc barrierGroupDesc = {};
-        barrierGroupDesc.textureNum = 1;
-        barrierGroupDesc.textures = &textureBarrierDescs;
+        textureBarrierDescs[0].texture = currentBackBuffer.texture;
+        textureBarrierDescs[0].after = {nri::AccessBits::COPY_DESTINATION, nri::Layout::COPY_DESTINATION};
 
-        NRI.CmdBarrier(*commandBuffer, barrierGroupDesc);
+        textureBarrierDescs[1].texture = m_MultiviewTexture;
+        textureBarrierDescs[1].after = {nri::AccessBits::COLOR_ATTACHMENT, nri::Layout::COLOR_ATTACHMENT};
+        if (frameIndex != 0)
+            textureBarrierDescs[1].before = {nri::AccessBits::COPY_SOURCE, nri::Layout::COPY_SOURCE};
 
-        // Single- or multi- view
+        {
+            nri::BarrierGroupDesc barrierGroupDesc = {};
+            barrierGroupDesc.textureNum = 2;
+            barrierGroupDesc.textures = textureBarrierDescs;
+
+            NRI.CmdBarrier(*commandBuffer, barrierGroupDesc);
+        }
+
+        // Multiview
         nri::AttachmentsDesc attachmentsDesc = {};
         attachmentsDesc.colorNum = 1;
-        attachmentsDesc.colors = &currentBackBuffer.colorAttachment;
-        attachmentsDesc.viewMask = m_Multiview ? VIEW_MASK : 0;
+        attachmentsDesc.colors = &m_MultiviewAttachment;
+        attachmentsDesc.viewMask = (1 << VIEW_NUM) - 1;
 
         NRI.CmdBeginRendering(*commandBuffer, attachmentsDesc);
         {
@@ -502,8 +524,8 @@ void Sample::RenderFrame(uint32_t frameIndex) {
                 clearDesc.value.color.f = COLOR_1;
 
                 nri::Rect rects[2];
-                rects[0] = {0, 0, w2, h2};
-                rects[1] = {(int16_t)w2, (int16_t)h2, w2, h2};
+                rects[0] = {0, 0, w4, h2};
+                rects[1] = {(int16_t)w4, (int16_t)h2, w4, h2};
 
                 NRI.CmdClearAttachments(*commandBuffer, &clearDesc, 1, rects, helper::GetCountOf(rects));
             }
@@ -512,52 +534,79 @@ void Sample::RenderFrame(uint32_t frameIndex) {
                 helper::Annotation annotation(NRI, *commandBuffer, "Triangle");
 
                 NRI.CmdSetPipelineLayout(*commandBuffer, *m_PipelineLayout);
-                NRI.CmdSetPipeline(*commandBuffer, m_Multiview ? *m_PipelineMultiview : *m_Pipeline);
+                NRI.CmdSetPipeline(*commandBuffer, *m_Pipeline);
                 NRI.CmdSetRootConstants(*commandBuffer, 0, &m_Transparency, 4);
                 NRI.CmdSetIndexBuffer(*commandBuffer, *m_GeometryBuffer, 0, nri::IndexType::UINT16);
                 NRI.CmdSetVertexBuffers(*commandBuffer, 0, 1, &m_GeometryBuffer, &m_GeometryOffset);
                 NRI.CmdSetDescriptorSet(*commandBuffer, 0, *frame.constantBufferDescriptorSet, nullptr);
                 NRI.CmdSetDescriptorSet(*commandBuffer, 1, *m_TextureDescriptorSet, nullptr);
 
-                if (m_Multiview) {
-                    const nri::Viewport viewports[2] = {
-                        {0.0f, 0.0f, (float)w2, (float)h, 0.0f, 1.0f},
-                        {(float)w2, 0.0f, (float)w2, (float)h, 0.0f, 1.0f},
-                    };
-                    NRI.CmdSetViewports(*commandBuffer, viewports, helper::GetCountOf(viewports));
+                const nri::Viewport viewport = {0.0f, 0.0f, (float)w2, (float)h, 0.0f, 1.0f};
+                NRI.CmdSetViewports(*commandBuffer, &viewport, 1);
 
-                    nri::Rect scissors[2] = {
-                        {(int16_t)0, 0, w4, h},
-                        {(int16_t)w2, 0, w4, h},
-                    };
-                    NRI.CmdSetScissors(*commandBuffer, scissors, helper::GetCountOf(scissors));
-                } else {
-                    const nri::Viewport viewport = {0.0f, 0.0f, (float)w, (float)h, 0.0f, 1.0f};
-                    NRI.CmdSetViewports(*commandBuffer, &viewport, 1);
-
-                    nri::Rect scissor = {0, 0, w2, h};
+                {
+                    nri::Rect scissor = {0, 0, w4, h};
                     NRI.CmdSetScissors(*commandBuffer, &scissor, 1);
+
+                    NRI.CmdDrawIndexed(*commandBuffer, {3, 1, 0, 0, 0});
                 }
 
-                NRI.CmdDrawIndexed(*commandBuffer, {3, 1, 0, 0, 0});
-
-                if (m_Multiview) {
-                    nri::Rect scissor[2] = {
-                        {(int16_t)0 + w4, (int16_t)h2, w4, h2},
-                        {(int16_t)w2 + w4, (int16_t)h2, w4, h2},
-                    };
-                    NRI.CmdSetScissors(*commandBuffer, scissor, helper::GetCountOf(scissor));
-                } else {
-                    nri::Rect scissor = {(int16_t)w2, (int16_t)h2, w2, h2};
+                {
+                    nri::Rect scissor = {(int16_t)0 + w4, (int16_t)h2, w4, h2};
                     NRI.CmdSetScissors(*commandBuffer, &scissor, 1);
-                }
 
-                NRI.CmdDraw(*commandBuffer, {3, 1, 0, 0});
+                    NRI.CmdDraw(*commandBuffer, {3, 1, 0, 0});
+                }
             }
         }
         NRI.CmdEndRendering(*commandBuffer);
 
+        { // Barriers
+            textureBarrierDescs[1].before = textureBarrierDescs[1].after;
+            textureBarrierDescs[1].after = {nri::AccessBits::COPY_SOURCE, nri::Layout::COPY_SOURCE};
+
+            nri::BarrierGroupDesc barrierGroupDesc = {};
+            barrierGroupDesc.textureNum = 1;
+            barrierGroupDesc.textures = textureBarrierDescs + 1;
+
+            NRI.CmdBarrier(*commandBuffer, barrierGroupDesc);
+        }
+
+        { // Copy
+            nri::TextureRegionDesc dstRegionDesc = {};
+            dstRegionDesc.x = 0;
+            dstRegionDesc.y = 0;
+            dstRegionDesc.width = w2;
+            dstRegionDesc.height = h;
+
+            nri::TextureRegionDesc srcRegionDesc = {};
+            srcRegionDesc.x = 0;
+            srcRegionDesc.y = 0;
+            srcRegionDesc.width = w2;
+            srcRegionDesc.height = h;
+            srcRegionDesc.layerOffset = 0;
+
+            NRI.CmdCopyTexture(*commandBuffer, *currentBackBuffer.texture, &dstRegionDesc, *m_MultiviewTexture, &srcRegionDesc);
+
+            dstRegionDesc.x = w2;
+            srcRegionDesc.layerOffset = 1;
+
+            NRI.CmdCopyTexture(*commandBuffer, *currentBackBuffer.texture, &dstRegionDesc, *m_MultiviewTexture, &srcRegionDesc);
+        }
+
+        { // Barriers
+            textureBarrierDescs[0].before = textureBarrierDescs[0].after;
+            textureBarrierDescs[0].after = {nri::AccessBits::COLOR_ATTACHMENT, nri::Layout::COLOR_ATTACHMENT};
+
+            nri::BarrierGroupDesc barrierGroupDesc = {};
+            barrierGroupDesc.textureNum = 1;
+            barrierGroupDesc.textures = textureBarrierDescs;
+
+            NRI.CmdBarrier(*commandBuffer, barrierGroupDesc);
+        }
+
         // Singleview
+        attachmentsDesc.colors = &currentBackBuffer.colorAttachment;
         attachmentsDesc.viewMask = 0;
 
         NRI.CmdBeginRendering(*commandBuffer, attachmentsDesc);
@@ -568,10 +617,16 @@ void Sample::RenderFrame(uint32_t frameIndex) {
         }
         NRI.CmdEndRendering(*commandBuffer);
 
-        textureBarrierDescs.before = textureBarrierDescs.after;
-        textureBarrierDescs.after = {nri::AccessBits::UNKNOWN, nri::Layout::PRESENT};
+        { // Barriers
+            textureBarrierDescs[0].before = textureBarrierDescs[0].after;
+            textureBarrierDescs[0].after = {nri::AccessBits::UNKNOWN, nri::Layout::PRESENT};
 
-        NRI.CmdBarrier(*commandBuffer, barrierGroupDesc);
+            nri::BarrierGroupDesc barrierGroupDesc = {};
+            barrierGroupDesc.textureNum = 1;
+            barrierGroupDesc.textures = textureBarrierDescs;
+
+            NRI.CmdBarrier(*commandBuffer, barrierGroupDesc);
+        }
     }
     NRI.EndCommandBuffer(*commandBuffer);
 
