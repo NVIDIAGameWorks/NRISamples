@@ -2,6 +2,8 @@
 
 #include "NRIFramework.h"
 
+#define USE_VULKAN_12 0
+
 #ifdef _WIN32
 #    undef APIENTRY // defined in GLFW
 
@@ -14,7 +16,7 @@
 #    define VK_USE_PLATFORM_WIN32_KHR 1
 const char* VULKAN_LOADER_NAME = "vulkan-1.dll";
 #elif defined(__APPLE__)
-#define VK_USE_PLATFORM_METAL_EXT
+#    define VK_USE_PLATFORM_METAL_EXT
 const char* VULKAN_LOADER_NAME = "libvulkan.dynlib";
 #else
 #    define VK_USE_PLATFORM_XLIB_KHR 1
@@ -210,16 +212,33 @@ void Sample::CreateVulkanDevice() {
 
     VkApplicationInfo applicationInfo = {};
     applicationInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
-    applicationInfo.apiVersion = VK_API_VERSION_1_3;
-
-#ifdef _WIN32
-    const char* instanceExtensions[] = {VK_KHR_WIN32_SURFACE_EXTENSION_NAME, VK_KHR_SURFACE_EXTENSION_NAME};
-#elif defined(__APPLE__)
-    const char* instanceExtensions[] = {VK_EXT_METAL_SURFACE_EXTENSION_NAME};
+#if USE_VULKAN_12
+    applicationInfo.apiVersion = VK_API_VERSION_1_2;
 #else
-    const char* instanceExtensions[] = {VK_KHR_XLIB_SURFACE_EXTENSION_NAME};
+    applicationInfo.apiVersion = VK_API_VERSION_1_3;
 #endif
-    const char* deviceExtensions[] = {VK_KHR_SWAPCHAIN_EXTENSION_NAME};
+
+    const char* instanceExtensions[] = {
+#ifdef _WIN32
+        VK_KHR_WIN32_SURFACE_EXTENSION_NAME,
+#elif defined(__APPLE__)
+        VK_EXT_METAL_SURFACE_EXTENSION_NAME,
+#else
+        VK_KHR_XLIB_SURFACE_EXTENSION_NAME,
+#endif
+        VK_KHR_GET_SURFACE_CAPABILITIES_2_EXTENSION_NAME,
+        VK_KHR_SURFACE_EXTENSION_NAME,
+    };
+    const char* deviceExtensions[] = {
+        VK_KHR_SWAPCHAIN_EXTENSION_NAME,
+#if USE_VULKAN_12
+        VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME,
+        VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME,
+        VK_KHR_MAINTENANCE_4_EXTENSION_NAME,
+        VK_KHR_COPY_COMMANDS_2_EXTENSION_NAME,
+        VK_EXT_EXTENDED_DYNAMIC_STATE_EXTENSION_NAME,
+#endif
+    };
     const char* layers[] = {"VK_LAYER_KHRONOS_validation"};
 
     VkInstanceCreateInfo instanceCreateInfo = {};
@@ -418,7 +437,6 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI) {
         inputAssemblyDesc.topology = nri::Topology::TRIANGLE_LIST;
 
         nri::RasterizationDesc rasterizationDesc = {};
-        rasterizationDesc.viewportNum = 1;
         rasterizationDesc.fillMode = nri::FillMode::SOLID;
         rasterizationDesc.cullMode = nri::CullMode::NONE;
 
@@ -743,8 +761,8 @@ void Sample::RenderFrame(uint32_t frameIndex) {
 
 #ifdef _WIN32
 
-#include <windows.h>
-#undef LoadLibrary
+#    include <windows.h>
+#    undef LoadLibrary
 
 Library* LoadSharedLibrary(const char* path) {
     return (Library*)LoadLibraryA(path);
@@ -760,7 +778,7 @@ void UnloadSharedLibrary(Library& library) {
 
 #elif defined(__linux__) || defined(__APPLE__)
 
-#include <dlfcn.h>
+#    include <dlfcn.h>
 
 Library* LoadSharedLibrary(const char* path) {
     return (Library*)dlopen(path, RTLD_NOW);
