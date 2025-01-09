@@ -2,7 +2,7 @@
 
 #include "NRIFramework.h"
 
-#define USE_VULKAN_12 0
+#define VK_MINOR_VERSION 3
 
 #ifdef _WIN32
 #    undef APIENTRY // defined in GLFW
@@ -212,11 +212,7 @@ void Sample::CreateVulkanDevice() {
 
     VkApplicationInfo applicationInfo = {};
     applicationInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
-#if USE_VULKAN_12
-    applicationInfo.apiVersion = VK_API_VERSION_1_2;
-#else
-    applicationInfo.apiVersion = VK_API_VERSION_1_3;
-#endif
+    applicationInfo.apiVersion = VK_MAKE_API_VERSION(0, 1, VK_MINOR_VERSION, 0);
 
     const char* instanceExtensions[] = {
 #ifdef _WIN32
@@ -231,10 +227,9 @@ void Sample::CreateVulkanDevice() {
     };
     const char* deviceExtensions[] = {
         VK_KHR_SWAPCHAIN_EXTENSION_NAME,
-#if USE_VULKAN_12
+#if (VK_MINOR_VERSION == 2)
         VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME,
         VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME,
-        VK_KHR_MAINTENANCE_4_EXTENSION_NAME,
         VK_KHR_COPY_COMMANDS_2_EXTENSION_NAME,
         VK_EXT_EXTENDED_DYNAMIC_STATE_EXTENSION_NAME,
 #endif
@@ -270,14 +265,27 @@ void Sample::CreateVulkanDevice() {
 
     const float priority = 1.0f;
 
-    VkPhysicalDeviceVulkan11Features featuresVulkan11 = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES};
-    VkPhysicalDeviceVulkan12Features featuresVulkan12 = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES};
-    VkPhysicalDeviceVulkan13Features featuresVulkan13 = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES};
-
     VkPhysicalDeviceFeatures2 deviceFeatures2 = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2};
+
+    VkPhysicalDeviceVulkan11Features featuresVulkan11 = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES};
     deviceFeatures2.pNext = &featuresVulkan11;
+
+    VkPhysicalDeviceVulkan12Features featuresVulkan12 = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES};
     featuresVulkan11.pNext = &featuresVulkan12;
+
+#if (VK_MINOR_VERSION == 2)
+    VkPhysicalDeviceSynchronization2Features synchronization2features = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SYNCHRONIZATION_2_FEATURES};
+    featuresVulkan12.pNext = &synchronization2features;
+
+    VkPhysicalDeviceDynamicRenderingFeatures dynamicRenderingFeatures = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES};
+    synchronization2features.pNext = &dynamicRenderingFeatures;
+
+    VkPhysicalDeviceExtendedDynamicStateFeaturesEXT extendedDynamicStateFeatures = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTENDED_DYNAMIC_STATE_FEATURES_EXT};
+    dynamicRenderingFeatures.pNext = &extendedDynamicStateFeatures;
+#else
+    VkPhysicalDeviceVulkan13Features featuresVulkan13 = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES};
     featuresVulkan12.pNext = &featuresVulkan13;
+#endif
 
     vkGetPhysicalDeviceFeatures2(physicalDevice, &deviceFeatures2);
 
@@ -310,6 +318,7 @@ void Sample::CreateVulkanDevice() {
     deviceDesc.vkPhysicalDevice = (VKHandle)physicalDevice;
     deviceDesc.queueFamilyIndices = queueFamilyIndices;
     deviceDesc.queueFamilyIndexNum = helper::GetCountOf(queueFamilyIndices);
+    deviceDesc.minorVersion = VK_MINOR_VERSION;
 
     NRI_ABORT_ON_FAILURE(nri::nriCreateDeviceFromVkDevice(deviceDesc, m_Device));
 }

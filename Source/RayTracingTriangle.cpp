@@ -339,7 +339,7 @@ void Sample::CreateRayTracingOutput(nri::Format swapChainFormat) {
     NRI_ABORT_ON_FAILURE(NRI.CreateTexture(*m_Device, rayTracingOutputDesc, m_RayTracingOutput));
 
     nri::MemoryDesc memoryDesc = {};
-    NRI.GetTextureMemoryDesc(*m_Device, rayTracingOutputDesc, nri::MemoryLocation::DEVICE, memoryDesc);
+    NRI.GetTextureMemoryDesc(*m_RayTracingOutput, nri::MemoryLocation::DEVICE, memoryDesc);
 
     nri::AllocateMemoryDesc allocateMemoryDesc = {};
     allocateMemoryDesc.size = memoryDesc.size;
@@ -406,7 +406,7 @@ void Sample::CreateBottomLevelAccelerationStructure() {
     NRI_ABORT_ON_FAILURE(NRI.CreateAccelerationStructure(*m_Device, accelerationStructureBLASDesc, m_BLAS));
 
     nri::MemoryDesc memoryDesc = {};
-    NRI.GetAccelerationStructureMemoryDesc(*m_Device, accelerationStructureBLASDesc, nri::MemoryLocation::DEVICE, memoryDesc);
+    NRI.GetAccelerationStructureMemoryDesc(*m_BLAS, nri::MemoryLocation::DEVICE, memoryDesc);
 
     nri::AllocateMemoryDesc allocateMemoryDesc = {};
     allocateMemoryDesc.size = memoryDesc.size;
@@ -430,7 +430,7 @@ void Sample::CreateTopLevelAccelerationStructure() {
     NRI_ABORT_ON_FAILURE(NRI.CreateAccelerationStructure(*m_Device, accelerationStructureTLASDesc, m_TLAS));
 
     nri::MemoryDesc memoryDesc = {};
-    NRI.GetAccelerationStructureMemoryDesc(*m_Device, accelerationStructureTLASDesc, nri::MemoryLocation::DEVICE, memoryDesc);
+    NRI.GetAccelerationStructureMemoryDesc(*m_TLAS, nri::MemoryLocation::DEVICE, memoryDesc);
 
     nri::AllocateMemoryDesc allocateMemoryDesc = {};
     allocateMemoryDesc.size = memoryDesc.size;
@@ -472,7 +472,7 @@ void Sample::CreateUploadBuffer(uint64_t size, nri::BufferUsageBits usage, nri::
     NRI_ABORT_ON_FAILURE(NRI.CreateBuffer(*m_Device, bufferDesc, buffer));
 
     nri::MemoryDesc memoryDesc = {};
-    NRI.GetBufferMemoryDesc(*m_Device, bufferDesc, nri::MemoryLocation::HOST_UPLOAD, memoryDesc);
+    NRI.GetBufferMemoryDesc(*buffer, nri::MemoryLocation::HOST_UPLOAD, memoryDesc);
 
     nri::AllocateMemoryDesc allocateMemoryDesc = {};
     allocateMemoryDesc.size = memoryDesc.size;
@@ -490,7 +490,7 @@ void Sample::CreateScratchBuffer(nri::AccelerationStructure& accelerationStructu
     NRI_ABORT_ON_FAILURE(NRI.CreateBuffer(*m_Device, bufferDesc, buffer));
 
     nri::MemoryDesc memoryDesc = {};
-    NRI.GetBufferMemoryDesc(*m_Device, bufferDesc, nri::MemoryLocation::DEVICE, memoryDesc);
+    NRI.GetBufferMemoryDesc(*buffer, nri::MemoryLocation::DEVICE, memoryDesc);
 
     nri::AllocateMemoryDesc allocateMemoryDesc = {};
     allocateMemoryDesc.size = memoryDesc.size;
@@ -569,7 +569,7 @@ void Sample::CreateShaderTable() {
     NRI_ABORT_ON_FAILURE(NRI.CreateBuffer(*m_Device, bufferDesc, m_ShaderTable));
 
     nri::MemoryDesc memoryDesc = {};
-    NRI.GetBufferMemoryDesc(*m_Device, bufferDesc, nri::MemoryLocation::DEVICE, memoryDesc);
+    NRI.GetBufferMemoryDesc(*m_ShaderTable, nri::MemoryLocation::DEVICE, memoryDesc);
 
     nri::AllocateMemoryDesc allocateMemoryDesc = {};
     allocateMemoryDesc.size = memoryDesc.size;
