@@ -12,6 +12,9 @@
 #define VSYNC_INTERVAL 0
 #define QUEUED_FRAMES_MAX_NUM 3
 #define CTA_NUM 38000 // tuned to reach ~1ms on RTX 4080
+#define COLOR_LATENCY_SLEEP NriBgra(255, 0, 0)
+#define COLOR_SIMULATION NriBgra(0, 255, 0)
+#define COLOR_RENDER NriBgra(0, 0, 255)
 
 struct NRIInterface
     : public nri::CoreInterface,
@@ -226,6 +229,8 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI) {
 }
 
 void Sample::LatencySleep(uint32_t frameIndex) {
+    nri::nriBeginAnnotation("LatencySleep", COLOR_LATENCY_SLEEP);
+
     // Marker
     if (m_AllowLowLatency)
         NRI.SetLatencyMarker(*m_SwapChain, nri::LatencyMarker::SIMULATION_START);
@@ -248,9 +253,13 @@ void Sample::LatencySleep(uint32_t frameIndex) {
         NRI.LatencySleep(*m_SwapChain);
         NRI.SetLatencyMarker(*m_SwapChain, nri::LatencyMarker::INPUT_SAMPLE);
     }
+
+    nri::nriEndAnnotation();
 }
 
 void Sample::PrepareFrame(uint32_t) {
+    nri::nriBeginAnnotation("Simulation", COLOR_SIMULATION);
+
     // Emulate CPU workload
     double begin = m_Timer.GetTimeStamp() + m_CpuWorkload;
     while (m_Timer.GetTimeStamp() < begin)
@@ -331,9 +340,13 @@ void Sample::PrepareFrame(uint32_t) {
     // Marker
     if (m_AllowLowLatency)
         NRI.SetLatencyMarker(*m_SwapChain, nri::LatencyMarker::SIMULATION_END);
+
+    nri::nriEndAnnotation();
 }
 
 void Sample::RenderFrame(uint32_t frameIndex) {
+    nri::nriBeginAnnotation("Render", COLOR_RENDER);
+
     const uint32_t backBufferIndex = NRI.AcquireNextSwapChainTexture(*m_SwapChain);
     const BackBuffer& backBuffer = m_SwapChainBuffers[backBufferIndex];
     const Frame& frame = m_Frames[frameIndex % m_QueuedFrameNum];
@@ -350,6 +363,8 @@ void Sample::RenderFrame(uint32_t frameIndex) {
     nri::CommandBuffer& commandBuffer = *frame.commandBuffer;
     NRI.BeginCommandBuffer(commandBuffer, m_DescriptorPool);
     {
+        NRI.CmdBeginAnnotation(commandBuffer, "Render", COLOR_RENDER);
+
         nri::TextureBarrierDesc swapchainBarrier = {};
         swapchainBarrier.texture = backBuffer.texture;
         swapchainBarrier.after = {nri::AccessBits::COLOR_ATTACHMENT, nri::Layout::COLOR_ATTACHMENT};
@@ -413,6 +428,8 @@ void Sample::RenderFrame(uint32_t frameIndex) {
 
             NRI.CmdBarrier(commandBuffer, barriers);
         }
+
+        NRI.CmdEndAnnotation(commandBuffer);
     }
     NRI.EndCommandBuffer(commandBuffer);
 
@@ -427,6 +444,8 @@ void Sample::RenderFrame(uint32_t frameIndex) {
         queueSubmitDesc.signalFences = &signalFence;
         queueSubmitDesc.signalFenceNum = 1;
 
+        NRI.QueueAnnotation(*m_CommandQueue, "Submit", COLOR_RENDER);
+
         if (m_AllowLowLatency) {
             NRI.SetLatencyMarker(*m_SwapChain, nri::LatencyMarker::RENDER_SUBMIT_START);
             NRI.QueueSubmitTrackable(*m_CommandQueue, queueSubmitDesc, *m_SwapChain);
@@ -437,6 +456,8 @@ void Sample::RenderFrame(uint32_t frameIndex) {
 
     // Present
     NRI.QueuePresent(*m_SwapChain);
+
+    nri::nriEndAnnotation();
 }
 
 SAMPLE_MAIN(Sample, 0);

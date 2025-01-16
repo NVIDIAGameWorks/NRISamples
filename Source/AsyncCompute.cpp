@@ -130,12 +130,12 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI) {
 
     // Command queue
     NRI_ABORT_ON_FAILURE(NRI.GetCommandQueue(*m_Device, nri::CommandQueueType::GRAPHICS, m_GraphicsQueue));
-    NRI.SetCommandQueueDebugName(*m_GraphicsQueue, "GraphicsQueue");
+    NRI.SetDebugName(m_GraphicsQueue, "GraphicsQueue");
 
     // if (deviceDesc.isComputeQueueSupported)
     {
         NRI_ABORT_ON_FAILURE(NRI.GetCommandQueue(*m_Device, nri::CommandQueueType::COMPUTE, m_ComputeQueue));
-        NRI.SetCommandQueueDebugName(*m_ComputeQueue, "ComputeQueue");
+        NRI.SetDebugName(m_ComputeQueue, "ComputeQueue");
     }
 
     // Fences

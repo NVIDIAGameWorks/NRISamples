@@ -47,7 +47,7 @@ bool EnumerateAdapters() {
         printf("\tName: %s\n", p->name);
         printf("\tLUID: 0x%016llX\n", p->luid);
         printf("\tVideo memory (Mb): %llu\n", p->videoMemorySize >> 20);
-        printf("\tSystem memory (Mb): %llu\n", p->systemMemorySize >> 20);
+        printf("\tShared system memory (Mb): %llu\n", p->sharedSystemMemorySize >> 20);
         printf("\tID: 0x%08X\n", p->deviceId);
         printf("\tVendor: %s\n", vendors[p->vendor]);
     }
