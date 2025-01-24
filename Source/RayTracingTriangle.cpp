@@ -45,7 +45,7 @@ private:
     NRIInterface NRI = {};
     nri::Device* m_Device = nullptr;
     nri::SwapChain* m_SwapChain = nullptr;
-    nri::CommandQueue* m_CommandQueue = nullptr;
+    nri::Queue* m_GraphicsQueue = nullptr;
     nri::Fence* m_FrameFence = nullptr;
 
     std::array<Frame, BUFFERED_FRAME_MAX_NUM> m_Frames = {};
@@ -77,7 +77,7 @@ private:
 };
 
 Sample::~Sample() {
-    NRI.WaitForIdle(*m_CommandQueue);
+    NRI.WaitForIdle(*m_GraphicsQueue);
 
     for (uint32_t i = 0; i < m_Frames.size(); i++) {
         NRI.DestroyCommandBuffer(*m_Frames[i].commandBuffer);
@@ -125,7 +125,7 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI) {
     deviceCreationDesc.graphicsAPI = graphicsAPI;
     deviceCreationDesc.enableGraphicsAPIValidation = m_DebugAPI;
     deviceCreationDesc.enableNRIValidation = m_DebugNRI;
-    deviceCreationDesc.spirvBindingOffsets = SPIRV_BINDING_OFFSETS;
+    deviceCreationDesc.vkBindingOffsets = VK_BINDING_OFFSETS;
     deviceCreationDesc.adapterDesc = &bestAdapterDesc;
     deviceCreationDesc.allocationCallbacks = m_AllocationCallbacks;
     NRI_ABORT_ON_FAILURE(nri::nriCreateDevice(deviceCreationDesc, m_Device));
@@ -135,7 +135,7 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI) {
     NRI_ABORT_ON_FAILURE(nri::nriGetInterface(*m_Device, NRI_INTERFACE(nri::RayTracingInterface), (nri::RayTracingInterface*)&NRI));
     NRI_ABORT_ON_FAILURE(nri::nriGetInterface(*m_Device, NRI_INTERFACE(nri::HelperInterface), (nri::HelperInterface*)&NRI));
 
-    NRI_ABORT_ON_FAILURE(NRI.GetCommandQueue(*m_Device, nri::CommandQueueType::GRAPHICS, m_CommandQueue));
+    NRI_ABORT_ON_FAILURE(NRI.GetQueue(*m_Device, nri::QueueType::GRAPHICS, 0, m_GraphicsQueue));
     NRI_ABORT_ON_FAILURE(NRI.CreateFence(*m_Device, 0, m_FrameFence));
 
     CreateCommandBuffers();
@@ -236,7 +236,7 @@ void Sample::RenderFrame(uint32_t frameIndex) {
         queueSubmitDesc.signalFences = &signalFence;
         queueSubmitDesc.signalFenceNum = 1;
 
-        NRI.QueueSubmit(*m_CommandQueue, queueSubmitDesc);
+        NRI.QueueSubmit(*m_GraphicsQueue, queueSubmitDesc);
     }
 
     // Present
@@ -246,7 +246,7 @@ void Sample::RenderFrame(uint32_t frameIndex) {
 void Sample::CreateSwapChain(nri::Format& swapChainFormat) {
     nri::SwapChainDesc swapChainDesc = {};
     swapChainDesc.window = GetWindow();
-    swapChainDesc.commandQueue = m_CommandQueue;
+    swapChainDesc.queue = m_GraphicsQueue;
     swapChainDesc.format = nri::SwapChainFormat::BT709_G22_8BIT;
     swapChainDesc.verticalSyncInterval = m_VsyncInterval;
     swapChainDesc.width = (uint16_t)GetWindowResolution().x;
@@ -273,7 +273,7 @@ void Sample::CreateSwapChain(nri::Format& swapChainFormat) {
 
 void Sample::CreateCommandBuffers() {
     for (Frame& frame : m_Frames) {
-        NRI_ABORT_ON_FAILURE(NRI.CreateCommandAllocator(*m_CommandQueue, frame.commandAllocator));
+        NRI_ABORT_ON_FAILURE(NRI.CreateCommandAllocator(*m_GraphicsQueue, frame.commandAllocator));
         NRI_ABORT_ON_FAILURE(NRI.CreateCommandBuffer(*frame.commandAllocator, frame.commandBuffer));
     }
 }
@@ -508,7 +508,7 @@ void Sample::BuildBottomLevelAccelerationStructure(nri::AccelerationStructure& a
 
     nri::CommandAllocator* commandAllocator = nullptr;
     nri::CommandBuffer* commandBuffer = nullptr;
-    NRI.CreateCommandAllocator(*m_CommandQueue, commandAllocator);
+    NRI.CreateCommandAllocator(*m_GraphicsQueue, commandAllocator);
     NRI.CreateCommandBuffer(*commandAllocator, commandBuffer);
 
     nri::QueueSubmitDesc queueSubmitDesc = {};
@@ -518,8 +518,8 @@ void Sample::BuildBottomLevelAccelerationStructure(nri::AccelerationStructure& a
     NRI.BeginCommandBuffer(*commandBuffer, nullptr);
     NRI.CmdBuildBottomLevelAccelerationStructure(*commandBuffer, objectNum, objects, BUILD_FLAGS, accelerationStructure, *scratchBuffer, 0);
     NRI.EndCommandBuffer(*commandBuffer);
-    NRI.QueueSubmit(*m_CommandQueue, queueSubmitDesc);
-    NRI.WaitForIdle(*m_CommandQueue);
+    NRI.QueueSubmit(*m_GraphicsQueue, queueSubmitDesc);
+    NRI.WaitForIdle(*m_GraphicsQueue);
 
     NRI.DestroyCommandBuffer(*commandBuffer);
     NRI.DestroyCommandAllocator(*commandAllocator);
@@ -535,7 +535,7 @@ void Sample::BuildTopLevelAccelerationStructure(nri::AccelerationStructure& acce
 
     nri::CommandAllocator* commandAllocator = nullptr;
     nri::CommandBuffer* commandBuffer = nullptr;
-    NRI.CreateCommandAllocator(*m_CommandQueue, commandAllocator);
+    NRI.CreateCommandAllocator(*m_GraphicsQueue, commandAllocator);
     NRI.CreateCommandBuffer(*commandAllocator, commandBuffer);
 
     nri::QueueSubmitDesc queueSubmitDesc = {};
@@ -545,8 +545,8 @@ void Sample::BuildTopLevelAccelerationStructure(nri::AccelerationStructure& acce
     NRI.BeginCommandBuffer(*commandBuffer, nullptr);
     NRI.CmdBuildTopLevelAccelerationStructure(*commandBuffer, instanceNum, instanceBuffer, 0, BUILD_FLAGS, accelerationStructure, *scratchBuffer, 0);
     NRI.EndCommandBuffer(*commandBuffer);
-    NRI.QueueSubmit(*m_CommandQueue, queueSubmitDesc);
-    NRI.WaitForIdle(*m_CommandQueue);
+    NRI.QueueSubmit(*m_GraphicsQueue, queueSubmitDesc);
+    NRI.WaitForIdle(*m_GraphicsQueue);
 
     NRI.DestroyCommandBuffer(*commandBuffer);
     NRI.DestroyCommandAllocator(*commandAllocator);
@@ -590,7 +590,7 @@ void Sample::CreateShaderTable() {
 
     nri::CommandAllocator* commandAllocator = nullptr;
     nri::CommandBuffer* commandBuffer = nullptr;
-    NRI.CreateCommandAllocator(*m_CommandQueue, commandAllocator);
+    NRI.CreateCommandAllocator(*m_GraphicsQueue, commandAllocator);
     NRI.CreateCommandBuffer(*commandAllocator, commandBuffer);
 
     nri::QueueSubmitDesc queueSubmitDesc = {};
@@ -600,8 +600,8 @@ void Sample::CreateShaderTable() {
     NRI.BeginCommandBuffer(*commandBuffer, nullptr);
     NRI.CmdCopyBuffer(*commandBuffer, *m_ShaderTable, 0, *buffer, 0, shaderTableSize);
     NRI.EndCommandBuffer(*commandBuffer);
-    NRI.QueueSubmit(*m_CommandQueue, queueSubmitDesc);
-    NRI.WaitForIdle(*m_CommandQueue);
+    NRI.QueueSubmit(*m_GraphicsQueue, queueSubmitDesc);
+    NRI.WaitForIdle(*m_GraphicsQueue);
 
     NRI.DestroyCommandBuffer(*commandBuffer);
     NRI.DestroyCommandAllocator(*commandAllocator);

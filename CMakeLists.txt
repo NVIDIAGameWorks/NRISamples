@@ -198,4 +198,4 @@ if (WIN32)
     target_link_libraries (Wrapper PRIVATE d3d11 d3d12)
 endif ()
 
-target_include_directories (Wrapper PRIVATE "External/NRIFramework/External/NRI/External/vulkan/include")
+target_include_directories (Wrapper PRIVATE "$ENV{VULKAN_SDK}/include")

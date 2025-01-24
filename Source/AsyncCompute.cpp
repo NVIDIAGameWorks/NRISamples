@@ -39,8 +39,8 @@ private:
     nri::Device* m_Device = nullptr;
     nri::Streamer* m_Streamer = nullptr;
     nri::SwapChain* m_SwapChain = nullptr;
-    nri::CommandQueue* m_GraphicsQueue = nullptr;
-    nri::CommandQueue* m_ComputeQueue = nullptr;
+    nri::Queue* m_GraphicsQueue = nullptr;
+    nri::Queue* m_ComputeQueue = nullptr;
     nri::Fence* m_FrameFence = nullptr;
     nri::Fence* m_ComputeFence = nullptr;
     nri::DescriptorPool* m_DescriptorPool = nullptr;
@@ -101,13 +101,26 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI) {
     uint32_t adapterDescsNum = 1;
     NRI_ABORT_ON_FAILURE(nri::nriEnumerateAdapters(&bestAdapterDesc, adapterDescsNum));
 
+    if (bestAdapterDesc.queueNum[(uint32_t)nri::QueueType::COMPUTE] == 0) {
+        printf("COMPUTE queue is not supported by the device....");
+        return 1;
+    }
+
     // Device
+    nri::QueueFamilyDesc queueFamilies[2] = {};
+    queueFamilies[0].queueNum = 1;
+    queueFamilies[0].queueType = nri::QueueType::GRAPHICS;
+    queueFamilies[1].queueNum = 1;
+    queueFamilies[1].queueType = nri::QueueType::COMPUTE;
+
     nri::DeviceCreationDesc deviceCreationDesc = {};
     deviceCreationDesc.graphicsAPI = graphicsAPI;
+    deviceCreationDesc.queueFamilies = queueFamilies;
+    deviceCreationDesc.queueFamilyNum = helper::GetCountOf(queueFamilies);
     deviceCreationDesc.enableGraphicsAPIValidation = m_DebugAPI;
     deviceCreationDesc.enableNRIValidation = m_DebugNRI;
     deviceCreationDesc.enableD3D11CommandBufferEmulation = D3D11_COMMANDBUFFER_EMULATION;
-    deviceCreationDesc.spirvBindingOffsets = SPIRV_BINDING_OFFSETS;
+    deviceCreationDesc.vkBindingOffsets = VK_BINDING_OFFSETS;
     deviceCreationDesc.adapterDesc = &bestAdapterDesc;
     deviceCreationDesc.allocationCallbacks = m_AllocationCallbacks;
     NRI_ABORT_ON_FAILURE(nri::nriCreateDevice(deviceCreationDesc, m_Device));
@@ -129,14 +142,11 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI) {
     NRI_ABORT_ON_FAILURE(NRI.CreateStreamer(*m_Device, streamerDesc, m_Streamer));
 
     // Command queue
-    NRI_ABORT_ON_FAILURE(NRI.GetCommandQueue(*m_Device, nri::CommandQueueType::GRAPHICS, m_GraphicsQueue));
+    NRI_ABORT_ON_FAILURE(NRI.GetQueue(*m_Device, nri::QueueType::GRAPHICS, 0, m_GraphicsQueue));
     NRI.SetDebugName(m_GraphicsQueue, "GraphicsQueue");
 
-    // if (deviceDesc.isComputeQueueSupported)
-    {
-        NRI_ABORT_ON_FAILURE(NRI.GetCommandQueue(*m_Device, nri::CommandQueueType::COMPUTE, m_ComputeQueue));
-        NRI.SetDebugName(m_ComputeQueue, "ComputeQueue");
-    }
+    NRI_ABORT_ON_FAILURE(NRI.GetQueue(*m_Device, nri::QueueType::COMPUTE, 0, m_ComputeQueue));
+    NRI.SetDebugName(m_ComputeQueue, "ComputeQueue");
 
     // Fences
     NRI_ABORT_ON_FAILURE(NRI.CreateFence(*m_Device, 0, m_ComputeFence));
@@ -147,7 +157,7 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI) {
     {
         nri::SwapChainDesc swapChainDesc = {};
         swapChainDesc.window = GetWindow();
-        swapChainDesc.commandQueue = m_GraphicsQueue;
+        swapChainDesc.queue = m_GraphicsQueue;
         swapChainDesc.format = nri::SwapChainFormat::BT709_G22_8BIT;
         swapChainDesc.verticalSyncInterval = m_VsyncInterval;
         swapChainDesc.width = (uint16_t)GetWindowResolution().x;
@@ -176,7 +186,7 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI) {
         for (size_t i = 0; i < frame.commandBufferGraphics.size(); i++)
             NRI_ABORT_ON_FAILURE(NRI.CreateCommandBuffer(*frame.commandAllocatorGraphics, frame.commandBufferGraphics[i]));
 
-        if (deviceDesc.isComputeQueueSupported) {
+        if (deviceDesc.graphicsAPI != nri::GraphicsAPI::D3D11) {
             NRI_ABORT_ON_FAILURE(NRI.CreateCommandAllocator(*m_ComputeQueue, frame.commandAllocatorCompute));
             NRI_ABORT_ON_FAILURE(NRI.CreateCommandBuffer(*frame.commandAllocatorCompute, frame.commandBufferCompute));
         }
@@ -360,7 +370,7 @@ void Sample::PrepareFrame(uint32_t) {
     NRI.CopyStreamerUpdateRequests(*m_Streamer);
 
     const nri::DeviceDesc& deviceDesc = NRI.GetDeviceDesc(*m_Device);
-    if (!deviceDesc.isComputeQueueSupported)
+    if (deviceDesc.graphicsAPI == nri::GraphicsAPI::D3D11)
         m_IsAsyncMode = false;
 }
 
@@ -378,7 +388,7 @@ void Sample::RenderFrame(uint32_t frameIndex) {
         NRI.Wait(*m_FrameFence, 1 + frameIndex - BUFFERED_FRAME_MAX_NUM);
         NRI.ResetCommandAllocator(commandAllocatorGraphics);
 
-        if (deviceDesc.isComputeQueueSupported)
+        if (deviceDesc.graphicsAPI != nri::GraphicsAPI::D3D11)
             NRI.ResetCommandAllocator(commandAllocatorCompute);
     }
 

@@ -75,7 +75,7 @@ private:
     nri::Device* m_Device = nullptr;
     nri::Streamer* m_Streamer = nullptr;
     nri::SwapChain* m_SwapChain = nullptr;
-    nri::CommandQueue* m_CommandQueue = nullptr;
+    nri::Queue* m_GraphicsQueue = nullptr;
     nri::PipelineLayout* m_PipelineLayout = nullptr;
     nri::DescriptorPool* m_DescriptorPool = nullptr;
     nri::Fence* m_FrameFence = nullptr;
@@ -114,7 +114,7 @@ private:
 };
 
 Sample::~Sample() {
-    NRI.WaitForIdle(*m_CommandQueue);
+    NRI.WaitForIdle(*m_GraphicsQueue);
 
     for (size_t i = 1; m_IsMultithreadingEnabled && i < m_ThreadNum; i++) {
         ThreadContext& context = m_ThreadContexts[i];
@@ -198,7 +198,7 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI) {
     deviceCreationDesc.enableGraphicsAPIValidation = m_DebugAPI;
     deviceCreationDesc.enableNRIValidation = m_DebugNRI;
     deviceCreationDesc.enableD3D11CommandBufferEmulation = D3D11_COMMANDBUFFER_EMULATION;
-    deviceCreationDesc.spirvBindingOffsets = SPIRV_BINDING_OFFSETS;
+    deviceCreationDesc.vkBindingOffsets = VK_BINDING_OFFSETS;
     deviceCreationDesc.adapterDesc = &bestAdapterDesc;
     deviceCreationDesc.allocationCallbacks = m_AllocationCallbacks;
     NRI_ABORT_ON_FAILURE(nri::nriCreateDevice(deviceCreationDesc, m_Device));
@@ -217,7 +217,7 @@ bool Sample::Initialize(nri::GraphicsAPI graphicsAPI) {
     streamerDesc.frameInFlightNum = BUFFERED_FRAME_MAX_NUM;
     NRI_ABORT_ON_FAILURE(NRI.CreateStreamer(*m_Device, streamerDesc, m_Streamer));
 
-    NRI_ABORT_ON_FAILURE(NRI.GetCommandQueue(*m_Device, nri::CommandQueueType::GRAPHICS, m_CommandQueue));
+    NRI_ABORT_ON_FAILURE(NRI.GetQueue(*m_Device, nri::QueueType::GRAPHICS, 0, m_GraphicsQueue));
     NRI_ABORT_ON_FAILURE(NRI.CreateFence(*m_Device, 0, m_FrameFence));
 
     m_DepthFormat = nri::GetSupportedDepthFormat(NRI, *m_Device, 24, false);
@@ -394,7 +394,7 @@ void Sample::RenderFrame(uint32_t frameIndex) {
         queueSubmitDesc.commandBuffers = m_FrameCommandBuffers.data();
         queueSubmitDesc.commandBufferNum = m_IsMultithreadingEnabled ? m_ThreadNum : 1;
 
-        NRI.QueueSubmit(*m_CommandQueue, queueSubmitDesc);
+        NRI.QueueSubmit(*m_GraphicsQueue, queueSubmitDesc);
 
         m_SubmitTime = m_Timer.GetTimeStamp() - m_SubmitTime;
     }
@@ -411,7 +411,7 @@ void Sample::RenderFrame(uint32_t frameIndex) {
         queueSubmitDesc.signalFences = &signalFence;
         queueSubmitDesc.signalFenceNum = 1;
 
-        NRI.QueueSubmit(*m_CommandQueue, queueSubmitDesc);
+        NRI.QueueSubmit(*m_GraphicsQueue, queueSubmitDesc);
     }
 }
 
@@ -503,7 +503,7 @@ void Sample::ThreadEntryPoint(uint32_t threadIndex) {
 void Sample::CreateSwapChain(nri::Format& swapChainFormat) {
     nri::SwapChainDesc swapChainDesc = {};
     swapChainDesc.window = GetWindow();
-    swapChainDesc.commandQueue = m_CommandQueue;
+    swapChainDesc.queue = m_GraphicsQueue;
     swapChainDesc.format = nri::SwapChainFormat::BT709_G22_8BIT;
     swapChainDesc.verticalSyncInterval = m_VsyncInterval;
     swapChainDesc.width = (uint16_t)GetWindowResolution().x;
@@ -531,7 +531,7 @@ void Sample::CreateCommandBuffers() {
     for (uint32_t j = 0; j < BUFFERED_FRAME_MAX_NUM; j++) {
         for (uint32_t i = 0; i < m_ThreadNum; i++) {
             ThreadContext& context = m_ThreadContexts[i];
-            NRI_ABORT_ON_FAILURE(NRI.CreateCommandAllocator(*m_CommandQueue, context.commandAllocators[j]));
+            NRI_ABORT_ON_FAILURE(NRI.CreateCommandAllocator(*m_GraphicsQueue, context.commandAllocators[j]));
             NRI_ABORT_ON_FAILURE(NRI.CreateCommandBuffer(*context.commandAllocators[j], context.commandBuffers[j]));
         }
     }
@@ -670,7 +670,7 @@ void Sample::CreateDepthTexture() {
     nri::TextureUploadDesc textureData = {};
     textureData.texture = m_DepthTexture;
     textureData.after = {nri::AccessBits::DEPTH_STENCIL_ATTACHMENT_WRITE, nri::Layout::DEPTH_STENCIL_ATTACHMENT};
-    NRI_ABORT_ON_FAILURE(NRI.UploadData(*m_CommandQueue, &textureData, 1, nullptr, 0));
+    NRI_ABORT_ON_FAILURE(NRI.UploadData(*m_GraphicsQueue, &textureData, 1, nullptr, 0));
 }
 
 void Sample::CreateVertexBuffer() {
@@ -746,7 +746,7 @@ void Sample::CreateVertexBuffer() {
     indexBufferUpdate.after = {nri::AccessBits::INDEX_BUFFER};
 
     const nri::BufferUploadDesc bufferUpdates[] = {vertexBufferUpdate, indexBufferUpdate};
-    NRI_ABORT_ON_FAILURE(NRI.UploadData(*m_CommandQueue, nullptr, 0, bufferUpdates, helper::GetCountOf(bufferUpdates)));
+    NRI_ABORT_ON_FAILURE(NRI.UploadData(*m_GraphicsQueue, nullptr, 0, bufferUpdates, helper::GetCountOf(bufferUpdates)));
 }
 
 void Sample::CreateTransformConstantBuffer() {
@@ -802,7 +802,7 @@ void Sample::CreateTransformConstantBuffer() {
     bufferUpdate.data = bufferContent.data();
     bufferUpdate.dataSize = bufferContent.size();
     bufferUpdate.after = {nri::AccessBits::CONSTANT_BUFFER};
-    NRI_ABORT_ON_FAILURE(NRI.UploadData(*m_CommandQueue, nullptr, 0, &bufferUpdate, 1));
+    NRI_ABORT_ON_FAILURE(NRI.UploadData(*m_GraphicsQueue, nullptr, 0, &bufferUpdate, 1));
 }
 
 void Sample::CreateDescriptorSets() {
@@ -910,7 +910,7 @@ void Sample::LoadTextures() {
         textureUpdate.after = {nri::AccessBits::SHADER_RESOURCE, nri::Layout::SHADER_RESOURCE};
     }
 
-    NRI_ABORT_ON_FAILURE(NRI.UploadData(*m_CommandQueue, textureUpdates.data(), (uint32_t)textureUpdates.size(), nullptr, 0));
+    NRI_ABORT_ON_FAILURE(NRI.UploadData(*m_GraphicsQueue, textureUpdates.data(), (uint32_t)textureUpdates.size(), nullptr, 0));
 
     m_TextureViews.resize(m_Textures.size());
     for (size_t i = 0; i < m_Textures.size(); i++) {
@@ -959,7 +959,7 @@ void Sample::CreateFakeConstantBuffers() {
     bufferUpdate.data = bufferContent.data();
     bufferUpdate.dataSize = bufferContent.size();
     bufferUpdate.after = {nri::AccessBits::CONSTANT_BUFFER};
-    NRI_ABORT_ON_FAILURE(NRI.UploadData(*m_CommandQueue, nullptr, 0, &bufferUpdate, 1));
+    NRI_ABORT_ON_FAILURE(NRI.UploadData(*m_GraphicsQueue, nullptr, 0, &bufferUpdate, 1));
 }
 
 void Sample::CreateViewConstantBuffer() {
@@ -995,7 +995,7 @@ void Sample::CreateViewConstantBuffer() {
     bufferUpdate.data = bufferContent.data();
     bufferUpdate.dataSize = bufferContent.size();
     bufferUpdate.after = {nri::AccessBits::CONSTANT_BUFFER};
-    NRI_ABORT_ON_FAILURE(NRI.UploadData(*m_CommandQueue, nullptr, 0, &bufferUpdate, 1));
+    NRI_ABORT_ON_FAILURE(NRI.UploadData(*m_GraphicsQueue, nullptr, 0, &bufferUpdate, 1));
 }
 
 void Sample::SetupProjViewMatrix(float4x4& projViewMatrix) {
